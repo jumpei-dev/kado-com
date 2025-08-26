@@ -7,6 +7,34 @@ import argparse
 import sys
 import logging
 from pathlib import Path
+from datetime import datetime
+
+# batchディレクトリをPythonパスに追加
+sys.path.insert(0, str(Path(__file__).parent))
+
+# バッチコンポーネントをインポート
+try:
+    from schedulers import run_status_collection_scheduler, run_working_rate_scheduler
+    from jobs.status_collection import run_status_collection
+    from jobs.working_rate_calculation import run_working_rate_calculation
+    from utils.logging_utils import setup_logging
+    from utils.config import get_config
+    from core.database import DatabaseManager
+except ImportError:
+    import os
+    os.chdir(str(Path(__file__).parent))
+    from schedulers import run_status_collection_scheduler, run_working_rate_scheduler
+    from jobs.status_collection import run_status_collection
+    from jobs.working_rate_calculation import run_working_rate_calculation
+    from utils.logging_utils import setup_logging
+    from utils.config import get_config
+    from core.database import DatabaseManager
+
+import asyncio
+import argparse
+import sys
+import logging
+from pathlib import Path
 
 # batchディレクトリをPythonパスに追加
 sys.path.insert(0, str(Path(__file__).parent))
@@ -37,75 +65,112 @@ def setup_argument_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用例:
-  %(prog)s scheduler                                    # スケジューラーデーモンを実行
-  %(prog)s collect --force                             # ステータス収集を強制実行
-  %(prog)s collect --business-id 1                     # 特定店舗のみ収集
-  %(prog)s history --date 2024-01-15                   # 特定日の履歴を計算
-  %(prog)s history --business-id 1 --force             # 履歴計算を強制実行
-  %(prog)s summary --business-id 1 --days 7            # 7日間のサマリーを取得
+  %(prog)s status-collection                            # 稼働状況取得スケジューラー開始
+  %(prog)s working-rate                                # 稼働率計算スケジューラー開始
+  %(prog)s collect --force                             # 稼働状況取得を手動実行
+  %(prog)s calculate --date 2024-01-15                 # 特定日の稼働率を計算
+  %(prog)s test-db                                     # データベース接続テスト
         """
     )
     
-    parser.add_argument(
-        '--config', '-c',
-        help='設定ファイルのパス'
-    )
+    # サブコマンド
+    subparsers = parser.add_subparsers(dest='command', help='実行するコマンド')
     
-    parser.add_argument(
-        '--log-level', '-l',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
-        default='INFO',
-        help='ログレベル (デフォルト: INFO)'
-    )
+    # 稼働状況取得スケジューラー
+    status_parser = subparsers.add_parser('status-collection', help='稼働状況取得スケジューラー（30分ごと）')
     
-    subparsers = parser.add_subparsers(dest='command', help='利用可能なコマンド')
+    # 稼働率計算スケジューラー
+    rate_parser = subparsers.add_parser('working-rate', help='稼働率計算スケジューラー（毎日12時）')
     
-    # スケジューラーコマンド
-    scheduler_parser = subparsers.add_parser('scheduler', help='ジョブスケジューラーを実行')
-    
-    # ステータス収集コマンド
-    collect_parser = subparsers.add_parser('collect', help='ステータス収集ジョブを実行')
-    collect_parser.add_argument('--business-id', type=int, help='処理する特定の店舗ID')
+    # 手動実行: 稼働状況取得
+    collect_parser = subparsers.add_parser('collect', help='稼働状況取得を手動実行')
     collect_parser.add_argument('--force', action='store_true', help='営業時間外でも強制実行')
+    collect_parser.add_argument('--business-id', type=str, help='特定店舗のみ処理')
     
-    # ステータス履歴コマンド
-    history_parser = subparsers.add_parser('history', help='ステータス履歴計算を実行')
-    history_parser.add_argument('--business-id', type=int, help='処理する特定の店舗ID')
-    history_parser.add_argument('--date', help='計算する特定の日付 (YYYY-MM-DD)')
-    history_parser.add_argument('--force', action='store_true', help='任意の時刻に強制実行')
+    # 手動実行: 稼働率計算
+    calc_parser = subparsers.add_parser('calculate', help='稼働率を手動計算')
+    calc_parser.add_argument('--date', type=str, help='計算対象日付 (YYYY-MM-DD、省略時は前日)')
+    calc_parser.add_argument('--force', action='store_true', help='強制実行')
     
-    # サマリーコマンド
-    summary_parser = subparsers.add_parser('summary', help='ステータス履歴サマリーを取得')
-    summary_parser.add_argument('--business-id', type=int, required=True, help='店舗ID')
-    summary_parser.add_argument('--days', type=int, default=7, help='日数 (デフォルト: 7)')
-    
-    # データベーステストコマンド
-    test_parser = subparsers.add_parser('test-db', help='データベース接続をテスト')
+    # データベーステスト
+    subparsers.add_parser('test-db', help='データベース接続テスト')
     
     return parser
 
-async def run_collect_command(args):
-    """ステータス収集コマンドを実行する"""
-    print("ステータス収集ジョブを実行中...")
-    result = await run_status_collection(
-        business_id=args.business_id,
-        force=args.force
+async def main():
+    """メイン実行関数"""
+    parser = setup_argument_parser()
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        return 1
+    
+    # ログ設定
+    config = get_config()
+    setup_logging(
+        log_level=config.logging.level,
+        log_dir=config.logging.log_dir
     )
     
-    print(f"\nステータス収集結果:")
-    print(f"成功: {result.success}")
-    print(f"処理件数: {result.processed_count}")
-    print(f"エラー件数: {result.error_count}")
+    logger = logging.getLogger(__name__)
     
-    if result.errors:
-        print(f"エラーメッセージ:")
-        for error in result.errors:
-            print(f"  - {error}")
-    
-    if result.duration_seconds:
-        print(f"実行時間: {result.duration_seconds:.2f}s")
-    
-    return 0 if result.success else 1
+    try:
+        if args.command == 'status-collection':
+            print("稼働状況取得スケジューラーを開始中...")
+            print("30分ごとに営業中店舗の稼働状況を取得します")
+            print("停止するにはCtrl+Cを押してください")
+            await run_status_collection_scheduler()
+            return 0
+            
+        elif args.command == 'working-rate':
+            print("稼働率計算スケジューラーを開始中...")
+            print("毎日12時に前日の稼働率を計算します")
+            print("停止するにはCtrl+Cを押してください")
+            await run_working_rate_scheduler()
+            return 0
+            
+        elif args.command == 'collect':
+            print("稼働状況取得を手動実行中...")
+            result = await run_status_collection(
+                force=args.force,
+                business_id=args.business_id
+            )
+            print(f"結果: 成功={result.success}, 処理数={result.processed_count}, エラー数={result.error_count}")
+            return 0 if result.success else 1
+            
+        elif args.command == 'calculate':
+            print("稼働率計算を手動実行中...")
+            target_date = None
+            if args.date:
+                target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
+            
+            result = run_working_rate_calculation(
+                target_date=target_date,
+                force=args.force
+            )
+            print(f"結果: 成功={result.success}, 処理数={result.processed_count}, エラー数={result.error_count}")
+            return 0 if result.success else 1
+            
+        elif args.command == 'test-db':
+            print("データベース接続をテスト中...")
+            db_manager = DatabaseManager()
+            businesses = db_manager.get_businesses()
+            print(f"接続成功: {len(businesses)}店舗が見つかりました")
+            
+            for business in businesses[:3]:  # 最初の3店舗を表示
+                print(f"  - {business['name']} (ID: {business['business_id']})")
+            return 0
+        
+    except KeyboardInterrupt:
+        logger.info("ユーザーによる操作中断")
+        return 0
+    except Exception as e:
+        logger.exception(f"予期しないエラー: {e}")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))
 
 def run_history_command(args):
     """ステータス履歴計算コマンドを実行する"""

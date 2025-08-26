@@ -54,16 +54,30 @@ class ScrapingConfig:
 class SchedulingConfig:
     """ジョブスケジューリング設定"""
     status_collection_interval: int = 30  # 分
-    history_calculation_interval: int = 360  # 分（6時間）
-    business_hours_buffer: int = 30  # 営業時間前後のバッファ分数
+    history_calculation_hour: int = 12    # 稼働率計算実行時刻
+    history_calculation_minute: int = 0   # 稼働率計算実行分
+    business_hours_buffer: int = 0        # 営業時間前後のバッファ分数
+    health_check_interval: int = 15       # 分
+    cleanup_time_hour: int = 2            # 午前2時
+    cleanup_time_minute: int = 0
+    misfire_grace_time_status: int = 300  # ステータス収集の猶予時間（秒）
+    misfire_grace_time_history: int = 600 # 履歴計算の猶予時間（秒）
+    max_log_retention_days: int = 30      # ログ保持日数
     
     @classmethod
     def from_env(cls) -> 'SchedulingConfig':
-        """Create configuration from environment variables."""
+        """環境変数から設定を作成する"""
         return cls(
             status_collection_interval=int(os.getenv('STATUS_COLLECTION_INTERVAL', 30)),
-            history_calculation_interval=int(os.getenv('HISTORY_CALCULATION_INTERVAL', 360)),
-            business_hours_buffer=int(os.getenv('BUSINESS_HOURS_BUFFER', 30))
+            history_calculation_hour=int(os.getenv('HISTORY_CALCULATION_HOUR', 12)),
+            history_calculation_minute=int(os.getenv('HISTORY_CALCULATION_MINUTE', 0)),
+            business_hours_buffer=int(os.getenv('BUSINESS_HOURS_BUFFER', 0)),
+            health_check_interval=int(os.getenv('HEALTH_CHECK_INTERVAL', 15)),
+            cleanup_time_hour=int(os.getenv('CLEANUP_TIME_HOUR', 2)),
+            cleanup_time_minute=int(os.getenv('CLEANUP_TIME_MINUTE', 0)),
+            misfire_grace_time_status=int(os.getenv('MISFIRE_GRACE_TIME_STATUS', 300)),
+            misfire_grace_time_history=int(os.getenv('MISFIRE_GRACE_TIME_HISTORY', 600)),
+            max_log_retention_days=int(os.getenv('MAX_LOG_RETENTION_DAYS', 30))
         )
 
 @dataclass
@@ -117,10 +131,18 @@ class BatchConfig:
         # 環境変数の展開
         data = cls._expand_env_vars(data)
         
+        # schedulingの特別な処理
+        scheduling_data = data.get('scheduling', {})
+        if 'misfire_grace_time' in scheduling_data:
+            misfire_grace_time = scheduling_data['misfire_grace_time']
+            scheduling_data['misfire_grace_time_status'] = misfire_grace_time.get('status_collection', 300)
+            scheduling_data['misfire_grace_time_history'] = misfire_grace_time.get('status_history', 600)
+            del scheduling_data['misfire_grace_time']
+        
         return cls(
             database=DatabaseConfig(**data.get('database', {})),
             scraping=ScrapingConfig(**data.get('scraping', {})),
-            scheduling=SchedulingConfig(**data.get('scheduling', {})),
+            scheduling=SchedulingConfig(**scheduling_data),
             logging=LoggingConfig(**data.get('logging', {})),
             environment=data.get('environment', 'development')
         )

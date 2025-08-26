@@ -23,7 +23,7 @@ class StatusCollectionJob:
         self.db_manager = DatabaseManager()
         self.name = "Status Collection"
     
-    async def run(self, business_id: int = None, force: bool = False) -> BatchJobResult:
+    async def run_status_collection(force: bool = False, business_id: str = None, target_businesses: List[Business] = None) -> BatchJobResult:
         """
         ステータス収集ジョブを実行する
         
