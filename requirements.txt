@@ -1,0 +1,41 @@
+# 稼働.com プロジェクト全体の依存関係
+
+# バッチ処理システム（メインシステム）
+# Database
+psycopg2-binary>=2.9.0
+
+# Configuration
+PyYAML>=6.0.0
+
+# Web scraping
+aiohttp>=3.8.0
+beautifulsoup4>=4.12.2
+lxml>=4.9.3
+requests>=2.31.0
+
+# Scheduling
+APScheduler>=3.10.0
+
+# Date/time handling
+pytz>=2023.3
+
+# Data processing
+pandas>=2.0.0  # 高度なデータ分析用（オプション）
+
+# スクレイピング・HTMLデバッグ用
+selenium>=4.15.2
+chromedriver-autoinstaller>=0.6.2
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+
+# System dependencies (システムパッケージマネージャーでインストール)
+# - libpq-dev (Linux環境でpsycopg2コンパイル用)
+# - python3-dev (ネイティブ拡張機能コンパイル用)
+
+# フロントエンド用（将来的な追加）
+# flask>=2.3.0
+# gunicorn>=21.0.0

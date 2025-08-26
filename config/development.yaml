@@ -1,0 +1,23 @@
+# 開発環境設定
+database:
+  host: "localhost"
+  port: 5432
+  database: "kado_dev"
+  user: "dev_user"
+  password: "dev_password"
+  
+logging:
+  level: "DEBUG"
+  log_dir: "./logs"
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+  
+scheduling:
+  status_collection_interval: 30  # 分
+  history_calculation_interval: 360  # 分（6時間）
+  
+scraping:
+  timeout: 30
+  retry_attempts: 3
+  delay_between_requests: 1
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"

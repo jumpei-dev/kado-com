@@ -1,0 +1,33 @@
+# 本番環境設定
+database:
+  host: "${SUPABASE_HOST}"
+  port: 5432
+  database: "${SUPABASE_DB}"
+  user: "${SUPABASE_USER}"
+  password: "${SUPABASE_PASSWORD}"
+  ssl_mode: "require"
+  
+logging:
+  level: "INFO"
+  log_dir: "/var/log/kado-com"
+  max_file_size: 52428800  # 50MB
+  backup_count: 10
+  
+scheduling:
+  status_collection_interval: 30  # 分
+  history_calculation_interval: 360  # 分（6時間）
+  
+scraping:
+  timeout: 30
+  retry_attempts: 3
+  delay_between_requests: 2
+  user_agent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
+  
+# 本番環境固有設定
+monitoring:
+  health_check_interval: 15  # 分
+  alert_email: "admin@kado.com"
+  
+security:
+  encrypt_logs: true
+  max_log_retention_days: 30

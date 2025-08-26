@@ -1,0 +1,29 @@
+# テスト環境設定
+database:
+  host: "localhost"
+  port: 5432
+  database: "kado_test"
+  user: "test_user"
+  password: "test_password"
+  
+logging:
+  level: "DEBUG"
+  log_dir: "./test_logs"
+  max_file_size: 1048576  # 1MB
+  backup_count: 3
+  
+scheduling:
+  status_collection_interval: 5  # 分（テスト用短縮）
+  history_calculation_interval: 60  # 分（テスト用短縮）
+  
+scraping:
+  timeout: 10
+  retry_attempts: 2
+  delay_between_requests: 0.5
+  user_agent: "Test-Agent/1.0"
+  
+# テスト環境固有設定
+testing:
+  mock_external_apis: true
+  use_test_data: true
+  cleanup_after_test: true
