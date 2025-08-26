@@ -13,6 +13,7 @@ from core.models import Business, Cast, ScrapingResult, BatchJobResult
 from core.scraper import ScraperFactory
 from utils.logging_utils import get_job_logger, JobLoggerAdapter
 from utils.datetime_utils import now_jst_naive, is_business_hours, should_run_status_collection
+from utils.config import get_config
 
 logger = get_job_logger('status_collection')
 
@@ -22,6 +23,7 @@ class StatusCollectionJob:
     def __init__(self):
         self.db_manager = DatabaseManager()
         self.name = "Status Collection"
+        self.config = get_config()
     
     async def run_status_collection(force: bool = False, business_id: str = None, target_businesses: List[Business] = None) -> BatchJobResult:
         """
@@ -58,11 +60,11 @@ class StatusCollectionJob:
             
             businesses = [Business.from_dict(b) for b in businesses_data]
             
+            # 営業時間内の店舗をフィルタリング
+            current_time = now_jst_naive()
+            target_businesses = []
+            
             for business in businesses:
-                job_logger.processing_item("business", business.name)
-                
-                # 営業時間内かチェック（強制実行でない場合）
-                current_time = now_jst_naive()
                 if not force and not is_business_hours(
                     current_time,
                     business.business_hours_start,
@@ -71,13 +73,47 @@ class StatusCollectionJob:
                 ):
                     job_logger.info(f"{business.name}は営業時間外のためスキップします")
                     continue
-                
-                # この店舗のキャストを処理
-                success = await self._process_business_casts(business, job_logger)
-                if success:
-                    result.add_success()
-                else:
-                    result.add_error(f"店舗の処理に失敗しました: {business.name}")
+                target_businesses.append(business)
+            
+            if not target_businesses:
+                job_logger.info("処理対象の営業中店舗がありません")
+                result.finalize(success=True)
+                return result
+            
+            job_logger.info(f"対象店舗数: {len(target_businesses)}店舗を並行処理で実行")
+            
+            # 店舗の並行処理
+            max_concurrent_businesses = min(
+                len(target_businesses), 
+                self.config.scheduling.max_concurrent_businesses
+            )
+            semaphore = asyncio.Semaphore(max_concurrent_businesses)
+            
+            async def process_business_with_semaphore(business):
+                async with semaphore:
+                    job_logger.processing_item("business", business.name)
+                    success = await self._process_business_casts(business, job_logger)
+                    if success:
+                        result.add_success()
+                    else:
+                        result.add_error(f"店舗の処理に失敗しました: {business.name}")
+                    return success
+            
+            # 全店舗を並行処理
+            tasks = [
+                process_business_with_semaphore(business) 
+                for business in target_businesses
+            ]
+            
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # 例外処理
+            for i, task_result in enumerate(results):
+                if isinstance(task_result, Exception):
+                    business_name = target_businesses[i].name
+                    error_msg = f"店舗 {business_name} の処理中に例外発生: {task_result}"
+                    result.add_error(error_msg)
+                    job_logger.error(error_msg)
             
             result.finalize()
             job_logger.job_completed(
@@ -153,19 +189,20 @@ class StatusCollectionJob:
             job_logger.item_error(f"店舗 {business.name}", str(e))
             return False
 
-async def run_status_collection(business_id: int = None, force: bool = False) -> BatchJobResult:
+async def run_status_collection(business_id: str = None, force: bool = False, target_businesses: List[Business] = None) -> BatchJobResult:
     """
     ステータス収集ジョブを実行する
     
     Args:
         business_id: 処理対象の特定店舗ID（Noneの場合は全店舗）
         force: 営業時間外でも強制実行するかどうか
+        target_businesses: 処理対象店舗リスト（指定時は営業時間チェックをスキップ）
     
     Returns:
         実行詳細を含むBatchJobResult
     """
     job = StatusCollectionJob()
-    return await job.run(business_id=business_id, force=force)
+    return await job.run_status_collection(force=force, business_id=business_id, target_businesses=target_businesses)
 
 if __name__ == "__main__":
     # テスト用に直接実行可能

@@ -7,10 +7,13 @@ from datetime import datetime, date, timedelta
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from core.database import DatabaseManager
 from core.models import Business
 from utils.logging_utils import JobLoggerAdapter
+from utils.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +40,7 @@ def run_working_rate_calculation(target_date: Optional[date] = None, force: bool
     """
     start_time = datetime.now()
     job_logger = JobLoggerAdapter(logger, "稼働率計算")
+    config = get_config()
     
     # 対象日付の決定
     if target_date is None:
@@ -57,36 +61,51 @@ def run_working_rate_calculation(target_date: Optional[date] = None, force: bool
         
         job_logger.info(f"対象店舗数: {len(businesses)}店舗")
         
-        for business in businesses:
-            try:
-                # 店舗ごとの稼働率を計算
-                working_rate = calculate_business_working_rate(
-                    db_manager, business, target_date
-                )
-                
-                if working_rate is not None:
-                    # StatusHistoryに保存
-                    save_working_rate_to_history(
-                        db_manager, business.business_id, target_date, working_rate
-                    )
-                    
-                    calculated_businesses.append({
-                        "business_id": business.business_id,
-                        "business_name": business.name,
-                        "working_rate": working_rate,
-                        "date": target_date.isoformat()
-                    })
-                    
-                    processed_count += 1
-                    job_logger.debug(f"稼働率計算完了: {business.name} = {working_rate:.2%}")
-                else:
-                    job_logger.info(f"データなし: {business.name} (対象日にStatusデータがありません)")
-                
-            except Exception as e:
-                error_msg = f"店舗 {business.name} (ID: {business.business_id}): {str(e)}"
-                errors.append(error_msg)
-                error_count += 1
-                job_logger.error(error_msg)
+        # 並行処理の設定
+        max_workers = min(len(businesses), config.scheduling.max_concurrent_working_rate)
+        job_logger.info(f"並行処理: {max_workers}スレッドで実行")
+        
+        # 並行処理で店舗ごとの稼働率を計算
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 各店舗の計算タスクを作成
+            future_to_business = {
+                executor.submit(
+                    calculate_business_working_rate_with_save, 
+                    business, 
+                    target_date, 
+                    job_logger
+                ): business 
+                for business in businesses
+            }
+            
+            # 並行実行の結果を収集
+            for future in as_completed(future_to_business):
+                business = future_to_business[future]
+                try:
+                    result = future.result()
+                    if result['success']:
+                        if result['working_rate'] is not None:
+                            calculated_businesses.append({
+                                "business_id": business.business_id,
+                                "business_name": business.name,
+                                "working_rate": result['working_rate'],
+                                "date": target_date.isoformat()
+                            })
+                            processed_count += 1
+                            job_logger.debug(f"稼働率計算完了: {business.name} = {result['working_rate']:.2%}")
+                        else:
+                            job_logger.info(f"データなし: {business.name} (対象日にStatusデータがありません)")
+                    else:
+                        error_msg = f"店舗 {business.name} (ID: {business.business_id}): {result['error']}"
+                        errors.append(error_msg)
+                        error_count += 1
+                        job_logger.error(error_msg)
+                        
+                except Exception as e:
+                    error_msg = f"店舗 {business.name} (ID: {business.business_id}): {str(e)}"
+                    errors.append(error_msg)
+                    error_count += 1
+                    job_logger.error(error_msg)
         
         duration = (datetime.now() - start_time).total_seconds()
         
@@ -281,6 +300,49 @@ def save_working_rate_to_history(
         """
         db_manager.execute_query(insert_query, (business_id, target_date, working_rate))
         logger.debug(f"稼働率新規保存: {business_id} {target_date} = {working_rate:.2%}")
+
+def calculate_business_working_rate_with_save(
+    business: Business, 
+    target_date: date, 
+    job_logger: JobLoggerAdapter
+) -> Dict[str, Any]:
+    """
+    店舗の稼働率を計算してStatusHistoryに保存（並行処理用）
+    
+    Args:
+        business: 店舗情報
+        target_date: 計算対象日付
+        job_logger: ジョブロガー
+    
+    Returns:
+        Dict: {'success': bool, 'working_rate': float or None, 'error': str or None}
+    """
+    try:
+        db_manager = DatabaseManager()
+        
+        # 稼働率を計算
+        working_rate = calculate_business_working_rate(
+            db_manager, business, target_date
+        )
+        
+        if working_rate is not None:
+            # StatusHistoryに保存
+            save_working_rate_to_history(
+                db_manager, business.business_id, target_date, working_rate
+            )
+        
+        return {
+            'success': True,
+            'working_rate': working_rate,
+            'error': None
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'working_rate': None,
+            'error': str(e)
+        }
 
 if __name__ == "__main__":
     # テスト実行

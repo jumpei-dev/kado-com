@@ -35,6 +35,7 @@ class ScrapingConfig:
     """スクレイピング設定"""
     timeout: int = 30
     max_concurrent: int = 10
+    max_concurrent_businesses: int = 5  # 店舗並行処理数
     retry_attempts: int = 3
     retry_delay: float = 1.0
     user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -45,6 +46,7 @@ class ScrapingConfig:
         return cls(
             timeout=int(os.getenv('SCRAPING_TIMEOUT', 30)),
             max_concurrent=int(os.getenv('SCRAPING_MAX_CONCURRENT', 10)),
+            max_concurrent_businesses=int(os.getenv('SCRAPING_MAX_CONCURRENT_BUSINESSES', 5)),
             retry_attempts=int(os.getenv('SCRAPING_RETRY_ATTEMPTS', 3)),
             retry_delay=float(os.getenv('SCRAPING_RETRY_DELAY', 1.0)),
             user_agent=os.getenv('SCRAPING_USER_AGENT', cls.user_agent)
@@ -56,7 +58,8 @@ class SchedulingConfig:
     status_collection_interval: int = 30  # 分
     history_calculation_hour: int = 12    # 稼働率計算実行時刻
     history_calculation_minute: int = 0   # 稼働率計算実行分
-    business_hours_buffer: int = 0        # 営業時間前後のバッファ分数
+    max_concurrent_businesses: int = 5        # 店舗並行処理数
+    max_concurrent_working_rate: int = 10     # 稼働率計算並行処理数
     health_check_interval: int = 15       # 分
     cleanup_time_hour: int = 2            # 午前2時
     cleanup_time_minute: int = 0
@@ -72,6 +75,8 @@ class SchedulingConfig:
             history_calculation_hour=int(os.getenv('HISTORY_CALCULATION_HOUR', 12)),
             history_calculation_minute=int(os.getenv('HISTORY_CALCULATION_MINUTE', 0)),
             business_hours_buffer=int(os.getenv('BUSINESS_HOURS_BUFFER', 0)),
+            max_concurrent_businesses=int(os.getenv('MAX_CONCURRENT_BUSINESSES', 5)),
+            max_concurrent_working_rate=int(os.getenv('MAX_CONCURRENT_WORKING_RATE', 10)),
             health_check_interval=int(os.getenv('HEALTH_CHECK_INTERVAL', 15)),
             cleanup_time_hour=int(os.getenv('CLEANUP_TIME_HOUR', 2)),
             cleanup_time_minute=int(os.getenv('CLEANUP_TIME_MINUTE', 0)),
@@ -188,13 +193,17 @@ class BatchConfig:
             'scraping': {
                 'timeout': self.scraping.timeout,
                 'max_concurrent': self.scraping.max_concurrent,
+                'max_concurrent_businesses': self.scraping.max_concurrent_businesses,
                 'retry_attempts': self.scraping.retry_attempts,
                 'retry_delay': self.scraping.retry_delay,
                 'user_agent': self.scraping.user_agent
             },
             'scheduling': {
                 'status_collection_interval': self.scheduling.status_collection_interval,
-                'history_calculation_interval': self.scheduling.history_calculation_interval,
+                'history_calculation_hour': self.scheduling.history_calculation_hour,
+                'history_calculation_minute': self.scheduling.history_calculation_minute,
+                'max_concurrent_businesses': self.scheduling.max_concurrent_businesses,
+                'max_concurrent_working_rate': self.scheduling.max_concurrent_working_rate,
                 'business_hours_buffer': self.scheduling.business_hours_buffer
             },
             'logging': {
