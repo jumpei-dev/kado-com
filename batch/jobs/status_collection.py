@@ -1,230 +1,559 @@
 """
 ステータス収集ジョブ - 営業時間中にキャストの稼働状況を収集する
 営業時間中に30分間隔で実行される
+
+Strategy Pattern を使用して異なるメディアサイトとタイプに対応
 """
 
 import asyncio
+import aiohttp
+from abc import ABC, abstractmethod
+from bs4 import BeautifulSoup
+from typing import Dict, List, Any, Optional
 import logging
-from datetime import datetime, time
-from typing import List, Dict, Any
+from datetime import datetime
+import json
 
-from core.database import DatabaseManager
-from core.models import Business, Cast, ScrapingResult, BatchJobResult
-from core.scraper import ScraperFactory
-from utils.logging_utils import get_job_logger, JobLoggerAdapter
-from utils.datetime_utils import now_jst_naive, is_business_hours, should_run_status_collection
-from utils.config import get_config
+from batch.core.database import Database
+from batch.utils.config import Config
+from batch.utils.datetime_utils import get_current_jst_datetime
+from batch.utils.logging_utils import get_logger
 
-logger = get_job_logger('status_collection')
+logger = get_logger(__name__)
 
-class StatusCollectionJob:
-    """キャスト稼働状況収集ジョブ"""
+
+class ScrapingStrategy(ABC):
+    """スクレイピング戦略の基底クラス"""
     
-    def __init__(self):
-        self.db_manager = DatabaseManager()
-        self.name = "Status Collection"
-        self.config = get_config()
+    @abstractmethod
+    async def scrape_cast_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """キャストステータスを収集する抽象メソッド"""
+        pass
+
+
+class CityheavenStrategy(ScrapingStrategy):
+    """Cityheavenサイト用のスクレイピング戦略"""
     
-    async def run_status_collection(force: bool = False, business_id: str = None, target_businesses: List[Business] = None) -> BatchJobResult:
-        """
-        ステータス収集ジョブを実行する
+    async def scrape_cast_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Cityheavenからキャストステータスを収集"""
+        cast_list = []
+        business_id = business.get("Business ID")
+        url = business.get("URL")
+        cast_type = business.get("cast_type", "a")
+        working_type = business.get("working_type", "a")
+        shift_type = business.get("shift_type", "a")
         
-        Args:
-            business_id: 処理対象の特定店舗ID（Noneの場合は全店舗）
-            force: 営業時間外でも強制実行するかどうか
-        """
-        run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        job_logger = JobLoggerAdapter(logger, self.name, run_id)
-        
-        result = BatchJobResult(
-            job_name=self.name,
-            started_at=now_jst_naive()
-        )
-        
-        job_logger.job_started()
+        if not url or not business_id:
+            logger.warning(f"必要な情報が不足しています: business_id={business_id}, url={url}")
+            return cast_list
+            
+        try:
+            logger.info(f"Cityheavenからデータ収集開始: {business_id} - {url}")
+            
+            async with session.get(url) as response:
+                if response.status != 200:
+                    logger.error(f"HTTP error {response.status} for {business_id}: {url}")
+                    return cast_list
+                    
+                html = await response.text()
+                soup = BeautifulSoup(html, 'html.parser')
+                
+                # Cityheavenのcast_type別パース処理
+                cast_list = await self._parse_cityhaven_data(soup, business_id, cast_type, working_type, shift_type)
+                
+                logger.info(f"Cityheavenからのデータ収集完了: {business_id}, {len(cast_list)}件")
+                
+        except Exception as e:
+            logger.error(f"Cityheavenスクレイピングエラー {business_id}: {str(e)}")
+            
+        return cast_list
+    
+    async def _parse_cityhaven_data(self, soup: BeautifulSoup, business_id: str, cast_type: str, working_type: str, shift_type: str) -> List[Dict[str, Any]]:
+        """Cityheavenのデータをパースしてキャスト情報を抽出"""
+        cast_list = []
+        current_time = get_current_jst_datetime()
         
         try:
-            # 処理対象の店舗を取得
-            if business_id:
-                businesses_data = self.db_manager.execute_query(
-                    "SELECT * FROM business WHERE id = %s AND is_active = true",
-                    (business_id,)
-                )
+            if cast_type == "a":
+                # cast_type "a" の処理
+                cast_elements = soup.select('.cast-item, .girl-item, .cast-profile')
+                
+            elif cast_type == "b":
+                # cast_type "b" の処理
+                cast_elements = soup.select('.profile-card, .cast-card')
+                
+            elif cast_type == "c":
+                # cast_type "c" の処理
+                cast_elements = soup.select('.member-info, .cast-info')
+                
             else:
-                businesses_data = self.db_manager.get_businesses()
+                logger.warning(f"未対応のcast_type: {cast_type} for business {business_id}")
+                return cast_list
             
-            if not businesses_data:
-                job_logger.info("処理対象の店舗が見つかりませんでした")
-                result.finalize(success=True)
-                return result
+            for element in cast_elements:
+                cast_info = await self._extract_cityhaven_cast_info(element, business_id, working_type, shift_type, current_time)
+                if cast_info:
+                    cast_list.append(cast_info)
+                    
+        except Exception as e:
+            logger.error(f"Cityheavenデータパースエラー {business_id}: {str(e)}")
             
-            businesses = [Business.from_dict(b) for b in businesses_data]
+        return cast_list
+    
+    async def _extract_cityhaven_cast_info(self, element, business_id: str, working_type: str, shift_type: str, current_time: datetime) -> Optional[Dict[str, Any]]:
+        """Cityheavenの個別キャスト情報を抽出"""
+        try:
+            # 名前の抽出
+            name_element = element.select_one('.name, .cast-name, .girl-name, h3, h4')
+            name = name_element.get_text(strip=True) if name_element else None
             
-            # 営業時間内の店舗をフィルタリング
-            current_time = now_jst_naive()
-            target_businesses = []
+            if not name:
+                return None
             
-            for business in businesses:
-                if not force and not is_business_hours(
-                    current_time,
-                    business.business_hours_start,
-                    business.business_hours_end,
-                    buffer_minutes=30
-                ):
-                    job_logger.info(f"{business.name}は営業時間外のためスキップします")
-                    continue
-                target_businesses.append(business)
+            # working_typeに応じた稼働状況の判定
+            if working_type == "a":
+                # 出勤アイコンやステータスから判定
+                status_element = element.select_one('.status, .attendance, .working')
+                is_working = bool(status_element and any(keyword in status_element.get_text() for keyword in ["出勤", "待機", "受付"]))
+                
+            elif working_type == "b":
+                # 別のパターンで稼働状況を判定
+                status_indicators = element.select('.icon, .badge, .label')
+                is_working = any("出勤" in indicator.get_text() for indicator in status_indicators)
+                
+            else:
+                is_working = False
             
-            if not target_businesses:
-                job_logger.info("処理対象の営業中店舗がありません")
-                result.finalize(success=True)
-                return result
+            # shift_typeに応じた時間情報の抽出
+            shift_info = await self._extract_shift_info(element, shift_type)
             
-            job_logger.info(f"対象店舗数: {len(target_businesses)}店舗を並行処理で実行")
+            return {
+                "business_id": business_id,
+                "cast_name": name,
+                "is_working": is_working,
+                "collected_at": current_time,
+                "shift_info": shift_info,
+                "media_type": "cityhaven"
+            }
             
-            # 店舗の並行処理
-            max_concurrent_businesses = min(
-                len(target_businesses), 
-                self.config.scheduling.max_concurrent_businesses
-            )
-            semaphore = asyncio.Semaphore(max_concurrent_businesses)
+        except Exception as e:
+            logger.error(f"Cityheavenキャスト情報抽出エラー: {str(e)}")
+            return None
+
+    async def _extract_shift_info(self, element, shift_type: str) -> Dict[str, Any]:
+        """シフト情報を抽出する（Cityhaven用）"""
+        return await _extract_shift_info(element, shift_type)
+
+
+class DeliherTownStrategy(ScrapingStrategy):
+    """Deliher Townサイト用のスクレイピング戦略"""
+    
+    async def scrape_cast_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Deliher Townからキャストステータスを収集"""
+        cast_list = []
+        business_id = business.get("Business ID")
+        url = business.get("URL")
+        cast_type = business.get("cast_type", "a")
+        working_type = business.get("working_type", "a")
+        shift_type = business.get("shift_type", "a")
+        
+        if not url or not business_id:
+            logger.warning(f"必要な情報が不足しています: business_id={business_id}, url={url}")
+            return cast_list
             
-            async def process_business_with_semaphore(business):
-                async with semaphore:
-                    job_logger.processing_item("business", business.name)
-                    success = await self._process_business_casts(business, job_logger)
-                    if success:
-                        result.add_success()
-                    else:
-                        result.add_error(f"店舗の処理に失敗しました: {business.name}")
-                    return success
+        try:
+            logger.info(f"Deliher Townからデータ収集開始: {business_id} - {url}")
             
-            # 全店舗を並行処理
+            async with session.get(url) as response:
+                if response.status != 200:
+                    logger.error(f"HTTP error {response.status} for {business_id}: {url}")
+                    return cast_list
+                    
+                html = await response.text()
+                soup = BeautifulSoup(html, 'html.parser')
+                
+                # Deliher Townのcast_type別パース処理
+                cast_list = await self._parse_deliher_town_data(soup, business_id, cast_type, working_type, shift_type)
+                
+                logger.info(f"Deliher Townからのデータ収集完了: {business_id}, {len(cast_list)}件")
+                
+        except Exception as e:
+            logger.error(f"Deliher Townスクレイピングエラー {business_id}: {str(e)}")
+            
+        return cast_list
+    
+    async def _parse_deliher_town_data(self, soup: BeautifulSoup, business_id: str, cast_type: str, working_type: str, shift_type: str) -> List[Dict[str, Any]]:
+        """Deliher Townのデータをパースしてキャスト情報を抽出"""
+        cast_list = []
+        current_time = get_current_jst_datetime()
+        
+        try:
+            if cast_type == "a":
+                # cast_type "a" の処理
+                cast_elements = soup.select('.lady-item, .girl-profile, .cast-box')
+                
+            elif cast_type == "b":
+                # cast_type "b" の処理  
+                cast_elements = soup.select('.profile-box, .member-card')
+                
+            elif cast_type == "c":
+                # cast_type "c" の処理
+                cast_elements = soup.select('.cast-data, .girl-data')
+                
+            else:
+                logger.warning(f"未対応のcast_type: {cast_type} for business {business_id}")
+                return cast_list
+            
+            for element in cast_elements:
+                cast_info = await self._extract_deliher_town_cast_info(element, business_id, working_type, shift_type, current_time)
+                if cast_info:
+                    cast_list.append(cast_info)
+                    
+        except Exception as e:
+            logger.error(f"Deliher Townデータパースエラー {business_id}: {str(e)}")
+            
+        return cast_list
+    
+    async def _extract_deliher_town_cast_info(self, element, business_id: str, working_type: str, shift_type: str, current_time: datetime) -> Optional[Dict[str, Any]]:
+        """Deliher Townの個別キャスト情報を抽出"""
+        try:
+            # 名前の抽出
+            name_element = element.select_one('.lady-name, .girl-name, .cast-name, h2, h3')
+            name = name_element.get_text(strip=True) if name_element else None
+            
+            if not name:
+                return None
+            
+            # working_typeに応じた稼働状況の判定
+            if working_type == "a":
+                # 出勤ステータスから判定
+                status_element = element.select_one('.status, .work-status, .attendance-status')
+                is_working = bool(status_element and any(keyword in status_element.get_text() for keyword in ["出勤中", "待機中", "受付中"]))
+                
+            elif working_type == "b":
+                # アイコンベースでの判定
+                working_icons = element.select('.working-icon, .status-icon, .attendance-icon')
+                is_working = len(working_icons) > 0
+                
+            else:
+                is_working = False
+            
+            # shift_typeに応じた時間情報の抽出
+            shift_info = await self._extract_shift_info(element, shift_type)
+            
+            return {
+                "business_id": business_id,
+                "cast_name": name,
+                "is_working": is_working,
+                "collected_at": current_time,
+                "shift_info": shift_info,
+                "media_type": "deliher_town"
+            }
+            
+        except Exception as e:
+            logger.error(f"Deliher Townキャスト情報抽出エラー: {str(e)}")
+            return None
+
+    async def _extract_shift_info(self, element, shift_type: str) -> Dict[str, Any]:
+        """シフト情報を抽出する（Deliher Town用）"""
+        return await _extract_shift_info(element, shift_type)
+
+
+class ScrapingStrategyFactory:
+    """スクレイピング戦略のファクトリークラス"""
+    
+    @staticmethod
+    def create_strategy(media_type: str) -> ScrapingStrategy:
+        """メディアタイプに応じた戦略を作成"""
+        if media_type == "cityhaven":
+            return CityheavenStrategy()
+        elif media_type == "deliher_town":
+            return DeliherTownStrategy()
+        else:
+            raise ValueError(f"未対応のメディアタイプ: {media_type}")
+
+
+async def _extract_shift_info(element, shift_type: str) -> Dict[str, Any]:
+    """シフト情報を抽出する共通メソッド"""
+    shift_info = {"type": shift_type}
+    
+    try:
+        if shift_type == "a":
+            # 時間帯表示がある場合
+            time_element = element.select_one('.time, .shift-time, .work-time')
+            if time_element:
+                shift_info["time_text"] = time_element.get_text(strip=True)
+                
+        elif shift_type == "b":
+            # 出勤予定表示がある場合
+            schedule_element = element.select_one('.schedule, .shift-schedule')
+            if schedule_element:
+                shift_info["schedule_text"] = schedule_element.get_text(strip=True)
+    
+    except Exception as e:
+        logger.error(f"シフト情報抽出エラー: {str(e)}")
+    
+    return shift_info
+
+
+async def collect_status_for_business(session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """単一の店舗のステータス収集を実行"""
+    try:
+        media_type = business.get("media")
+        if not media_type:
+            logger.warning(f"メディアタイプが指定されていません: {business}")
+            return []
+        
+        strategy = ScrapingStrategyFactory.create_strategy(media_type)
+        cast_list = await strategy.scrape_cast_status(session, business)
+        
+        return cast_list
+        
+    except Exception as e:
+        business_id = business.get("Business ID", "unknown")
+        logger.error(f"店舗 {business_id} のステータス収集エラー: {str(e)}")
+        return []
+
+
+async def collect_all_cast_status(businesses: Dict[int, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """全店舗のキャストステータスを並行収集"""
+    logger.info("全店舗のキャストステータス収集を開始")
+    
+    config = Config()
+    max_concurrent = config.get("concurrent.max_concurrent_businesses", 5)
+    
+    # セマフォで並行数を制御
+    semaphore = asyncio.Semaphore(max_concurrent)
+    all_cast_data = []
+    
+    async def collect_with_semaphore(session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+        async with semaphore:
+            return await collect_status_for_business(session, business)
+    
+    try:
+        # HTTPセッションを作成
+        connector = aiohttp.TCPConnector(limit=50, limit_per_host=10)
+        timeout = aiohttp.ClientTimeout(total=30)
+        
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            # 全店舗の処理を並行実行
             tasks = [
-                process_business_with_semaphore(business) 
-                for business in target_businesses
+                collect_with_semaphore(session, business)
+                for business in businesses.values()
             ]
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
-            # 例外処理
-            for i, task_result in enumerate(results):
-                if isinstance(task_result, Exception):
-                    business_name = target_businesses[i].name
-                    error_msg = f"店舗 {business_name} の処理中に例外発生: {task_result}"
-                    result.add_error(error_msg)
-                    job_logger.error(error_msg)
-            
-            result.finalize()
-            job_logger.job_completed(
-                result.processed_count,
-                result.error_count,
-                result.duration_seconds
-            )
-            
-        except Exception as e:
-            error_msg = f"ジョブ実行に失敗しました: {e}"
-            result.add_error(error_msg)
-            result.finalize(success=False)
-            job_logger.job_failed(error_msg)
-            logger.exception("ステータス収集ジョブが失敗しました")
+            # 結果をまとめる
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error(f"並行処理でエラーが発生: {str(result)}")
+                elif isinstance(result, list):
+                    all_cast_data.extend(result)
+    
+    except Exception as e:
+        logger.error(f"ステータス収集処理でエラーが発生: {str(e)}")
+    
+    logger.info(f"全店舗のキャストステータス収集完了: 合計 {len(all_cast_data)} 件")
+    return all_cast_data
+
+
+async def save_cast_status_to_database(cast_data_list: List[Dict[str, Any]]) -> bool:
+    """キャストステータスデータをデータベースに保存"""
+    if not cast_data_list:
+        logger.info("保存するデータがありません")
+        return True
+    
+    try:
+        database = Database()
         
-        return result
-    
-    async def _process_business_casts(
-        self,
-        business: Business,
-        job_logger: JobLoggerAdapter
-    ) -> bool:
-        """特定の店舗のキャストを処理する"""
-        try:
-            # この店舗のキャストを取得
-            casts_data = self.db_manager.get_casts_by_business(business.id)
-            if not casts_data:
-                job_logger.info(f"店舗{business.name}にキャストが見つかりませんでした")
-                return True
-            
-            casts = [Cast.from_dict(c) for c in casts_data]
-            job_logger.info(f"{business.name}の{len(casts)}人のキャストを処理中")
-            
-            # この店舗に適したスクレイパーを作成
-            scraper = ScraperFactory.create_scraper(business.site_type)
-            
-            # キャストの状況をスクレイピング
-            async with scraper:
-                scraping_results = await scraper.scrape_multiple_casts(casts)
-            
-            # 結果をデータベースに保存
-            saved_count = 0
-            error_count = 0
-            
-            for scraping_result in scraping_results:
-                if scraping_result.success:
-                    success = self.db_manager.insert_status(
-                        scraping_result.cast_id,
-                        scraping_result.is_working,
-                        scraping_result.collected_at.isoformat()
-                    )
-                    if success:
-                        saved_count += 1
-                        job_logger.debug(f"キャストID {scraping_result.cast_id}のステータスを保存しました")
-                    else:
-                        error_count += 1
-                        job_logger.warning(f"キャストID {scraping_result.cast_id}のステータス保存に失敗しました")
-                else:
-                    error_count += 1
-                    job_logger.warning(
-                        f"キャストID {scraping_result.cast_id}のスクレイピングに失敗しました: "
-                        f"{scraping_result.error_message}"
-                    )
-            
-            job_logger.item_success(
-                f"店舗 {business.name}",
-                f"保存: {saved_count}, エラー: {error_count}"
+        # バッチでデータを保存
+        insert_query = """
+            INSERT INTO cast_status 
+            (business_id, cast_name, is_working, collected_at, shift_info, media_type) 
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        
+        values = [
+            (
+                cast_data["business_id"],
+                cast_data["cast_name"], 
+                cast_data["is_working"],
+                cast_data["collected_at"],
+                json.dumps(cast_data["shift_info"]) if cast_data["shift_info"] else None,
+                cast_data["media_type"]
             )
-            
-            return error_count == 0
-            
-        except Exception as e:
-            job_logger.item_error(f"店舗 {business.name}", str(e))
-            return False
+            for cast_data in cast_data_list
+        ]
+        
+        database.execute_batch(insert_query, values)
+        logger.info(f"キャストステータスをデータベースに保存しました: {len(values)} 件")
+        return True
+        
+    except Exception as e:
+        logger.error(f"データベース保存エラー: {str(e)}")
+        return False
 
-async def run_status_collection(business_id: str = None, force: bool = False, target_businesses: List[Business] = None) -> BatchJobResult:
-    """
-    ステータス収集ジョブを実行する
-    
-    Args:
-        business_id: 処理対象の特定店舗ID（Noneの場合は全店舗）
-        force: 営業時間外でも強制実行するかどうか
-        target_businesses: 処理対象店舗リスト（指定時は営業時間チェックをスキップ）
-    
-    Returns:
-        実行詳細を含むBatchJobResult
-    """
-    job = StatusCollectionJob()
-    return await job.run_status_collection(force=force, business_id=business_id, target_businesses=target_businesses)
 
-if __name__ == "__main__":
-    # テスト用に直接実行可能
-    import sys
+async def run_status_collection(businesses: Dict[int, Dict[str, Any]]) -> bool:
+    """ステータス収集処理のメインエントリーポイント"""
+    try:
+        logger.info("ステータス収集処理を開始")
+        
+        # 全店舗のキャストステータスを収集
+        all_cast_data = await collect_all_cast_status(businesses)
+        
+        # データベースに保存
+        success = await save_cast_status_to_database(all_cast_data)
+        
+        if success:
+            logger.info("ステータス収集処理が正常に完了しました")
+        else:
+            logger.error("ステータス収集処理でエラーが発生しました")
+            
+        return success
+        
+    except Exception as e:
+        logger.error(f"ステータス収集処理で予期しないエラーが発生: {str(e)}")
+        return False
+
+
+"""
+保守用メモ: 期待されるデータフォーマット
+
+入力データ形式 (BUSINESSES):
+{
+    1: {
+        "Business ID": "A01",
+        "URL": "https://example.com/business/a01", 
+        "media": "cityhaven",
+        "cast_type": "a",
+        "working_type": "a", 
+        "shift_type": "a"
+    },
+    2: {
+        "Business ID": "B02",
+        "URL": "https://example.com/business/b02",
+        "media": "deliher_town", 
+        "cast_type": "b",
+        "working_type": "b",
+        "shift_type": "b"
+    }
+}
+
+出力データ形式 (STATUSES):
+[
+    {
+        "business_id": "A01",
+        "cast_name": "A124234", 
+        "is_working": True,
+        "collected_at": "2025-08-26 12:00",
+        "shift_info": {"type": "a", "time_text": "12:00~19:00"},
+        "media_type": "cityhaven"
+    },
+    {
+        "business_id": "A01", 
+        "cast_name": "B19834",
+        "is_working": False,
+        "collected_at": "2025-08-26 12:00", 
+        "shift_info": {"type": "a"},
+        "media_type": "cityhaven"
+    }
+]
+"""
+class DeliherTownStrategy(ScrapingStrategy):
+    """Deliher Townサイト用のスクレイピング戦略"""
     
-    force_run = "--force" in sys.argv
-    business_id = None
+    async def scrape_cast_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Deliher Townからキャストステータスを収集"""
+        cast_list = []
+        business_id = business.get("Business ID")
+        url = business.get("URL")
+        cast_type = business.get("cast_type", "a")
+        working_type = business.get("working_type", "a")
+        shift_type = business.get("shift_type", "a")
+        "shift_type": "b"
+    }
+}
+
+DB登録して欲しいjson:
+
+STATUSES = {
+    {
+        “Business ID“: “A01”,
+        “RecordedAt”: “2025-08-26 12:00”,
+        “CastId: “A124234”,
+        “IsWorking”: True,
+        “IsOnShift”: true
+    }
+    {
+        “Business ID“: “A01”,
+        “RecordedAt”: “2025-08-26 12:00”,
+        “CastId: “B19834”,
+        “IsWorking”: False,
+        “IsOnShift”: true
+    }
+}
+
+上のjsonの例は保守の時のために書き残しておいて欲しい
+
+データ整形関数
+    jsonの空の枠を用意。1店舗分のjsonに対し、以下の情報を詰める
+    Business IDを詰める
+    RecordedAtを詰める
+
+    スクレイピングの開始
+    CastIDの取得関数を実行してキャストIDを取得、詰める
+    IsWorkingの取得関数を実行して稼働中かどうかを判定、詰める
+    IsOnShiftの取得関数を実行してシフト中かどうかを判定、詰める
+
+DB登録関数
+    データ整形関数で作成したデータをDBに登録する
+    並行処理じゃなくてできたjsonの配列を一気に登録する
+
+キャストIDの取得関数
+    引数でurl, media, cast_typeを受け取る
+
+    mediaがcityheavenでcast_typeがaのとき
+        <div class="pcwidgets_shukkin">の後の<a href="/tokyo/A1304/A130401/ultragrace/girlid-58869431/">
+        のようなaタグ以下の
+        girlid-〇〇と書いてある部分の〇〇。この後の3つの情報もこのaブロックの下にある。
+
+    mediaがdeliher_townでcast_typeがaのとき
+        hogehoge (未調査なので未定義)
     
-    # business_id引数をチェック
-    for i, arg in enumerate(sys.argv):
-        if arg == "--business-id" and i + 1 < len(sys.argv):
-            business_id = int(sys.argv[i + 1])
-            break
+IsWorkingの取得関数
+    引数でurl, media, working_typeを受け取る
+
+    mediaがcityheavenでworking_typeがaのとき
+        shukkin_detail_timeの次に出てくるTime型として解釈可能なコンテンツと、
+        その後の「~」に続くTime型として解釈可能なコンテンツが、出勤時間帯を表現している。
+        例えば「12:00~19:00」なら、12:00から19:00までが出勤時間帯。
+        現在時刻がこの範囲内にあればTrue、そうでなければFalseを返す。
     
-    # ジョブを実行
-    result = asyncio.run(run_status_collection(business_id=business_id, force=force_run))
+    mediaがdeliher_townでworking_typeがaのとき 
+        hogehoge (未調査なので未定義)
     
-    print(f"ステータス収集ジョブ結果:")
-    print(f"成功: {result.success}")
-    print(f"処理件数: {result.processed_count}")
-    print(f"エラー件数: {result.error_count}")
-    if result.errors:
-        print(f"エラーメッセージ: {result.errors}")
-    if result.duration_seconds:
-        print(f"実行時間: {result.duration_seconds:.2f}s")
+IsOnShiftの取得関数
+    引数でurl, media, shift_typeを受け取る
+
+    mediaがcityheavenでshift_typeがaのとき
+        Sugunaviboxとあるclassの次に出てくるコンテンツのうち、Time型として解釈できるものが、
+        現在時刻よりも後のものがあればTrue、なければFalse
+    
+    mediaがdeliher_townでshift_typeがaのとき
+        hogehoge (未調査なので未定義)
+
+
+"""
+
+
+
+
+
+
+
+
+
+
+
