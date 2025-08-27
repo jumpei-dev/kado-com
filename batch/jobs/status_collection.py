@@ -461,20 +461,8 @@ async def run_status_collection(businesses: Dict[int, Dict[str, Any]]) -> bool:
     }
 ]
 """
-class DeliherTownStrategy(ScrapingStrategy):
-    """Deliher Townサイト用のスクレイピング戦略"""
-    
-    async def scrape_cast_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Deliher Townからキャストステータスを収集"""
-        cast_list = []
-        business_id = business.get("Business ID")
-        url = business.get("URL")
-        cast_type = business.get("cast_type", "a")
-        working_type = business.get("working_type", "a")
-        shift_type = business.get("shift_type", "a")
-        "shift_type": "b"
-    }
-}
+]
+"""
 
 DB登録して欲しいjson:
 
