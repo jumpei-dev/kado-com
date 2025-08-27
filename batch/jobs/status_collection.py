@@ -103,36 +103,23 @@ class CityheavenStrategy(ScrapingStrategy):
     async def _extract_cityhaven_cast_info(self, element, business_id: str, working_type: str, shift_type: str, current_time: datetime) -> Optional[Dict[str, Any]]:
         """Cityheavenの個別キャスト情報を抽出"""
         try:
-            # 名前の抽出
-            name_element = element.select_one('.name, .cast-name, .girl-name, h3, h4')
-            name = name_element.get_text(strip=True) if name_element else None
-            
-            if not name:
+            # キャストIDの抽出
+            cast_id = await self._extract_cast_id(element, "cityhaven", business_id)
+            if not cast_id:
                 return None
             
-            # working_typeに応じた稼働状況の判定
-            if working_type == "a":
-                # 出勤アイコンやステータスから判定
-                status_element = element.select_one('.status, .attendance, .working')
-                is_working = bool(status_element and any(keyword in status_element.get_text() for keyword in ["出勤", "待機", "受付"]))
-                
-            elif working_type == "b":
-                # 別のパターンで稼働状況を判定
-                status_indicators = element.select('.icon, .badge, .label')
-                is_working = any("出勤" in indicator.get_text() for indicator in status_indicators)
-                
-            else:
-                is_working = False
+            # 稼働状況の判定
+            is_working = await self._extract_is_working(element, "cityhaven", working_type)
             
-            # shift_typeに応じた時間情報の抽出
-            shift_info = await self._extract_shift_info(element, shift_type)
+            # シフト状況の判定
+            is_on_shift = await self._extract_is_on_shift(element, "cityhaven", shift_type)
             
             return {
                 "business_id": business_id,
-                "cast_name": name,
+                "cast_id": cast_id,
                 "is_working": is_working,
+                "is_on_shift": is_on_shift,
                 "collected_at": current_time,
-                "shift_info": shift_info,
                 "media_type": "cityhaven"
             }
             
@@ -140,9 +127,137 @@ class CityheavenStrategy(ScrapingStrategy):
             logger.error(f"Cityheavenキャスト情報抽出エラー: {str(e)}")
             return None
 
-    async def _extract_shift_info(self, element, shift_type: str) -> Dict[str, Any]:
-        """シフト情報を抽出する（Cityhaven用）"""
-        return await _extract_shift_info(element, shift_type)
+    async def _extract_cast_id(self, element, media_type: str, cast_type: str) -> Optional[str]:
+        """キャストIDを抽出する（Cityhaven用）"""
+        try:
+            if media_type == "cityhaven" and cast_type == "a":
+                # pcwidgets_shukkin内のgirlid-xxxパターンを抽出
+                shukkin_div = element.select_one('.pcwidgets_shukkin')
+                if shukkin_div:
+                    girl_link = shukkin_div.select_one('a[href*="girlid-"]')
+                    if girl_link:
+                        href = girl_link.get('href', '')
+                        # girlid-58869431のような形式から数字部分を抽出
+                        import re
+                        match = re.search(r'girlid-(\d+)', href)
+                        if match:
+                            return match.group(1)
+                
+                # フォールバック: 他のパターンでキャスト名/IDを取得
+                name_element = element.select_one('.name, .cast-name, .girl-name, h3, h4')
+                if name_element:
+                    return name_element.get_text(strip=True)
+                    
+            else:
+                # その他のパターン（拡張用）
+                name_element = element.select_one('.name, .cast-name, .girl-name, h3, h4')
+                if name_element:
+                    return name_element.get_text(strip=True)
+                    
+        except Exception as e:
+            logger.error(f"キャストID抽出エラー ({media_type}): {str(e)}")
+        
+        return None
+
+    async def _extract_is_working(self, element, media_type: str, working_type: str) -> bool:
+        """稼働状況を判定する（Cityhaven用）"""
+        try:
+            if media_type == "cityhaven" and working_type == "a":
+                # shukkin_detail_timeから時間帯を抽出して現在時刻と比較
+                time_element = element.select_one('.shukkin_detail_time')
+                if time_element:
+                    time_text = time_element.get_text(strip=True)
+                    return await self._is_current_time_in_range(time_text)
+                
+            elif media_type == "cityhaven" and working_type == "b":
+                # 別のパターンで稼働状況を判定
+                status_indicators = element.select('.icon, .badge, .label')
+                return any("出勤" in indicator.get_text() for indicator in status_indicators)
+                
+            # デフォルトパターン
+            status_element = element.select_one('.status, .attendance, .working')
+            return bool(status_element and any(keyword in status_element.get_text() for keyword in ["出勤", "待機", "受付"]))
+                
+        except Exception as e:
+            logger.error(f"稼働状況判定エラー ({media_type}): {str(e)}")
+        
+        return False
+
+    async def _extract_is_on_shift(self, element, media_type: str, shift_type: str) -> bool:
+        """シフト状況を判定する（Cityhaven用）"""
+        try:
+            if media_type == "cityhaven" and shift_type == "a":
+                # Sugunaviboxから将来の時間を取得
+                suguna_box = element.select_one('.Sugunavibox')
+                if suguna_box:
+                    return await self._has_future_time_in_element(suguna_box)
+                    
+            elif media_type == "cityhaven" and shift_type == "b":
+                # 出勤予定表示がある場合
+                schedule_element = element.select_one('.schedule, .shift-schedule')
+                return bool(schedule_element and schedule_element.get_text(strip=True))
+                
+            # デフォルトパターン  
+            time_element = element.select_one('.time, .shift-time, .work-time')
+            return bool(time_element and time_element.get_text(strip=True))
+                
+        except Exception as e:
+            logger.error(f"シフト状況判定エラー ({media_type}): {str(e)}")
+        
+        return False
+
+    async def _is_current_time_in_range(self, time_text: str) -> bool:
+        """時間テキストから範囲を解析して現在時刻が含まれるかチェック"""
+        try:
+            import re
+            from datetime import datetime
+            
+            # "12:00~19:00"のようなパターンを抽出
+            time_pattern = r'(\d{1,2}):(\d{2}).*?(\d{1,2}):(\d{2})'
+            match = re.search(time_pattern, time_text)
+            
+            if match:
+                start_hour, start_min, end_hour, end_min = map(int, match.groups())
+                current_time = get_current_jst_datetime()
+                current_minutes = current_time.hour * 60 + current_time.minute
+                start_minutes = start_hour * 60 + start_min
+                end_minutes = end_hour * 60 + end_min
+                
+                # 日跨ぎのケースを考慮
+                if start_minutes <= end_minutes:
+                    return start_minutes <= current_minutes <= end_minutes
+                else:
+                    return current_minutes >= start_minutes or current_minutes <= end_minutes
+                    
+        except Exception as e:
+            logger.error(f"時間範囲判定エラー: {str(e)}")
+        
+        return False
+
+    async def _has_future_time_in_element(self, element) -> bool:
+        """要素内に現在時刻より後の時間があるかチェック"""
+        try:
+            import re
+            
+            text_content = element.get_text()
+            current_time = get_current_jst_datetime()
+            current_minutes = current_time.hour * 60 + current_time.minute
+            
+            # 時間パターンを検索
+            time_patterns = re.findall(r'(\d{1,2}):(\d{2})', text_content)
+            
+            for hour_str, min_str in time_patterns:
+                hour, minute = int(hour_str), int(min_str)
+                time_minutes = hour * 60 + minute
+                
+                # 現在時刻より後の時間が見つかった場合
+                if time_minutes > current_minutes:
+                    return True
+                    
+        except Exception as e:
+            logger.error(f"将来時間判定エラー: {str(e)}")
+        
+        return False
 
 
 class DeliherTownStrategy(ScrapingStrategy):
@@ -217,36 +332,23 @@ class DeliherTownStrategy(ScrapingStrategy):
     async def _extract_deliher_town_cast_info(self, element, business_id: str, working_type: str, shift_type: str, current_time: datetime) -> Optional[Dict[str, Any]]:
         """Deliher Townの個別キャスト情報を抽出"""
         try:
-            # 名前の抽出
-            name_element = element.select_one('.lady-name, .girl-name, .cast-name, h2, h3')
-            name = name_element.get_text(strip=True) if name_element else None
-            
-            if not name:
+            # キャストIDの抽出
+            cast_id = await self._extract_cast_id(element, "deliher_town", working_type)
+            if not cast_id:
                 return None
             
-            # working_typeに応じた稼働状況の判定
-            if working_type == "a":
-                # 出勤ステータスから判定
-                status_element = element.select_one('.status, .work-status, .attendance-status')
-                is_working = bool(status_element and any(keyword in status_element.get_text() for keyword in ["出勤中", "待機中", "受付中"]))
-                
-            elif working_type == "b":
-                # アイコンベースでの判定
-                working_icons = element.select('.working-icon, .status-icon, .attendance-icon')
-                is_working = len(working_icons) > 0
-                
-            else:
-                is_working = False
+            # 稼働状況の判定
+            is_working = await self._extract_is_working(element, "deliher_town", working_type)
             
-            # shift_typeに応じた時間情報の抽出
-            shift_info = await self._extract_shift_info(element, shift_type)
+            # シフト状況の判定
+            is_on_shift = await self._extract_is_on_shift(element, "deliher_town", shift_type)
             
             return {
                 "business_id": business_id,
-                "cast_name": name,
+                "cast_id": cast_id,
                 "is_working": is_working,
+                "is_on_shift": is_on_shift,
                 "collected_at": current_time,
-                "shift_info": shift_info,
                 "media_type": "deliher_town"
             }
             
@@ -254,9 +356,70 @@ class DeliherTownStrategy(ScrapingStrategy):
             logger.error(f"Deliher Townキャスト情報抽出エラー: {str(e)}")
             return None
 
-    async def _extract_shift_info(self, element, shift_type: str) -> Dict[str, Any]:
-        """シフト情報を抽出する（Deliher Town用）"""
-        return await _extract_shift_info(element, shift_type)
+    async def _extract_cast_id(self, element, media_type: str, cast_type: str) -> Optional[str]:
+        """キャストIDを抽出する（Deliher Town用）"""
+        try:
+            if media_type == "deliher_town" and cast_type == "a":
+                # TODO: deliher_town用の具体的な実装が必要
+                # 現在は名前を取得（将来的に実際のIDパターンを実装）
+                name_element = element.select_one('.lady-name, .girl-name, .cast-name, h2, h3')
+                if name_element:
+                    return name_element.get_text(strip=True)
+                    
+            else:
+                # その他のパターン
+                name_element = element.select_one('.lady-name, .girl-name, .cast-name, h2, h3')
+                if name_element:
+                    return name_element.get_text(strip=True)
+                    
+        except Exception as e:
+            logger.error(f"キャストID抽出エラー ({media_type}): {str(e)}")
+        
+        return None
+
+    async def _extract_is_working(self, element, media_type: str, working_type: str) -> bool:
+        """稼働状況を判定する（Deliher Town用）"""
+        try:
+            if media_type == "deliher_town" and working_type == "a":
+                # TODO: deliher_town用の具体的な実装が必要
+                status_element = element.select_one('.status, .work-status, .attendance-status')
+                return bool(status_element and any(keyword in status_element.get_text() for keyword in ["出勤中", "待機中", "受付中"]))
+                
+            elif media_type == "deliher_town" and working_type == "b":
+                # アイコンベースでの判定
+                working_icons = element.select('.working-icon, .status-icon, .attendance-icon')
+                return len(working_icons) > 0
+                
+            # デフォルトパターン
+            status_element = element.select_one('.status, .work-status, .attendance-status')
+            return bool(status_element and any(keyword in status_element.get_text() for keyword in ["出勤中", "待機中", "受付中"]))
+                
+        except Exception as e:
+            logger.error(f"稼働状況判定エラー ({media_type}): {str(e)}")
+        
+        return False
+
+    async def _extract_is_on_shift(self, element, media_type: str, shift_type: str) -> bool:
+        """シフト状況を判定する（Deliher Town用）"""
+        try:
+            if media_type == "deliher_town" and shift_type == "a":
+                # TODO: deliher_town用の具体的な実装が必要
+                schedule_element = element.select_one('.schedule, .shift-schedule')
+                return bool(schedule_element and schedule_element.get_text(strip=True))
+                
+            elif media_type == "deliher_town" and shift_type == "b":
+                # 出勤予定表示がある場合
+                schedule_element = element.select_one('.schedule, .shift-schedule')
+                return bool(schedule_element and schedule_element.get_text(strip=True))
+                
+            # デフォルトパターン
+            time_element = element.select_one('.time, .shift-time, .work-time')
+            return bool(time_element and time_element.get_text(strip=True))
+                
+        except Exception as e:
+            logger.error(f"シフト状況判定エラー ({media_type}): {str(e)}")
+        
+        return False
 
 
 class ScrapingStrategyFactory:
@@ -272,28 +435,6 @@ class ScrapingStrategyFactory:
         else:
             raise ValueError(f"未対応のメディアタイプ: {media_type}")
 
-
-async def _extract_shift_info(element, shift_type: str) -> Dict[str, Any]:
-    """シフト情報を抽出する共通メソッド"""
-    shift_info = {"type": shift_type}
-    
-    try:
-        if shift_type == "a":
-            # 時間帯表示がある場合
-            time_element = element.select_one('.time, .shift-time, .work-time')
-            if time_element:
-                shift_info["time_text"] = time_element.get_text(strip=True)
-                
-        elif shift_type == "b":
-            # 出勤予定表示がある場合
-            schedule_element = element.select_one('.schedule, .shift-schedule')
-            if schedule_element:
-                shift_info["schedule_text"] = schedule_element.get_text(strip=True)
-    
-    except Exception as e:
-        logger.error(f"シフト情報抽出エラー: {str(e)}")
-    
-    return shift_info
 
 
 async def collect_status_for_business(session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -367,20 +508,20 @@ async def save_cast_status_to_database(cast_data_list: List[Dict[str, Any]]) -> 
     try:
         database = Database()
         
-        # バッチでデータを保存
+        # バッチでデータを保存（フィールド名を新仕様に合わせて更新）
         insert_query = """
             INSERT INTO cast_status 
-            (business_id, cast_name, is_working, collected_at, shift_info, media_type) 
+            (business_id, cast_id, is_working, is_on_shift, collected_at, media_type) 
             VALUES (%s, %s, %s, %s, %s, %s)
         """
         
         values = [
             (
                 cast_data["business_id"],
-                cast_data["cast_name"], 
+                cast_data["cast_id"], 
                 cast_data["is_working"],
+                cast_data["is_on_shift"],
                 cast_data["collected_at"],
-                json.dumps(cast_data["shift_info"]) if cast_data["shift_info"] else None,
                 cast_data["media_type"]
             )
             for cast_data in cast_data_list
@@ -445,21 +586,26 @@ async def run_status_collection(businesses: Dict[int, Dict[str, Any]]) -> bool:
 [
     {
         "business_id": "A01",
-        "cast_name": "A124234", 
+        "cast_id": "A124234", 
         "is_working": True,
-        "collected_at": "2025-08-26 12:00",
-        "shift_info": {"type": "a", "time_text": "12:00~19:00"},
+        "is_on_shift": True,
+        "collected_at": "2025-08-26 12:00:00",
         "media_type": "cityhaven"
     },
     {
         "business_id": "A01", 
-        "cast_name": "B19834",
+        "cast_id": "B19834",
         "is_working": False,
-        "collected_at": "2025-08-26 12:00", 
-        "shift_info": {"type": "a"},
+        "is_on_shift": True,
+        "collected_at": "2025-08-26 12:00:00", 
         "media_type": "cityhaven"
     }
 ]
+
+関数の役割分担:
+- _extract_cast_id: キャストIDを抽出（girlid-XXXパターンなど）
+- _extract_is_working: 現在の稼働状況を判定（出勤時間帯チェックなど）
+- _extract_is_on_shift: シフト予定を判定（将来の予定時間チェックなど）
 """
 ]
 """
