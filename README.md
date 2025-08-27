@@ -56,7 +56,7 @@ batch/
 │   └── scraper.py    # スクレイピング機能
 ├── jobs/              # バッチジョブ
 │   ├── status_collection.py  # ステータス収集（30分間隔）
-│   └── status_history.py     # 稼働履歴計算（日次）
+│   └── working_rate_calculation.py # 稼働率計算（日次）および稼働履歴計算
 ├── scheduler/         # スケジューラー
 │   └── main.py       # メインスケジューラー
 └── utils/            # ユーティリティ

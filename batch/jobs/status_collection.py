@@ -14,10 +14,27 @@ import logging
 from datetime import datetime
 import json
 
-from batch.core.database import Database
-from batch.utils.config import Config
-from batch.utils.datetime_utils import get_current_jst_datetime
-from batch.utils.logging_utils import get_logger
+try:
+    from ..core.database import DatabaseManager
+except ImportError as e:
+    print(f"DatabaseManager インポート失敗: {e}")
+    DatabaseManager = None
+
+try:
+    from ..utils.datetime_utils import get_current_jst_datetime
+except ImportError as e:
+    print(f"datetime_utils インポート失敗: {e}")
+    def get_current_jst_datetime():
+        from datetime import datetime
+        return datetime.now()
+
+try:
+    from ..utils.logging_utils import get_logger
+except ImportError as e:
+    print(f"logging_utils インポート失敗: {e}")
+    def get_logger(name):
+        import logging
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -26,16 +43,16 @@ class ScrapingStrategy(ABC):
     """スクレイピング戦略の基底クラス"""
     
     @abstractmethod
-    async def scrape_cast_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """キャストステータスを収集する抽象メソッド"""
+    async def scrape_working_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """稼働ステータスを収集する抽象メソッド"""
         pass
 
 
 class CityheavenStrategy(ScrapingStrategy):
     """Cityheavenサイト用のスクレイピング戦略"""
     
-    async def scrape_cast_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Cityheavenからキャストステータスを収集"""
+    async def scrape_working_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Cityheavenから稼働ステータスを収集"""
         cast_list = []
         business_id = business.get("Business ID")
         url = business.get("URL")
@@ -263,8 +280,8 @@ class CityheavenStrategy(ScrapingStrategy):
 class DeliherTownStrategy(ScrapingStrategy):
     """Deliher Townサイト用のスクレイピング戦略"""
     
-    async def scrape_cast_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Deliher Townからキャストステータスを収集"""
+    async def scrape_working_status(self, session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Deliher Townから稼働ステータスを収集"""
         cast_list = []
         business_id = business.get("Business ID")
         url = business.get("URL")
@@ -446,7 +463,7 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
             return []
         
         strategy = ScrapingStrategyFactory.create_strategy(media_type)
-        cast_list = await strategy.scrape_cast_status(session, business)
+        cast_list = await strategy.scrape_working_status(session, business)
         
         return cast_list
         
@@ -456,12 +473,12 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
         return []
 
 
-async def collect_all_cast_status(businesses: Dict[int, Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """全店舗のキャストステータスを並行収集"""
-    logger.info("全店舗のキャストステータス収集を開始")
+async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """全店舗のキャスト稼働ステータスを並行収集"""
+    logger.info("全店舗のキャスト稼働ステータス収集を開始")
     
-    config = Config()
-    max_concurrent = config.get("concurrent.max_concurrent_businesses", 5)
+    # 固定値でmax_concurrentを設定
+    max_concurrent = 5  # デフォルト値
     
     # セマフォで並行数を制御
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -495,40 +512,46 @@ async def collect_all_cast_status(businesses: Dict[int, Dict[str, Any]]) -> List
     except Exception as e:
         logger.error(f"ステータス収集処理でエラーが発生: {str(e)}")
     
-    logger.info(f"全店舗のキャストステータス収集完了: 合計 {len(all_cast_data)} 件")
+    logger.info(f"全店舗のキャスト稼働ステータス収集完了: 合計 {len(all_cast_data)} 件")
     return all_cast_data
 
 
-async def save_cast_status_to_database(cast_data_list: List[Dict[str, Any]]) -> bool:
-    """キャストステータスデータをデータベースに保存"""
+async def save_working_status_to_database(cast_data_list: List[Dict[str, Any]]) -> bool:
+    """稼働ステータスデータをデータベースに保存"""
     if not cast_data_list:
         logger.info("保存するデータがありません")
         return True
     
     try:
-        database = Database()
+        if DatabaseManager:
+            database = DatabaseManager()
+        else:
+            logger.error("DatabaseManagerが利用できません")
+            return False
         
-        # バッチでデータを保存（フィールド名を新仕様に合わせて更新）
+        # バッチでデータを保存（テーブル名をstatusに変更）
         insert_query = """
-            INSERT INTO cast_status 
-            (business_id, cast_id, is_working, is_on_shift, collected_at, media_type) 
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO status 
+            (business_id, cast_id, is_working, is_on_shift, datetime) 
+            VALUES (%s, %s, %s, %s, %s)
         """
         
-        values = [
-            (
-                cast_data["business_id"],
-                cast_data["cast_id"], 
-                cast_data["is_working"],
-                cast_data["is_on_shift"],
-                cast_data["collected_at"],
-                cast_data["media_type"]
-            )
-            for cast_data in cast_data_list
-        ]
+        # 個別にデータを保存
+        saved_count = 0
+        for cast_data in cast_data_list:
+            try:
+                database.execute_command(insert_query, (
+                    cast_data["business_id"],
+                    cast_data["cast_id"], 
+                    cast_data["is_working"],
+                    cast_data["is_on_shift"],
+                    cast_data["collected_at"]
+                ))
+                saved_count += 1
+            except Exception as save_error:
+                logger.error(f"個別保存エラー: {save_error}")
         
-        database.execute_batch(insert_query, values)
-        logger.info(f"キャストステータスをデータベースに保存しました: {len(values)} 件")
+        logger.info(f"稼働ステータスをデータベースに保存しました: {saved_count} 件")
         return True
         
     except Exception as e:
@@ -541,11 +564,11 @@ async def run_status_collection(businesses: Dict[int, Dict[str, Any]]) -> bool:
     try:
         logger.info("ステータス収集処理を開始")
         
-        # 全店舗のキャストステータスを収集
-        all_cast_data = await collect_all_cast_status(businesses)
+        # 全店舗のキャスト稼働ステータスを収集
+        all_cast_data = await collect_all_working_status(businesses)
         
         # データベースに保存
-        success = await save_cast_status_to_database(all_cast_data)
+        success = await save_working_status_to_database(all_cast_data)
         
         if success:
             logger.info("ステータス収集処理が正常に完了しました")
@@ -607,79 +630,26 @@ async def run_status_collection(businesses: Dict[int, Dict[str, Any]]) -> bool:
 - _extract_is_working: 現在の稼働状況を判定（出勤時間帯チェックなど）
 - _extract_is_on_shift: シフト予定を判定（将来の予定時間チェックなど）
 """
+
+# サンプルデータ構造（保守用）
+STATUSES_SAMPLE = [
+    {
+        "Business_ID": "A01",
+        "RecordedAt": "2025-08-26 12:00",
+        "CastId": "A124234",
+        "IsWorking": True,
+        "IsOnShift": True
+    },
+    {
+        "Business_ID": "A01", 
+        "RecordedAt": "2025-08-26 12:00",
+        "CastId": "B19834",
+        "IsWorking": False,
+        "IsOnShift": True
+    }
 ]
-"""
 
-DB登録して欲しいjson:
-
-STATUSES = {
-    {
-        “Business ID“: “A01”,
-        “RecordedAt”: “2025-08-26 12:00”,
-        “CastId: “A124234”,
-        “IsWorking”: True,
-        “IsOnShift”: true
-    }
-    {
-        “Business ID“: “A01”,
-        “RecordedAt”: “2025-08-26 12:00”,
-        “CastId: “B19834”,
-        “IsWorking”: False,
-        “IsOnShift”: true
-    }
-}
-
-上のjsonの例は保守の時のために書き残しておいて欲しい
-
-データ整形関数
-    jsonの空の枠を用意。1店舗分のjsonに対し、以下の情報を詰める
-    Business IDを詰める
-    RecordedAtを詰める
-
-    スクレイピングの開始
-    CastIDの取得関数を実行してキャストIDを取得、詰める
-    IsWorkingの取得関数を実行して稼働中かどうかを判定、詰める
-    IsOnShiftの取得関数を実行してシフト中かどうかを判定、詰める
-
-DB登録関数
-    データ整形関数で作成したデータをDBに登録する
-    並行処理じゃなくてできたjsonの配列を一気に登録する
-
-キャストIDの取得関数
-    引数でurl, media, cast_typeを受け取る
-
-    mediaがcityheavenでcast_typeがaのとき
-        <div class="pcwidgets_shukkin">の後の<a href="/tokyo/A1304/A130401/ultragrace/girlid-58869431/">
-        のようなaタグ以下の
-        girlid-〇〇と書いてある部分の〇〇。この後の3つの情報もこのaブロックの下にある。
-
-    mediaがdeliher_townでcast_typeがaのとき
-        hogehoge (未調査なので未定義)
-    
-IsWorkingの取得関数
-    引数でurl, media, working_typeを受け取る
-
-    mediaがcityheavenでworking_typeがaのとき
-        shukkin_detail_timeの次に出てくるTime型として解釈可能なコンテンツと、
-        その後の「~」に続くTime型として解釈可能なコンテンツが、出勤時間帯を表現している。
-        例えば「12:00~19:00」なら、12:00から19:00までが出勤時間帯。
-        現在時刻がこの範囲内にあればTrue、そうでなければFalseを返す。
-    
-    mediaがdeliher_townでworking_typeがaのとき 
-        hogehoge (未調査なので未定義)
-    
-IsOnShiftの取得関数
-    引数でurl, media, shift_typeを受け取る
-
-    mediaがcityheavenでshift_typeがaのとき
-        Sugunaviboxとあるclassの次に出てくるコンテンツのうち、Time型として解釈できるものが、
-        現在時刻よりも後のものがあればTrue、なければFalse
-    
-    mediaがdeliher_townでshift_typeがaのとき
-        hogehoge (未調査なので未定義)
-
-
-"""
+# 上のjsonの例は保守の時のために書き残しておいて欲しい
 
 
 

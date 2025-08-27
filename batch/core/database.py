@@ -53,12 +53,35 @@ class DatabaseManager:
         """すべてのアクティブな店舗を取得する"""
         query = """
         SELECT business_id, name, area, prefecture, type, capacity, 
-               open_hour, close_hour, schedule_url, in_scope
+               open_hour, close_hour, schedule_url1, in_scope,
+               working_type, cast_type, shift_type, media
         FROM business 
         WHERE in_scope = true
         ORDER BY name
         """
-        return self.execute_query(query)
+        results = self.execute_query(query)
+        
+        # 結果を辞書形式に変換してstatus_collection.pyで期待される形式に合わせる
+        businesses = {}
+        for i, row in enumerate(results):
+            businesses[i] = {
+                "Business ID": row["business_id"],  # 列名でアクセス
+                "name": row["name"],
+                "area": row["area"], 
+                "prefecture": row["prefecture"],
+                "type": row["type"],
+                "capacity": row["capacity"],
+                "open_hour": row["open_hour"],
+                "close_hour": row["close_hour"], 
+                "URL": row["schedule_url1"],  # schedule_url1をURLとして使用
+                "in_scope": row["in_scope"],
+                "working_type": row["working_type"],
+                "cast_type": row["cast_type"],
+                "shift_type": row["shift_type"],
+                "media": row["media"]
+            }
+        
+        return businesses
     
     def get_casts_by_business(self, business_id: int) -> List[Dict[str, Any]]:
         """指定した店舗のすべてのキャストを取得する"""

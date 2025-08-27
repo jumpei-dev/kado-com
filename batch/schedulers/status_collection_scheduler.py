@@ -11,7 +11,7 @@ from typing import Dict, Any
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from batch.core.database import Database
+from batch.core.database import DatabaseManager
 from batch.jobs.status_collection import run_status_collection
 from batch.utils.logging_utils import get_logger
 from batch.utils.config import Config
@@ -86,6 +86,7 @@ class StatusCollectionScheduler:
             
             if not businesses_dict:
                 logger.info("対象店舗がありません（InScope=True かつ営業時間中の店舗なし）")
+                logger.info("次回の30分後に再チェックします")
                 return
             
             logger.info(f"{len(businesses_dict)}店舗の稼働状況取得を開始")
@@ -103,11 +104,13 @@ class StatusCollectionScheduler:
             logger.exception("稼働状況取得エラー")
     
     async def _get_target_businesses(self) -> Dict[int, Dict[str, Any]]:
-        """対象店舗の情報を取得して新しいフォーマットで返す"""
+        """営業時間内の対象店舗の情報を取得して新しいフォーマットで返す"""
         try:
-            # データベースから店舗情報を取得
+            # データベースから店舗情報を取得（READMEのスキーマに合わせて修正）
             query = """
-                SELECT business_id, name, url, media_type, cast_type, working_type, shift_type,
+                SELECT business_id, name, schedule_url1 as url, 
+                       'cityhaven' as media_type,  -- 仮のデフォルト値
+                       'a' as cast_type, 'a' as working_type, 'a' as shift_type,
                        in_scope, open_hour, close_hour
                 FROM businesses
                 WHERE in_scope = true
@@ -118,9 +121,15 @@ class StatusCollectionScheduler:
             target_businesses = {}
             index = 1
             
+            logger.info(f"取得した店舗数: {len(businesses_data)}店舗")
+            
             for business_row in businesses_data:
+                business_name = business_row.get('name', business_row['business_id'])
+                open_hour = business_row.get('open_hour')
+                close_hour = business_row.get('close_hour')
+                
                 # 営業時間チェック
-                if self._is_business_hours(current_time, business_row.get('open_hour'), business_row.get('close_hour')):
+                if self._is_business_hours(current_time, open_hour, close_hour):
                     target_businesses[index] = {
                         "Business ID": business_row['business_id'],
                         "URL": business_row['url'],
@@ -129,28 +138,47 @@ class StatusCollectionScheduler:
                         "working_type": business_row.get('working_type', 'a'), 
                         "shift_type": business_row.get('shift_type', 'a')
                     }
-                    logger.debug(f"対象店舗追加: {business_row['name']} ({business_row['business_id']})")
+                    logger.info(f"営業時間内の対象店舗: {business_name} ({business_row['business_id']}) - {open_hour}時〜{close_hour}時")
                     index += 1
+                else:
+                    logger.debug(f"営業時間外でスキップ: {business_name} ({business_row['business_id']}) - {open_hour}時〜{close_hour}時 (現在{current_time.hour}時)")
             
+            logger.info(f"営業時間内の対象店舗: {len(target_businesses)}店舗")
             return target_businesses
             
         except Exception as e:
             logger.error(f"対象店舗取得エラー: {str(e)}")
             return {}
     
-    def _is_business_hours(self, current_time: datetime, open_hour: int, close_hour: int) -> bool:
+    def _is_business_hours(self, current_time: datetime, open_hour, close_hour) -> bool:
         """営業時間かどうか判定"""
-        if open_hour is None or close_hour is None:
-            return True  # 時間情報がない場合は常に営業中とみなす
-        
-        current_hour = current_time.hour
-        
-        if open_hour <= close_hour:
-            # 通常のパターン (例: 9時〜18時)
-            return open_hour <= current_hour < close_hour
-        else:
-            # 夜中をまたぐパターン (例: 22時〜6時)
-            return current_hour >= open_hour or current_hour < close_hour
+        try:
+            # 営業時間が設定されていない場合は営業中とみなす
+            if open_hour is None or close_hour is None:
+                logger.debug("営業時間未設定 - 常に営業中とみなします")
+                return True
+            
+            # 文字列の場合は整数に変換
+            if isinstance(open_hour, str):
+                open_hour = int(open_hour.split(':')[0])  # "09:00" -> 9
+            if isinstance(close_hour, str):
+                close_hour = int(close_hour.split(':')[0])  # "18:00" -> 18
+                
+            current_hour = current_time.hour
+            
+            if open_hour <= close_hour:
+                # 通常のパターン (例: 9時〜18時)
+                is_open = open_hour <= current_hour < close_hour
+            else:
+                # 夜中をまたぐパターン (例: 22時〜6時)
+                is_open = current_hour >= open_hour or current_hour < close_hour
+            
+            logger.debug(f"営業時間判定: {open_hour}時〜{close_hour}時, 現在{current_hour}時 -> {'営業中' if is_open else '営業時間外'}")
+            return is_open
+            
+        except Exception as e:
+            logger.error(f"営業時間判定エラー: {str(e)} - デフォルトで営業中とみなします")
+            return True
     
     def _log_scheduled_jobs(self):
         """スケジューラーのジョブ情報をログ出力"""

@@ -101,6 +101,10 @@ def get_database_logger() -> logging.Logger:
     """Get a logger for database operations."""
     return logging.getLogger('batch.database')
 
+def get_logger(name: str) -> logging.Logger:
+    """指定した名前でロガーを取得する"""
+    return logging.getLogger(name)
+
 class JobLoggerAdapter(logging.LoggerAdapter):
     """Logger adapter that adds job context to log messages."""
     

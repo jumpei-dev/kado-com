@@ -14,7 +14,18 @@ logging:
   
 scheduling:
   status_collection_interval: 30  # 分
-  history_calculation_interval: 360  # 分（6時間）
+  history_calculation_hour: 12     # 稼働率計算実行時刻（12時）
+  history_calculation_minute: 0    # 稼働率計算実行分
+  max_concurrent_businesses: 3     # 稼働状況取得の店舗並行処理数
+  max_concurrent_working_rate: 5   # 稼働率計算の並行処理数
+  health_check_interval: 15        # 分
+  cleanup_time_hour: 2             # 午前2時
+  cleanup_time_minute: 0
+  misfire_grace_time:
+    status_collection: 300  # 5分
+    status_history: 600     # 10分
+  max_log_retention_days: 30       # ログ保持日数
+  business_hours_buffer: 0         # 営業時間バッファ（分）
   
 scraping:
   timeout: 30

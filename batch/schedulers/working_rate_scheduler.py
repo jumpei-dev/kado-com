@@ -1,29 +1,30 @@
 """
 稼働率計算スケジューラー
-毎日12時に前日の稼働率を計算してStatusHistoryに保存
+毎日12時に前日の稼働率を計算する専用スケジューラー
 """
 
-import asyncio
 import signal
 import sys
-from datetime import datetime, timedelta
+import asyncio
+from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from core.database import DatabaseManager
-from jobs.working_rate_calculation import run_working_rate_calculation
-from utils.logging_utils import setup_logging, get_job_logger, JobLoggerAdapter
-from utils.config import get_config
+from batch.core.database import DatabaseManager
+from batch.utils.logging_utils import get_logger
+from batch.utils.config import Config
+from batch.jobs.working_rate_calculation import run_working_rate_calculation
 
-logger = get_job_logger('working_rate_scheduler')
+logger = get_logger(__name__)
+
 
 class WorkingRateScheduler:
-    """稼働率計算専用スケジューラー"""
+    """稼働率計算専用スケジューラー - 時間管理のみ担当"""
     
     def __init__(self):
         self.scheduler = AsyncIOScheduler(timezone='Asia/Tokyo')
-        self.db_manager = DatabaseManager()
-        self.config = get_config()
+        self.database = Database()
+        self.config = Config()
         self.is_running = False
         self._setup_signal_handlers()
     
@@ -45,9 +46,90 @@ class WorkingRateScheduler:
         
         logger.info("稼働率計算スケジューラーを開始中...")
         
-        # ログ設定
-        setup_logging(
-            log_level=self.config.logging.level,
+        # 毎日12時のジョブを追加
+        execution_hour = self.config.get("scheduling.working_rate_calculation_hour", 12)
+        self.scheduler.add_job(
+            func=self._execute_working_rate_calculation,
+            trigger=CronTrigger(hour=execution_hour, minute=0),
+            id='working_rate_calculation',
+            name='稼働率計算',
+            max_instances=1,
+            coalesce=True
+        )
+        
+        self.scheduler.start()
+        self.is_running = True
+        
+        logger.info(f"稼働率計算スケジューラーが開始されました")
+        logger.info(f"稼働率計算: 毎日{execution_hour}:00に実行されます")
+        
+        # 現在のジョブ情報を出力
+        self._log_scheduled_jobs()
+    
+    def stop(self):
+        """スケジューラー停止"""
+        if self.scheduler and self.is_running:
+            logger.info("稼働率計算スケジューラーを停止中...")
+            self.scheduler.shutdown(wait=False)
+            self.is_running = False
+            logger.info("稼働率計算スケジューラーが停止されました")
+    
+    async def _execute_working_rate_calculation(self):
+        """稼働率計算実行 - Jobに処理を委譲"""
+        try:
+            logger.info("稼働率計算を開始します")
+            
+            # Jobクラスに実際の計算処理を委譲
+            result = await run_working_rate_calculation(target_date=None, force=False)
+            
+            if result.success:
+                logger.info(
+                    f"稼働率計算完了 - 処理済み: {result.processed_count}店舗, "
+                    f"実行時間: {result.duration_seconds:.2f}秒"
+                )
+            else:
+                logger.error(
+                    f"稼働率計算失敗 - エラー: {result.error_count}件, "
+                    f"実行時間: {result.duration_seconds:.2f}秒"
+                )
+                
+                # エラー詳細をログ出力
+                for error in result.errors[:5]:  # 最初の5件のエラーを表示
+                    logger.error(f"  - {error}")
+            
+        except Exception as e:
+            logger.error(f"稼働率計算スケジュール実行エラー: {e}")
+    
+    def _log_scheduled_jobs(self):
+        """スケジュール済みジョブの情報をログ出力"""
+        jobs = self.scheduler.get_jobs()
+        
+        logger.info(f"稼働率計算スケジューラー実行中 - {len(jobs)}個のジョブ:")
+        for job in jobs:
+            next_run = job.next_run_time
+            logger.info(f"  - {job.name} (ID: {job.id}) - 次回実行: {next_run}")
+
+
+# 外部から呼び出される関数
+async def run_working_rate_scheduler():
+    """稼働率計算スケジューラーを実行"""
+    scheduler = WorkingRateScheduler()
+    
+    try:
+        scheduler.start()
+        
+        # 無限ループで実行継続
+        while True:
+            await asyncio.sleep(1)
+            
+    except KeyboardInterrupt:
+        logger.info("稼働率計算: 割り込み信号を受信、シャットダウン中...")
+    finally:
+        scheduler.stop()
+
+
+if __name__ == "__main__":
+    asyncio.run(run_working_rate_scheduler())
             log_dir=self.config.logging.log_dir,
             max_bytes=self.config.logging.max_file_size,
             backup_count=self.config.logging.backup_count

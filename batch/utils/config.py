@@ -74,7 +74,6 @@ class SchedulingConfig:
             status_collection_interval=int(os.getenv('STATUS_COLLECTION_INTERVAL', 30)),
             history_calculation_hour=int(os.getenv('HISTORY_CALCULATION_HOUR', 12)),
             history_calculation_minute=int(os.getenv('HISTORY_CALCULATION_MINUTE', 0)),
-            business_hours_buffer=int(os.getenv('BUSINESS_HOURS_BUFFER', 0)),
             max_concurrent_businesses=int(os.getenv('MAX_CONCURRENT_BUSINESSES', 5)),
             max_concurrent_working_rate=int(os.getenv('MAX_CONCURRENT_WORKING_RATE', 10)),
             health_check_interval=int(os.getenv('HEALTH_CHECK_INTERVAL', 15)),
@@ -204,7 +203,9 @@ class BatchConfig:
                 'history_calculation_minute': self.scheduling.history_calculation_minute,
                 'max_concurrent_businesses': self.scheduling.max_concurrent_businesses,
                 'max_concurrent_working_rate': self.scheduling.max_concurrent_working_rate,
-                'business_hours_buffer': self.scheduling.business_hours_buffer
+                'health_check_interval': self.scheduling.health_check_interval,
+                'cleanup_time_hour': self.scheduling.cleanup_time_hour,
+                'cleanup_time_minute': self.scheduling.cleanup_time_minute
             },
             'logging': {
                 'level': self.logging.level,

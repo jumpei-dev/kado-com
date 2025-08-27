@@ -24,6 +24,10 @@ def to_jst(dt: datetime) -> datetime:
         dt = dt.replace(tzinfo=pytz.UTC)
     return dt.astimezone(JST)
 
+def get_current_jst_datetime() -> datetime:
+    """現在のJST時刻を取得する（下位互換性用）"""
+    return now_jst_naive()
+
 def is_business_hours(
     current_time: datetime,
     start_time: time,
@@ -225,3 +229,8 @@ def get_rounded_datetime(dt: datetime, round_minutes: int = 30) -> datetime:
     """Round datetime to nearest specified minutes."""
     minutes = (dt.minute // round_minutes) * round_minutes
     return dt.replace(minute=minutes, second=0, microsecond=0)
+
+# 下位互換性のためのエイリアス
+def get_current_jst_datetime() -> datetime:
+    """現在のJST時刻を取得する（下位互換性用）"""
+    return now_jst_naive()
