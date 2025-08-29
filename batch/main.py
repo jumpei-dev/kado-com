@@ -76,18 +76,22 @@ except ImportError as e:
         # シンプルなDatabaseManager代替クラス
         class SimpleDatabaseManager:
             def get_businesses(self):
-                return {
-                    0: {
-                        'Business ID': 'test1', 'name': 'テスト店舗1', 'media': 'cityhaven', 
-                        'URL': 'https://www.cityheaven.net/kanagawa/A1401/A140103/k-hitodumajo/attend/',
-                        'cast_type': 'a', 'working_type': 'a', 'shift_type': 'a'
-                    },
-                    1: {
-                        'Business ID': 'test2', 'name': 'テスト店舗2', 'media': 'cityhaven',
-                        'URL': 'https://www.cityheaven.net/kanagawa/A1401/A140103/k-hitodumajo/attend/',
-                        'cast_type': 'a', 'working_type': 'a', 'shift_type': 'a'
-                    }
+                businesses = {
+                    'business_id': 'test1', 
+                    'name': 'サンプル店舗',
+                    'media': 'cityhaven', 
+                    'URL': 'https://www.cityheaven.net/kanagawa/A1401/A140103/k-hitodumajo/attend/',
+                    'cast_type': 'a', 
+                    'working_type': 'a', 
+                    'shift_type': 'a'
                 }
+                print(f"デバッグ: get_businesses() returns: {businesses}")
+                return businesses
+            
+            def insert_status(self, cast_id, is_working, is_on_shift, collected_at):
+                """テスト用の挿入メソッド"""
+                print(f"  📝 テストデータ保存: {cast_id} (Working: {is_working}, OnShift: {is_on_shift})")
+                return True
         
         DatabaseManager = SimpleDatabaseManager
         print("✓ SimpleDatabaseManagerを使用します")
@@ -102,6 +106,7 @@ def setup_argument_parser():
   %(prog)s status-collection                            # 稼働状況取得スケジューラー開始
   %(prog)s working-rate                                # 稼働率計算スケジューラー開始
   %(prog)s collect --force                             # 稼働状況取得を手動実行
+  %(prog)s collect --local-html                        # ローカルHTMLファイルで開発テスト
   %(prog)s calculate --date 2024-01-15                 # 特定日の稼働率を計算
   %(prog)s test-db                                     # データベース接続テスト
         """
@@ -120,6 +125,7 @@ def setup_argument_parser():
     collect_parser = subparsers.add_parser('collect', help='稼働状況取得を手動実行')
     collect_parser.add_argument('--force', action='store_true', help='営業時間外でも強制実行')
     collect_parser.add_argument('--business-id', type=str, help='特定店舗のみ処理')
+    collect_parser.add_argument('--local-html', action='store_true', help='ローカルHTMLファイルを使用（開発用）')
     
     # 手動実行: 稼働率計算
     calc_parser = subparsers.add_parser('calculate', help='稼働率を手動計算')
@@ -134,39 +140,54 @@ def setup_argument_parser():
 async def run_collect_command(args):
     """稼働状況取得コマンドを実行"""
     try:
-        print("稼働状況取得を手動実行中...")
+        mode_text = "ローカルHTML" if args.local_html else "ライブスクレイピング"
+        print(f"稼働状況取得を手動実行中... ({mode_text}モード)")
         
         if collect_all_working_status is None:
             print("✗ collect_all_working_statusが利用できません")
             return 1
         
+        print("✓ データベースマネージャーを初期化中...")
         # データベースから店舗データを取得
         db_manager = DatabaseManager()
         
+        print("✓ 店舗データを取得中...")
         if args.business_id:
             print(f"特定店舗のみ処理: {args.business_id}")
             # 特定店舗のみの場合 - 実際の店舗データを取得
             all_businesses = db_manager.get_businesses()
+            print(f"  📋 取得した全店舗数: {len(all_businesses)}")
             businesses_data = {k: v for k, v in all_businesses.items() if v['Business ID'] == args.business_id}
+            print(f"  🎯 フィルタ後の店舗数: {len(businesses_data)}")
         else:
             # 全店舗取得
+            print("  📋 全店舗データを取得中...")
             businesses_data = db_manager.get_businesses()
+            print(f"  ✓ 取得した店舗数: {len(businesses_data)}")
         
         if not businesses_data:
             print("対象店舗が見つかりません")
             return 1
         
-        print(f"処理対象: {len(businesses_data)}店舗")
+        print(f"✓ 処理対象: {len(businesses_data)}店舗")
         
+        # 店舗情報を詳細表示
+        for i, (key, business) in enumerate(businesses_data.items()):
+            name = business.get('Name', business.get('name', 'Unknown'))
+            print(f"  店舗{i+1}: {name} (ID: {business.get('Business ID')})")
+        
+        print("✓ 店舗データを辞書形式に変換中...")
         # 辞書形式に変換
-        businesses = {i: business for i, business in enumerate(businesses_data)}
+        businesses = {i: business for i, business in enumerate(businesses_data.values())}
         
-        # 収集実行
-        results = await collect_all_working_status(businesses)
+        print("✓ 稼働状況収集を実行中...")
+        # 収集実行（local_htmlオプション追加）
+        results = await collect_all_working_status(businesses, use_local_html=args.local_html)
         
-        print(f"結果: {len(results)}件のデータを収集しました")
+        print(f"✓ 結果: {len(results)}件のデータを収集しました")
         
         if results:
+            print("✓ データベースに保存中...")
             # データベースに保存（実際のメソッドに合わせて調整が必要）
             saved_count = 0
             for result in results:
@@ -187,7 +208,9 @@ async def run_collect_command(args):
         return 0
         
     except Exception as e:
-        print(f"収集エラー: {e}")
+        print(f"✗ 収集エラー: {e}")
+        import traceback
+        print(f"詳細エラー: {traceback.format_exc()}")
         return 1
 
 async def main():

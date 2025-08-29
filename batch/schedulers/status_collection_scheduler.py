@@ -12,7 +12,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from batch.core.database import DatabaseManager
-from batch.jobs.status_collection import run_status_collection
+from batch.jobs.status_collection.collector import collect_all_working_status
 from batch.utils.logging_utils import get_logger
 from batch.utils.config import Config
 from batch.utils.datetime_utils import get_current_jst_datetime

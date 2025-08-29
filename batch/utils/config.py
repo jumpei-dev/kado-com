@@ -263,3 +263,6 @@ def load_config_for_environment(environment: str = None) -> BatchConfig:
     else:
         # フォールバック: 環境変数から設定
         return BatchConfig.from_env()
+
+# レガシー互換性のためのエイリアス
+Config = BatchConfig
