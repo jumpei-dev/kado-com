@@ -136,11 +136,11 @@ class CityHavenScraper(BaseScraper):
         
         return is_working, is_on_shift
 
-class DeliherTownScraper(BaseScraper):
-    """DeliherTownサイトのスクレイパー"""
+class DtoScraper(BaseScraper):
+    """DTO（デリヘルタウン）サイトのスクレイパー"""
     
     async def scrape_cast_status(self, cast: Cast) -> ScrapingResult:
-        """DeliherTownプロファイルページからキャストステータスをスクレイピングする"""
+        """DTOプロファイルページからキャストステータスをスクレイピングする"""
         recorded_at = datetime.now()
         
         try:
@@ -158,7 +158,7 @@ class DeliherTownScraper(BaseScraper):
                 html_content = await response.text()
                 soup = BeautifulSoup(html_content, 'html.parser')
                 
-                # DeliherTown固有の解析ロジック
+                # DTO固有の解析ロジック
                 is_working, is_on_shift = self._parse_working_status(soup, cast.name)
                 
                 return ScrapingResult(
@@ -191,8 +191,8 @@ class DeliherTownScraper(BaseScraper):
             )
     
     def _parse_working_status(self, soup: BeautifulSoup, cast_name: str) -> tuple[bool, bool]:
-        """DeliherTownページ構造から稼働ステータスを解析する"""
-        # DeliherTown固有の解析ロジック
+        """DTOページ構造から稼働ステータスを解析する"""
+        # DTO固有の解析ロジック
         # 実際のサイト構造に基づいてカスタマイズが必要
         
         is_working = False
@@ -214,7 +214,7 @@ class ScraperFactory:
     
     SCRAPERS = {
         'cityhaven': CityHavenScraper,
-        'deliher_town': DeliherTownScraper,
+        'dto': DtoScraper,  # DTO（デリヘルタウン）
     }
     
     @classmethod

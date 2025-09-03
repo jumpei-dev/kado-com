@@ -6,7 +6,7 @@ This batch processing system automatically collects and analyzes cast working st
 
 - **Status Collection**: Automatically scrape cast working status every 30 minutes during business hours
 - **History Calculation**: Calculate daily working rates every 6 hours for historical analysis
-- **Multi-site Support**: Supports CityHeaven and DeliherTown scraping
+- **Multi-site Support**: Supports CityHeaven and DTO (デリヘルタウン) scraping
 - **Robust Scheduling**: APScheduler-based job scheduling with proper error handling
 - **Comprehensive Logging**: Structured logging with rotation and different log levels
 - **Database Integration**: Direct PostgreSQL connection to Supabase
