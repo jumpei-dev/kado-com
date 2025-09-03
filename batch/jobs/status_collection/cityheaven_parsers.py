@@ -115,6 +115,9 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
             # 3. is_workingの判定（指示書準拠）
             is_working = self._determine_working_type_aaa(wrapper_element, current_time, is_on_shift)
             
+            # 🔍 詳細デバッグ出力（キャスト稼働判定の全詳細）
+            self._output_detailed_debug(cast_id, wrapper_element, current_time, is_on_shift, is_working)
+            
             logger.debug(f"📊 キャスト{cast_id}: on_shift={is_on_shift}, is_working={is_working}")
             
             cast_result = {
@@ -280,11 +283,14 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
                 if start_minutes <= end_minutes:
                     # 通常の時間範囲（例: 12:00-18:00）
                     in_range = start_minutes <= current_minutes <= end_minutes
+                    range_type = "通常範囲"
                 else:
                     # 日跨ぎ（例: 22:00-6:00）
                     in_range = current_minutes >= start_minutes or current_minutes <= end_minutes
+                    range_type = "日跨ぎ範囲"
                 
                 logger.debug(f"⏰ 時間範囲判定: {start_hour:02d}:{start_min:02d}-{end_hour:02d}:{end_min:02d}, 現在:{current_time.hour:02d}:{current_time.minute:02d}, 結果:{in_range}")
+                print(f"      💡 詳細計算: {range_type} {start_hour:02d}:{start_min:02d}-{end_hour:02d}:{end_min:02d}, 現在:{current_time.hour:02d}:{current_time.minute:02d} → {in_range}")
                 return in_range
             else:
                 logger.debug(f"❌ 時間範囲パターンなし: '{time_text}'")
@@ -323,9 +329,11 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
                 # 現在時刻以降かチェック（0分以上後、つまり現在時刻と同じかそれより後）
                 if time_diff >= 0:
                     logger.debug(f"✅ 現在時刻以降判定成功: 対象時刻:{hour:02d}:{minute:02d}, 現在:{current_time.hour:02d}:{current_time.minute:02d}, 差分:{time_diff:.1f}分")
+                    print(f"      💡 詳細計算: {hour:02d}:{minute:02d} - {current_time.hour:02d}:{current_time.minute:02d} = {time_diff:.1f}分後")
                     return True
                 else:
                     logger.debug(f"❌ 現在時刻より前: 対象時刻:{hour:02d}:{minute:02d}, 差分:{time_diff:.1f}分")
+                    print(f"      💡 詳細計算: {hour:02d}:{minute:02d} - {current_time.hour:02d}:{current_time.minute:02d} = {time_diff:.1f}分前（過去）")
             
             return False
                 
@@ -379,6 +387,88 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
         logger.info(f"   sugunavibox title: {raw_data['sugunavibox_titles']}")
         logger.info(f"   sugunavibox 全体: {raw_data['sugunavibox_full_content'][:200]}..." if len(raw_data['sugunavibox_full_content']) > 200 else f"   sugunavibox 全体: {raw_data['sugunavibox_full_content']}")
 
+    def _output_detailed_debug(self, cast_id: str, wrapper_element, current_time: datetime, 
+                              is_on_shift: bool, is_working: bool):
+        """
+        デバッグ用詳細出力
+        
+        出力内容:
+        - キャストID
+        - HTML取得時間
+        - 出勤時間（shukkin_detail_time）
+        - 待機状態表記（sugunavibox title）
+        - 現在のソースコードによる稼働判定
+        - DOM要素の生コンテンツ
+        """
+        
+        print(f"\n{'='*80}")
+        print(f"🔍 デバッグ詳細出力 - キャスト ID: {cast_id}")
+        print(f"{'='*80}")
+        
+        # 1. HTML取得時間
+        print(f"📅 HTML取得時間: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # 2. 出勤時間の詳細
+        print(f"\n⏰ 出勤時間情報:")
+        time_elements = wrapper_element.find_all(class_=lambda x: x and 'shukkin_detail_time' in str(x))
+        if time_elements:
+            for i, time_element in enumerate(time_elements, 1):
+                time_text = time_element.get_text(strip=True)
+                print(f"   出勤時間{i}: '{time_text}'")
+                print(f"   DOM内容: {time_element}")
+        else:
+            print("   ❌ 出勤時間要素が見つかりません")
+        
+        # 3. 待機状態表記の詳細
+        print(f"\n💼 待機状態表記:")
+        suguna_box = wrapper_element.find(class_='sugunavibox')
+        if suguna_box:
+            title_elements = suguna_box.find_all(class_='title')
+            if title_elements:
+                for i, title_element in enumerate(title_elements, 1):
+                    title_text = title_element.get_text(strip=True)
+                    print(f"   待機状態{i}: '{title_text}'")
+                    print(f"   DOM内容: {title_element}")
+            else:
+                print("   ❌ title要素が見つかりません")
+            
+            # sugunaviboxの全体コンテンツも表示
+            print(f"\n📦 sugunavibox全体:")
+            full_content = suguna_box.get_text(strip=True)
+            print(f"   '{full_content}'")
+        else:
+            print("   ❌ sugunavibox要素が見つかりません")
+        
+        # 4. 稼働判定結果
+        print(f"\n🎯 ソースコード判定結果:")
+        print(f"   is_on_shift (出勤中): {is_on_shift}")
+        print(f"   is_working (稼働中): {is_working}")
+        
+        # 5. 判定ロジックの詳細
+        print(f"\n🧮 判定ロジック詳細:")
+        
+        # on_shift判定の詳細
+        print(f"   【出勤判定 (on_shift)】")
+        if time_elements:
+            for time_element in time_elements:
+                time_text = time_element.get_text(strip=True)
+                is_休み = self._is_休み_or_調整中(time_text)
+                is_in_range = self._is_current_time_in_range_type_aaa(time_text, current_time)
+                print(f"     '{time_text}' → 休み/調整中: {is_休み}, 時間範囲内: {is_in_range}")
+        
+        # is_working判定の詳細
+        print(f"   【稼働判定 (is_working)】")
+        if suguna_box:
+            title_elements = suguna_box.find_all(class_='title')
+            for title_element in title_elements:
+                title_text = title_element.get_text(strip=True)
+                is_current_or_later = self._is_time_current_or_later_type_aaa(title_text, current_time)
+                print(f"     '{title_text}' → 現在時刻以降: {is_current_or_later}")
+        
+        print(f"   最終結果: on_shift={is_on_shift} AND 現在時刻以降=? → is_working={is_working}")
+        
+        print(f"{'='*80}\n")
+
 
 class CityheavenTypeAABParser(CityheavenParserBase):
     """type=a,a,b パターン用パーサー（将来実装）"""
@@ -424,146 +514,6 @@ class CityheavenParserFactory:
     """Cityheavenパーサーファクトリー（新実装）"""
     
     @staticmethod
-    def get_parser(business_id: str) -> 'CityheavenNewParser':
-        """business_idに基づいてパーサーを返す（現在は汎用パーサーのみ）"""
-        return CityheavenNewParser()
-
-
-class CityheavenNewParser:
-    """新しいCityheavenパーサー（CastStatus直接生成）"""
-    
-    def parse_cast_list(self, html_content: str, html_acquisition_time: datetime) -> list[CastStatus]:
-        """
-        Cityheavenのキャスト一覧を解析（HTML取得時刻ベース）
-        
-        Args:
-            html_content: HTML文字列
-            html_acquisition_time: HTMLが取得された時刻（時間判定に使用）
-        
-        Returns:
-            CastStatusのリスト
-        """
-        try:
-            soup = BeautifulSoup(html_content, 'html.parser')
-            cast_list = []
-            
-            # sugunavi_wrapperセクションを探す（classで検索）
-            sugunavi_sections = soup.find_all('div', {'class': 'sugunavi_wrapper'})
-            if not sugunavi_sections:
-                logger.warning("sugunavi_wrapperセクションが見つかりません")
-                return []
-            
-            logger.info(f"📋 {len(sugunavi_sections)} 個のsugunavi_wrapperセクション発見")
-            
-            # 各セクション内のキャスト要素を検索
-            cast_elements = []
-            for section in sugunavi_sections:
-                # girl_boxクラスを持つ要素を探す
-                girls = section.find_all('div', {'class': 'girl_box'})
-                cast_elements.extend(girls)
-                
-                # sugunaviboxクラスを持つ要素も対象とする
-                if not girls:
-                    sugunaviboxes = section.find_all('div', {'class': 'sugunavibox'})
-                    cast_elements.extend(sugunaviboxes)
-            
-            if not cast_elements:
-                logger.warning("キャスト要素（girl_box）が見つかりません")
-                return []
-            
-            logger.info(f"👥 {len(cast_elements)} 人のキャスト要素を発見")
-            
-            for i, cast_element in enumerate(cast_elements):
-                try:
-                    cast_status = self._parse_single_cast(cast_element, html_acquisition_time)
-                    if cast_status:
-                        cast_list.append(cast_status)
-                except Exception as e:
-                    logger.error(f"キャスト{i+1}の解析エラー: {e}")
-                    continue
-            
-            logger.info(f"✅ キャスト解析完了: {len(cast_list)}/{len(cast_elements)} 人")
-            return cast_list
-            
-        except Exception as e:
-            logger.error(f"HTML解析エラー: {e}")
-            return []
-    
-    def _parse_single_cast(self, cast_element, html_acquisition_time: datetime) -> Optional[CastStatus]:
-        """単一のキャスト要素を解析"""
-        try:
-            # 名前を取得
-            name_element = cast_element.find('div', {'class': 'girl_name'})
-            if not name_element:
-                logger.debug("名前要素が見つかりません")
-                return None
-            
-            cast_name = name_element.get_text(strip=True)
-            if not cast_name:
-                logger.debug("名前が空です")
-                return None
-            
-            # 働き状況を判定
-            is_working = self._determine_working_status(cast_element, html_acquisition_time)
-            
-            # CastStatusオブジェクトを作成
-            cast_status = CastStatus(
-                name=cast_name,
-                is_working=is_working,
-                business_id="hitozuma_shiro",  # デフォルト値
-                cast_id="",  # 空文字列をデフォルト
-                on_shift=True,  # working判定で既にチェック済み
-                shift_times="",  # 詳細時間情報は別途取得可能
-                working_times=""  # 詳細時間情報は別途取得可能
-            )
-            
-            logger.debug(f"✓ キャスト解析成功: {cast_name} (is_working={is_working})")
-            return cast_status
-            
-        except Exception as e:
-            logger.error(f"単一キャスト解析エラー: {e}")
-            return None
-    
-    def _determine_working_status(self, cast_element, html_acquisition_time: datetime) -> bool:
-        """キャストの働き状況を判定（HTML取得時刻ベース）"""
-        try:
-            # sugunavibox内のtitle要素から時間情報を取得
-            suguna_box = cast_element.find('div', {'class': 'sugunavibox'})
-            if not suguna_box:
-                logger.debug("sugunaviboxが見つかりません")
-                return False
-            
-            title_elements = suguna_box.find_all('div', {'class': 'title'})
-            if not title_elements:
-                logger.debug("title要素が見つかりません")
-                return False
-            
-            # 時間パターンを検索
-            for title_element in title_elements:
-                title_text = title_element.get_text(strip=True)
-                
-                # 「21:11～待機中」のようなパターンをチェック
-                time_match = re.search(r'(\d{1,2}):(\d{2})～待機中', title_text)
-                if time_match:
-                    start_hour = int(time_match.group(1))
-                    start_minute = int(time_match.group(2))
-                    
-                    # HTML取得時刻と比較
-                    html_time = html_acquisition_time.time()
-                    start_time = html_time.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
-                    
-                    # 時間が経過しているかチェック
-                    if html_time >= start_time:
-                        logger.debug(f"時間経過済み: {title_text}, HTML時刻={html_time}, 開始時刻={start_time}")
-                        return False
-                    else:
-                        logger.debug(f"待機中: {title_text}, HTML時刻={html_time}, 開始時刻={start_time}")
-                        return True
-            
-            # 明示的な時間パターンが見つからない場合はfalse
-            logger.debug("明示的な時間パターンが見つかりませんでした")
-            return False
-            
-        except Exception as e:
-            logger.error(f"働き状況判定エラー: {e}")
-            return False
+    def get_parser(business_id: str) -> 'CityheavenTypeAAAParser':
+        """business_idに基づいてパーサーを返す（現在はtype=a,a,aパーサーを使用）"""
+        return CityheavenTypeAAAParser()
