@@ -48,13 +48,36 @@ class ScrapingStrategyFactory:
 async def collect_status_for_business(session: aiohttp.ClientSession, business: Dict[str, Any], use_local_html: bool = False) -> List[Dict[str, Any]]:
     """単一の店舗のステータス収集を実行"""
     try:
-        media_type = business.get("media")
-        if not media_type:
-            logger.warning(f"メディアタイプが指定されていません: {business}")
+        media_type = business.get("media", "cityhaven")  # デフォルトはcityhaven
+        business_name = business.get("name", "")
+        business_id = business.get("Business ID", "")
+        base_url = business.get("schedule_url", "")
+        
+        if not business_name:
+            logger.warning(f"店舗名が指定されていません: {business}")
             return []
         
         strategy = ScrapingStrategyFactory.create_strategy(media_type, use_local_html)
-        cast_list = await strategy.scrape_working_status(session, business)
+        cast_statuses = await strategy.scrape_working_status(
+            business_name=business_name,
+            business_id=str(business_id), 
+            base_url=base_url,
+            use_local=use_local_html
+        )
+        
+        # CastStatusオブジェクトを辞書形式に変換
+        cast_list = []
+        for cast_status in cast_statuses:
+            cast_dict = {
+                "name": cast_status.name,
+                "is_working": cast_status.is_working,
+                "business_id": cast_status.business_id,
+                "cast_id": cast_status.cast_id,
+                "on_shift": cast_status.on_shift,
+                "shift_times": cast_status.shift_times,
+                "working_times": cast_status.working_times
+            }
+            cast_list.append(cast_dict)
         
         return cast_list
         

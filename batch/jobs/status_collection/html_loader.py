@@ -6,6 +6,7 @@ HTMLコンテンツローダー（ローカル・リモート対応）
 
 import asyncio
 import concurrent.futures
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -32,24 +33,26 @@ class HTMLLoader:
         business_name: str, 
         business_id: str, 
         url: Optional[str] = None
-    ) -> str:
+    ) -> tuple[str, datetime]:
         """HTMLコンテンツを読み込む（ローカル・リモート対応）"""
         if self.use_local_html:
-            return await self._load_local_html(business_name, business_id)
+            return await self._load_local_html_with_timestamp(business_name, business_id)
         else:
             if not url:
                 raise ValueError("リモート取得にはURLが必要です")
-            return await self._load_remote_html(url)
+            content = await self._load_remote_html(url)
+            # リモート取得の場合は現在時刻を返す
+            return content, datetime.now()
     
-    async def _load_local_html(self, business_name: str, business_id: str) -> str:
-        """ローカルHTMLファイルからコンテンツを読み込む（開発用）"""
+    async def _load_local_html_with_timestamp(self, business_name: str, business_id: str) -> tuple[str, datetime]:
+        """ローカルHTMLファイルからコンテンツと取得時刻を読み込む（開発用）"""
         try:
             # data/raw_html/cityhaven/ ディレクトリを探索
             base_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw_html" / "cityhaven"
             
             if not base_dir.exists():
                 logger.warning(f"ローカルHTMLディレクトリが存在しません: {base_dir}")
-                return ""
+                return "", datetime.now()
             
             # 店舗名またはbusiness_idでHTMLファイルを検索
             search_patterns = [
@@ -76,19 +79,23 @@ class HTMLLoader:
                     logger.info(f"パターンマッチなし、最新ファイル使用: {html_file.name}")
                 else:
                     logger.warning(f"ローカルHTMLファイルが見つかりません: {base_dir}")
-                    return ""
+                    return "", datetime.now()
             
             # HTMLファイルを読み込み
             logger.info(f"📁 HTMLファイル読み込み中: {html_file.name}")
             with open(html_file, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            logger.info(f"✓ HTMLファイル読み込み完了: {len(content)} 文字")
-            return content
+            # ファイルの変更時刻を取得（HTMLが実際に取得された時刻）
+            file_mtime = html_file.stat().st_mtime
+            file_datetime = datetime.fromtimestamp(file_mtime)
+            
+            logger.info(f"✓ HTMLファイル読み込み完了: {len(content)} 文字, 取得時刻: {file_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+            return content, file_datetime
             
         except Exception as e:
             logger.error(f"ローカルHTML読み込みエラー: {e}")
-            return ""
+            return "", datetime.now()
     
     async def _load_remote_html(self, url: str) -> str:
         """Seleniumを使ってリモートHTMLを取得"""

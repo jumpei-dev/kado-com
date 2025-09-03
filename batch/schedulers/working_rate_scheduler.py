@@ -130,31 +130,6 @@ async def run_working_rate_scheduler():
 
 if __name__ == "__main__":
     asyncio.run(run_working_rate_scheduler())
-            log_dir=self.config.logging.log_dir,
-            max_bytes=self.config.logging.max_file_size,
-            backup_count=self.config.logging.backup_count
-        )
-        
-        # 毎日12時の日次ジョブを追加
-        self.scheduler.add_job(
-            func=self._calculate_working_rates,
-            trigger=CronTrigger(
-                hour=self.config.scheduling.history_calculation_hour,
-                minute=self.config.scheduling.history_calculation_minute
-            ),
-            id='working_rate_calculation',
-            name='稼働率計算',
-            max_instances=1
-        )
-        
-        self.scheduler.start()
-        self.is_running = True
-        
-        logger.info("稼働率計算スケジューラーが開始されました")
-        logger.info(f"稼働率計算: 毎日{self.config.scheduling.history_calculation_hour}:{self.config.scheduling.history_calculation_minute:02d}に実行されます")
-        
-        # 現在のジョブ情報を出力
-        self._log_scheduled_jobs()
     
     def stop(self):
         """スケジューラー停止"""

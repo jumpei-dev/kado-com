@@ -145,3 +145,19 @@ class BatchJobResult:
             self.success = success
         else:
             self.success = self.error_count == 0
+
+
+@dataclass
+class CastStatus:
+    """キャスト状況データモデル（スクレイピング結果用）"""
+    name: str
+    is_working: bool
+    business_id: str
+    cast_id: str = ""
+    on_shift: bool = True
+    shift_times: str = ""
+    working_times: str = ""
+    
+    def __str__(self):
+        working_status = "working" if self.is_working else "not working"
+        return f"CastStatus({self.name}, {working_status})"
