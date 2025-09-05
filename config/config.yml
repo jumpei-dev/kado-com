@@ -1,0 +1,52 @@
+# 稼働.com バッチ処理システム 統合設定ファイル
+# 全環境で使用する単一設定ファイル
+
+# 📊 データベース設定
+database:
+  # Supabase PostgreSQL接続情報（現在使用中）
+  host: "aws-1-ap-northeast-1.pooler.supabase.com"
+  port: 6543
+  database: "postgres"
+  user: "postgres.hnmbsqydlfemlmsyexrq"
+  password: "Ggzzmmb3"
+  sslmode: "require"
+  
+  # 接続プール設定
+  pool_size: 5
+  max_overflow: 10
+  pool_timeout: 30
+  
+# 📝 ログ設定
+logging:
+  level: "DEBUG"
+  log_dir: "./logs"
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+
+# ⏰ スケジュール設定
+scheduling:
+  # 🕐 基本スケジュール設定
+  status_collection_interval: 30  # 稼働状況取得間隔（分）
+  history_calculation_hour: 12     # 稼働率計算実行時刻（12時）
+  history_calculation_minute: 0    # 稼働率計算実行分
+  
+  # 📊 並行処理設定
+  max_concurrent_businesses: 3     # 稼働状況取得の店舗並行処理数
+  max_concurrent_working_rate: 5   # 稼働率計算の並行処理数
+  
+  # 🔧 運用設定
+  health_check_interval: 15        # ヘルスチェック間隔（分）
+  cleanup_time_hour: 2             # クリーンアップ実行時刻（午前2時）
+  cleanup_time_minute: 0
+  misfire_grace_time:
+    status_collection: 300         # 5分
+    status_history: 600            # 10分
+  max_log_retention_days: 30       # ログ保持日数
+  business_hours_buffer: 0         # 営業時間バッファ（分）
+
+# 🌐 スクレイピング設定
+scraping:
+  timeout: 30
+  retry_attempts: 3
+  delay_between_requests: 1
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"

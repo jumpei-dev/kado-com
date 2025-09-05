@@ -247,6 +247,10 @@ def setup_argument_parser():
   %(prog)s status-collection --once --force             # 一回だけ強制実行（営業時間外も含む）
   %(prog)s status-collection --once --ignore-hours      # 一回だけ実行（営業時間制限無視）
   %(prog)s working-rate                                # 稼働率計算スケジューラー開始
+  %(prog)s working-rate --once                         # 一回だけ実行（昨日の全店舗稼働率計算）
+  %(prog)s working-rate --once --date 2025-09-05       # 一回だけ実行（特定日付の稼働率計算）
+  %(prog)s working-rate --once --business-id 1         # 一回だけ実行（特定店舗のみ）
+  %(prog)s working-rate --once --business-id 1 --date 2025-09-05  # 特定店舗・特定日付
   %(prog)s collect --force                             # 稼働状況取得を手動実行
   %(prog)s collect --local-html                        # ローカルHTMLファイルで開発テスト
   %(prog)s calculate --date 2024-01-15                 # 特定日の稼働率を計算
@@ -268,6 +272,9 @@ def setup_argument_parser():
     
     # 稼働率計算スケジューラー
     rate_parser = subparsers.add_parser('working-rate', help='稼働率計算スケジューラー（毎日12時）')
+    rate_parser.add_argument('--once', action='store_true', help='スケジューラーを一回だけ実行（in_scope=trueの全店舗）')
+    rate_parser.add_argument('--date', type=str, help='特定日付の稼働率を計算（YYYY-MM-DD形式）')
+    rate_parser.add_argument('--business-id', type=int, help='特定店舗のみ稼働率を計算')
     
     # 手動実行: 稼働状況取得
     collect_parser = subparsers.add_parser('collect', help='稼働状況取得を手動実行')
@@ -777,10 +784,18 @@ async def main():
                     print(f"詳細: {traceback.format_exc()}")
                     return 1
             else:
-                # 通常のスケジューラーモード（30分ごと）
-                print("稼働状況取得スケジューラーを開始中...")
-                print("30分ごとに営業中店舗の稼働状況を取得します")
-                print("停止するにはCtrl+Cを押してください")
+                # 通常のスケジューラーモード（設定ファイル対応）
+                try:
+                    from utils.config import get_scheduling_config
+                    config = get_scheduling_config()
+                    
+                    print("稼働状況取得スケジューラーを開始中...")
+                    print(f"⏰ 実行間隔: {config['status_cron']}")
+                    print("停止するにはCtrl+Cを押してください")
+                except ImportError:
+                    print("稼働状況取得スケジューラーを開始中...")
+                    print("30分ごとに営業中店舗の稼働状況を取得します")
+                    print("停止するにはCtrl+Cを押してください")
                 
                 if run_status_collection_scheduler is None:
                     print("❌ run_status_collection_schedulerが利用できません")
@@ -790,11 +805,133 @@ async def main():
                 return 0
             
         elif args.command == 'working-rate':
-            print("稼働率計算スケジューラーを開始中...")
-            print("毎日12時に前日の稼働率を計算します")
-            print("停止するにはCtrl+Cを押してください")
-            await run_working_rate_scheduler()
-            return 0
+            if hasattr(args, 'once') and args.once:
+                # 一回だけ強制実行モード
+                print("📊 稼働率計算スケジューラーを一回だけ強制実行中...")
+                
+                try:
+                    db_manager = DatabaseManager()
+                    
+                    # 対象店舗の決定
+                    if hasattr(args, 'business_id') and args.business_id:
+                        # 特定店舗のみ
+                        print(f"🎯 対象: business_id = {args.business_id}")
+                        all_businesses = db_manager.get_businesses()
+                        target_businesses = {
+                            k: v for k, v in all_businesses.items() 
+                            if v.get('Business ID') == args.business_id
+                        }
+                        if not target_businesses:
+                            print(f"❌ business_id = {args.business_id} の店舗が見つかりません")
+                            return 1
+                    else:
+                        # in_scope=trueの全店舗
+                        print("🎯 対象: business.in_scope = true の全店舗")
+                        all_businesses = db_manager.get_businesses()
+                        target_businesses = {
+                            k: v for k, v in all_businesses.items() 
+                            if v.get('in_scope', False) == True
+                        }
+                    
+                    if not target_businesses:
+                        print("⚠️ 対象店舗が見つかりませんでした")
+                        return 0
+                    
+                    print(f"✓ 処理対象: {len(target_businesses)}店舗")
+                    for i, (key, business) in enumerate(target_businesses.items()):
+                        name = business.get('Name', business.get('name', 'Unknown'))
+                        business_id = business.get('Business ID')
+                        print(f"  店舗{i+1}: {name} (ID: {business_id})")
+                    
+                    # 対象日付の決定
+                    if hasattr(args, 'date') and args.date:
+                        # 特定日付
+                        from datetime import datetime
+                        try:
+                            target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
+                            print(f"📅 対象日付: {target_date}")
+                        except ValueError:
+                            print("❌ 日付形式が正しくありません（YYYY-MM-DD形式で指定してください）")
+                            return 1
+                    else:
+                        # 昨日の日付（デフォルト）
+                        from datetime import datetime, timedelta
+                        import pytz
+                        jst = pytz.timezone('Asia/Tokyo')
+                        yesterday = (datetime.now(jst) - timedelta(days=1)).date()
+                        target_date = yesterday
+                        print(f"📅 対象日付: {target_date}（昨日）")
+                    
+                    print("🚀 稼働率計算を実行中...")
+                    
+                    # 稼働率計算の実行
+                    if run_working_rate_calculation is None:
+                        print("❌ run_working_rate_calculationが利用できません")
+                        return 1
+                    
+                    # 各店舗について稼働率計算を実行
+                    success_count = 0
+                    error_count = 0
+                    
+                    # 注意：run_working_rate_calculationは全店舗を一括処理するため、
+                    # 特定店舗のみの場合も全体を実行して該当店舗の結果のみ表示
+                    try:
+                        print(f"  📊 稼働率計算を実行中...")
+                        
+                        # 稼働率計算実行（全店舗一括処理）
+                        result = await run_working_rate_calculation(
+                            target_date=target_date,
+                            force=True  # 既存データを上書き
+                        )
+                        
+                        if result and hasattr(result, 'success') and result.success:
+                            processed_count = getattr(result, 'processed_count', 0)
+                            error_count_result = getattr(result, 'error_count', 0)
+                            print(f"    ✅ 成功: {processed_count}店舗処理完了, エラー{error_count_result}店舗")
+                            success_count = processed_count
+                            error_count = error_count_result
+                        else:
+                            print(f"    ⚠️ 計算結果なし")
+                            error_count = len(target_businesses)
+                            
+                    except Exception as calc_error:
+                        print(f"    ❌ エラー: {calc_error}")
+                        error_count = len(target_businesses)
+                    
+                    print(f"✅ 稼働率計算完了: 成功 {success_count}店舗, エラー {error_count}店舗")
+                    
+                    if error_count > 0:
+                        print(f"⚠️ {error_count}店舗でエラーが発生しました")
+                        return 1
+                    
+                    print("🎉 稼働率計算スケジューラーの一回実行が完了しました")
+                    return 0
+                    
+                except Exception as e:
+                    print(f"❌ 稼働率計算エラー: {e}")
+                    import traceback
+                    print(f"詳細: {traceback.format_exc()}")
+                    return 1
+            else:
+                # 通常のスケジューラーモード（設定ファイル対応）
+                try:
+                    from utils.config import get_scheduling_config
+                    config = get_scheduling_config()
+                    
+                    print("稼働率計算スケジューラーを開始中...")
+                    print(f"⏰ 実行スケジュール: {config['working_rate_cron']}")
+                    print("停止するにはCtrl+Cを押してください")
+                except ImportError:
+                    print("稼働率計算スケジューラーを開始中...")
+                    print("毎日12時に前日の稼働率を計算します")
+                    print("停止するにはCtrl+Cを押してください")
+                
+                if run_working_rate_scheduler is None:
+                    print("❌ run_working_rate_schedulerが利用できません")
+                    return 1
+                
+                await run_working_rate_scheduler()
+                return 0
             
         elif args.command == 'collect':
             return await run_collect_command(args)

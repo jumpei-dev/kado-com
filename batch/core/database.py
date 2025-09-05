@@ -13,7 +13,18 @@ logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     def __init__(self):
-        self.connection_string = "postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
+        try:
+            # 設定ファイルからデータベース接続情報を取得
+            from utils.config import get_database_config
+            db_config = get_database_config()
+            self.connection_string = db_config.connection_string
+        except ImportError:
+            # フォールバック: 環境変数またはデフォルト値
+            import os
+            self.connection_string = os.getenv(
+                'DATABASE_URL', 
+                'postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require'
+            )
     
     @contextmanager
     def get_connection(self):

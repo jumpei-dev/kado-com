@@ -182,20 +182,47 @@ if __name__ == "__main__":
             logger.info(f"  - {job.name} (ID: {job.id}) - 次回実行: {next_run}")
 
 async def run_working_rate_scheduler():
-    """稼働率計算スケジューラーを実行"""
-    scheduler = WorkingRateScheduler()
+    """稼働率計算スケジューラー（設定ファイル対応版）"""
+    import pytz
+    import aiocron
+    from utils.config import get_scheduling_config
+    from datetime import datetime, timedelta
+    
+    # 設定読み込み
+    config = get_scheduling_config()
+    
+    print("📊 稼働率計算スケジューラーを開始中...")
+    print(f"⏰ 実行スケジュール: {config['working_rate_cron']}")
+    print("停止するにはCtrl+Cを押してください")
+    
+    jst = pytz.timezone('Asia/Tokyo')
+    
+    @aiocron.crontab(config['working_rate_cron'], tz=jst)
+    async def daily_working_rate_calculation():
+        try:
+            yesterday = (datetime.now(jst) - timedelta(days=1)).date()
+            
+            print(f"\n🚀 稼働率計算開始 ({datetime.now(jst).strftime('%Y-%m-%d %H:%M:%S')})")
+            print(f"📅 対象日付: {yesterday}")
+            
+            from jobs.working_rate_calculation import run_working_rate_calculation
+            
+            result = await run_working_rate_calculation(target_date=yesterday, force=False)
+            
+            if result and hasattr(result, 'success') and result.success:
+                processed_count = getattr(result, 'processed_count', 0)
+                print(f"✅ 完了: {processed_count}店舗の稼働率を計算しました")
+            else:
+                print(f"⚠️ 稼働率計算でエラーが発生しました")
+            
+        except Exception as e:
+            print(f"❌ スケジューラーエラー: {e}")
     
     try:
-        scheduler.start()
-        
-        # 無限ループで実行継続
         while True:
             await asyncio.sleep(1)
-            
     except KeyboardInterrupt:
-        logger.info("稼働率計算: 割り込み信号を受信、シャットダウン中...")
-    finally:
-        scheduler.stop()
+        print("\n⏹️ スケジューラーを停止しました")
 
 if __name__ == "__main__":
     asyncio.run(run_working_rate_scheduler())

@@ -191,20 +191,70 @@ class StatusCollectionScheduler:
 
 
 async def run_status_collection_scheduler():
-    """稼働状況取得スケジューラーを実行"""
-    scheduler = StatusCollectionScheduler()
+    """稼働状況取得スケジューラー（設定ファイル対応版）"""
+    import pytz
+    import aiocron
+    from utils.config import get_scheduling_config
+    
+    # 設定読み込み
+    config = get_scheduling_config()
+    
+    print("📊 稼働状況取得スケジューラーを開始中...")
+    print(f"⏰ 実行間隔: {config['status_cron']}")
+    print("停止するにはCtrl+Cを押してください")
+    
+    jst = pytz.timezone('Asia/Tokyo')
+    
+    @aiocron.crontab(config['status_cron'], tz=jst)
+    async def scheduled_collection():
+        try:
+            print(f"\n🚀 稼働状況取得開始 ({datetime.now(jst).strftime('%Y-%m-%d %H:%M:%S')})")
+            
+            from core.database import DatabaseManager
+            from jobs.status_collection.collector import collect_all_working_status
+            
+            db_manager = DatabaseManager()
+            businesses = db_manager.get_businesses()
+            
+            target_businesses = {
+                k: v for k, v in businesses.items() 
+                if v.get('in_scope', False) == True
+            }
+            
+            if not target_businesses:
+                print("⚠️ in_scope=trueの店舗が見つかりません")
+                return
+            
+            print(f"📊 処理対象: {len(target_businesses)}店舗")
+            
+            results = await collect_all_working_status(target_businesses, use_local_html=False)
+            
+            if results:
+                saved_count = 0
+                for result in results:
+                    try:
+                        success = db_manager.insert_status(
+                            cast_id=result['cast_id'],
+                            business_id=result.get('business_id', 1),
+                            is_working=result['is_working'],
+                            is_on_shift=result['is_on_shift'],
+                            collected_at=result.get('collected_at')
+                        )
+                        if success:
+                            saved_count += 1
+                    except Exception as save_error:
+                        print(f"保存エラー: {save_error}")
+                
+                print(f"✅ 完了: {saved_count}件のデータを保存しました")
+            
+        except Exception as e:
+            print(f"❌ スケジューラーエラー: {e}")
     
     try:
-        scheduler.start()
-        
-        # 無限ループで実行継続
         while True:
             await asyncio.sleep(1)
-            
     except KeyboardInterrupt:
-        logger.info("稼働状況取得: 割り込み信号を受信、シャットダウン中...")
-    finally:
-        scheduler.stop()
+        print("\n⏹️ スケジューラーを停止しました")
 
 
 if __name__ == "__main__":

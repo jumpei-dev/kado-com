@@ -29,6 +29,28 @@ class DatabaseConfig:
             max_overflow=int(os.getenv('DB_MAX_OVERFLOW', 10)),
             pool_timeout=int(os.getenv('DB_POOL_TIMEOUT', 30))
         )
+    
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> 'DatabaseConfig':
+        """設定辞書から設定を作成する"""
+        db_config = config_dict.get('database', {})
+        
+        # YAML設定から接続文字列を構築
+        host = db_config.get('host', 'localhost')
+        port = db_config.get('port', 5432)
+        database = db_config.get('database', 'postgres')
+        user = db_config.get('user', 'postgres')
+        password = db_config.get('password', '')
+        sslmode = db_config.get('sslmode', 'disable')
+        
+        connection_string = f"postgresql://{user}:{password}@{host}:{port}/{database}?sslmode={sslmode}"
+        
+        return cls(
+            connection_string=connection_string,
+            pool_size=db_config.get('pool_size', 5),
+            max_overflow=db_config.get('max_overflow', 10),
+            pool_timeout=db_config.get('pool_timeout', 30)
+        )
 
 @dataclass
 class ScrapingConfig:
@@ -236,7 +258,7 @@ def get_config() -> BatchConfig:
     """グローバル設定インスタンスを取得"""
     global _config
     if _config is None:
-        _config = BatchConfig.from_env()
+        _config = load_config_for_environment()
     return _config
 
 def set_config(config: BatchConfig):
@@ -250,13 +272,10 @@ def load_config_from_file(config_path: str):
     _config = BatchConfig.from_file(config_path)
 
 def load_config_for_environment(environment: str = None) -> BatchConfig:
-    """環境に応じた設定ファイルを読み込む"""
-    if environment is None:
-        environment = os.getenv('BATCH_ENVIRONMENT', 'development')
-    
-    # プロジェクトルートの設定ディレクトリを検索
+    """統合設定ファイルから設定を読み込む"""
+    # プロジェクトルートの設定ディレクトリから config.yml を読み込み
     project_root = Path(__file__).parent.parent.parent
-    config_file = project_root / 'config' / f'{environment}.yaml'
+    config_file = project_root / 'config' / 'config.yml'
     
     if config_file.exists():
         return BatchConfig.from_yaml(str(config_file))
@@ -266,3 +285,34 @@ def load_config_for_environment(environment: str = None) -> BatchConfig:
 
 # レガシー互換性のためのエイリアス
 Config = BatchConfig
+
+def get_scheduling_config():
+    """既存のget_config()を活用してスケジューリング設定を取得"""
+    config = get_config()
+    config_dict = config.to_dict()
+    scheduling = config_dict.get('scheduling', {})
+    
+    return {
+        'status_cron': f"*/{scheduling.get('status_collection_interval', 30)} * * * *",
+        'working_rate_cron': f"{scheduling.get('history_calculation_minute', 0)} {scheduling.get('history_calculation_hour', 12)} * * *",
+        'timezone': 'Asia/Tokyo'
+    }
+
+def get_database_config():
+    """設定ファイルからデータベース設定を取得"""
+    try:
+        # 直接YAMLファイルを読み込み
+        project_root = Path(__file__).parent.parent.parent
+        config_file = project_root / 'config' / 'config.yml'
+        
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config_dict = yaml.safe_load(f)
+            return DatabaseConfig.from_dict(config_dict)
+        else:
+            # フォールバック: 環境変数
+            return DatabaseConfig.from_env()
+    except Exception as e:
+        print(f"設定ファイル読み込みエラー: {e}")
+        # フォールバック: 環境変数
+        return DatabaseConfig.from_env()
