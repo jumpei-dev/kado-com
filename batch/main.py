@@ -186,6 +186,7 @@ def setup_argument_parser():
   %(prog)s test-db                                     # データベース接続テスト
   %(prog)s debug-html --url "https://example.com/attend/"    # URLからHTMLを保存
   %(prog)s debug-html --local-file "filename.html"        # ローカルファイルのDOM構造確認
+  %(prog)s test-working-rate --business-id 1 --date 2025-09-05 --capacity 6 --type soapland  # inhouse店舗テスト
         """
     )
     
@@ -214,6 +215,8 @@ def setup_argument_parser():
     test_calc_parser.add_argument('--business-id', type=int, required=True, help='対象店舗ID')
     test_calc_parser.add_argument('--date', type=str, required=True, help='計算対象日付 (YYYY-MM-DD)')
     test_calc_parser.add_argument('--force', action='store_true', help='強制実行（既存データ上書き）')
+    test_calc_parser.add_argument('--capacity', type=int, help='capacity値を一時的に設定（inhouse店舗用）')
+    test_calc_parser.add_argument('--type', type=str, choices=['soapland', 'delivery_health', 'fashion_health'], help='店舗タイプを一時的に設定')
     
     # データベーステスト
     subparsers.add_parser('test-db', help='データベース接続テスト')
@@ -470,17 +473,73 @@ async def main():
                 print(f"❌ 無効な日付形式: {args.date}. YYYY-MM-DD形式で指定してください")
                 return 1
             
-            # プロジェクトルートをパスに追加
-            project_root = Path(__file__).parent.parent
-            sys.path.insert(0, str(project_root))
+            # capacity/type一時設定
+            original_config = None
+            if hasattr(args, 'capacity') and args.capacity or hasattr(args, 'type') and args.type:
+                print("⚙️ 店舗設定を一時変更中...")
+                try:
+                    db_manager = DatabaseManager()
+                    
+                    # 現在の設定を保存
+                    current = db_manager.fetch_one(
+                        "SELECT type, capacity FROM business WHERE business_id = %s",
+                        (args.business_id,)
+                    )
+                    
+                    if current:
+                        original_config = {
+                            'type': current.get('type'),
+                            'capacity': current.get('capacity')
+                        }
+                        
+                        # 一時的に変更
+                        updates = []
+                        params = []
+                        
+                        if hasattr(args, 'capacity') and args.capacity:
+                            updates.append("capacity = %s")
+                            params.append(args.capacity)
+                            print(f"   capacity: {original_config['capacity']} → {args.capacity}")
+                            
+                        if hasattr(args, 'type') and args.type:
+                            updates.append("type = %s")
+                            params.append(args.type)
+                            print(f"   type: {original_config['type']} → {args.type}")
+                        
+                        if updates:
+                            params.append(args.business_id)
+                            query = f"UPDATE business SET {', '.join(updates)} WHERE business_id = %s"
+                            db_manager.execute_query(query, tuple(params))
+                            print(f"✅ 設定変更完了")
+                    
+                except Exception as e:
+                    print(f"❌ 設定変更エラー: {e}")
+                    return 1
             
-            from tests.integration.test_working_rate_calculation import WorkingRateCalculationTest
-            
-            # テスト実行（非同期）
-            test_runner = WorkingRateCalculationTest()
-            result = await test_runner.run_working_rate_test(args.business_id, target_date)
-            
-            return 0 if result['success'] else 1
+            try:
+                # プロジェクトルートをパスに追加
+                project_root = Path(__file__).parent.parent
+                sys.path.insert(0, str(project_root))
+                
+                from tests.integration.test_working_rate_calculation import WorkingRateCalculationTest
+                
+                # テスト実行（非同期）
+                test_runner = WorkingRateCalculationTest()
+                result = await test_runner.run_working_rate_test(args.business_id, target_date)
+                
+                return 0 if result['success'] else 1
+                
+            finally:
+                # 設定を元に戻す
+                if original_config:
+                    try:
+                        db_manager.execute_query(
+                            "UPDATE business SET type = %s, capacity = %s WHERE business_id = %s",
+                            (original_config['type'], original_config['capacity'], args.business_id)
+                        )
+                        print(f"✅ 店舗設定を復元完了")
+                    except Exception as e:
+                        print(f"⚠️ 設定復元エラー: {e}")
         
     except KeyboardInterrupt:
         print("\nユーザーによる操作中断")

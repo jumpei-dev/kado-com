@@ -630,7 +630,6 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
         print(f"   出勤中キャスト: {on_shift_count}人")
         print(f"   稼働中キャスト: {working_count}人")
         print(f"   稼働率: {working_count/on_shift_count*100:.1f}%" if on_shift_count > 0 else "   稼働率: N/A")
-        print(f"   出勤率: {on_shift_count/len(cast_list)*100:.1f}%" if len(cast_list) > 0 else "   出勤率: N/A")
         print("=" * 80)
 
 

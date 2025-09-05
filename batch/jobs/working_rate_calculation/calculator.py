@@ -211,8 +211,8 @@ class WorkingRateCalculator:
                 logger.warning(f"店舗{business_name}: 営業時間中のStatusデータが見つかりません")
                 working_rate_percentage = 0.0
             else:
-                # 稼働率計算
-                working_rate = self.rate_calculator.calculate_working_rate_from_records(status_records)
+                # 稼働率計算（capacity補正適用）
+                working_rate = self.rate_calculator.calculate_working_rate_from_records(status_records, business)
                 working_rate_percentage = working_rate * 100.0
             
             # status_historyに保存するデータを作成
