@@ -10,6 +10,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
 import re
+import logging
 
 try:
     from ...core.models import CastStatus
@@ -60,6 +61,9 @@ class CityheavenParserBase(ABC):
 class CityheavenTypeAAAParser(CityheavenParserBase):
     """type=a,a,a パターン用パーサー（指示書準拠）"""
     
+    def __init__(self):
+        self.dom_check_mode = False  # DOM確認モードフラグ
+    
     async def parse_cast_list(self, html_content: str, html_acquisition_time: datetime, dom_check_mode: bool = False, business_id: str = "test") -> List['CastStatus']:
         """
         指示書準拠の type=a,a,a パターン
@@ -92,6 +96,9 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
         
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # DOM確認モードをインスタンス変数に設定
+        self.dom_check_mode = dom_check_mode
         
         cast_list = []
         current_time = html_acquisition_time  # 変数名を統一
@@ -132,9 +139,15 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
                     cast_data = await self._process_wrapper_type_aaa(wrapper, business_id, current_time, dom_check_mode)
                     if cast_data:
                         cast_list.append(cast_data)
-                        logger.debug(f"✅ キャスト情報抽出成功: {i+1}/{len(target_wrappers)} - {cast_data['cast_id']}")
+                        if dom_check_mode:
+                            logger.debug(f"✅ キャスト情報抽出成功: {i+1}/{len(target_wrappers)} - {cast_data['cast_id']}")
+                        else:
+                            # 簡略版ログ：5件ごとに進捗表示
+                            if (i + 1) % 5 == 0 or i == len(target_wrappers) - 1:
+                                logger.info(f"✅ キャスト情報抽出進捗: {i+1}/{len(target_wrappers)}件処理完了")
                     else:
-                        logger.debug(f"⚠️ キャスト情報抽出失敗: {i+1}/{len(target_wrappers)}")
+                        if dom_check_mode:
+                            logger.debug(f"⚠️ キャスト情報抽出失敗: {i+1}/{len(target_wrappers)}")
                         
                 except Exception as extract_error:
                     logger.error(f"❌ キャスト{i+1}抽出エラー: {extract_error}")
@@ -170,9 +183,7 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
                 logger.debug("❌ cast_id抽出失敗: girlid-xxxxx形式が見つかりません")
                 return None
             
-            # 🔍 生データ抽出・出力機能
-            raw_data = self._extract_raw_data_for_debug(wrapper_element, cast_id)
-            self._output_raw_data_debug(cast_id, raw_data)
+            # 生データ抽出・出力機能を削除（ログ簡略化）
             
             # 2. on_shiftの判定（指示書準拠）
             is_on_shift = self._determine_on_shift_type_aaa(wrapper_element, current_time)
@@ -198,9 +209,8 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
                 'extraction_type': 'aaa'
             }
             
-            # 🔍 個別キャストデータのJSON出力
-            logger.info(f"✅ キャスト{cast_id}抽出成功:")
-            logger.info(f"   {json.dumps(cast_result, ensure_ascii=False, indent=4, default=str)}")
+            # JSON出力を削除（ログ簡略化）
+            # logger.debug(f"キャスト{cast_id}: working={is_working}, on_shift={is_on_shift}")
             
             return cast_result
             
@@ -365,7 +375,7 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
                     range_type = "日跨ぎ範囲"
                 
                 logger.debug(f"⏰ 時間範囲判定: {start_hour:02d}:{start_min:02d}-{end_hour:02d}:{end_min:02d}, 現在:{current_time.hour:02d}:{current_time.minute:02d}, 結果:{in_range}")
-                print(f"      💡 詳細計算: {range_type} {start_hour:02d}:{start_min:02d}-{end_hour:02d}:{end_min:02d}, 現在:{current_time.hour:02d}:{current_time.minute:02d} → {in_range}")
+                # 詳細計算ログを削除（ログ簡略化）
                 return in_range
             else:
                 logger.debug(f"❌ 時間範囲パターンなし: '{time_text}'")
@@ -404,11 +414,11 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
                 # 現在時刻以降かチェック（0分以上後、つまり現在時刻と同じかそれより後）
                 if time_diff >= 0:
                     logger.debug(f"✅ 現在時刻以降判定成功: 対象時刻:{hour:02d}:{minute:02d}, 現在:{current_time.hour:02d}:{current_time.minute:02d}, 差分:{time_diff:.1f}分")
-                    print(f"      💡 詳細計算: {hour:02d}:{minute:02d} - {current_time.hour:02d}:{current_time.minute:02d} = {time_diff:.1f}分後")
+                    # 詳細計算ログを削除（ログ簡略化）
                     return True
                 else:
                     logger.debug(f"❌ 現在時刻より前: 対象時刻:{hour:02d}:{minute:02d}, 差分:{time_diff:.1f}分")
-                    print(f"      💡 詳細計算: {hour:02d}:{minute:02d} - {current_time.hour:02d}:{current_time.minute:02d} = {time_diff:.1f}分前（過去）")
+                    # 詳細計算ログを削除（ログ簡略化）
             
             return False
                 
@@ -453,14 +463,12 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
         
         return raw_data
     
-    def _output_raw_data_debug(self, cast_id: str, raw_data: Dict[str, Any]):
+    def _output_raw_data_debug(self, cast_id: str, raw_data: Dict[str, Any], dom_check_mode: bool = False):
         """
-        生データをデバッグ出力
+        生データをデバッグ出力（現在は無効化）
         """
-        logger.info(f"🔍 キャスト{cast_id} 生データ:")
-        logger.info(f"   出勤時間: {raw_data['shukkin_detail_time']}")
-        logger.info(f"   sugunavibox title: {raw_data['sugunavibox_titles']}")
-        logger.info(f"   sugunavibox 全体: {raw_data['sugunavibox_full_content'][:200]}..." if len(raw_data['sugunavibox_full_content']) > 200 else f"   sugunavibox 全体: {raw_data['sugunavibox_full_content']}")
+        # 詳細ログは削除（リクエストによる）
+        pass
 
     def _output_detailed_debug(self, cast_id: str, wrapper_element, current_time: datetime, 
                               is_on_shift: bool, is_working: bool):

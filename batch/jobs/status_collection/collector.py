@@ -6,7 +6,7 @@
 
 import asyncio
 import aiohttp
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
 
@@ -51,17 +51,17 @@ class ScrapingStrategyFactory:
     """スクレイピング戦略のファクトリークラス"""
     
     @staticmethod
-    def create_strategy(media_type: str, use_local_html: bool = False):
+    def create_strategy(media_type: str, use_local_html: bool = False, specific_file: Optional[str] = None):
         """メディアタイプに応じた戦略を作成"""
         if media_type in ["cityhaven", "cityheaven"]:  # typoも許容
-            return CityheavenStrategy(use_local_html=use_local_html)
+            return CityheavenStrategy(use_local_html=use_local_html, specific_file=specific_file)
         elif media_type == "dto":
             return DtoStrategy(use_local_html=use_local_html)
         else:
             raise ValueError(f"未対応のメディアタイプ: {media_type}")
 
 
-async def collect_status_for_business(session: aiohttp.ClientSession, business: Dict[str, Any], use_local_html: bool = False, dom_check_mode: bool = False) -> List[Dict[str, Any]]:
+async def collect_status_for_business(session: aiohttp.ClientSession, business: Dict[str, Any], use_local_html: bool = False, dom_check_mode: bool = False, specific_file: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     単一の店舗のステータス収集を実行
     
@@ -78,7 +78,7 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
             logger.warning(f"店舗名が指定されていません: {business}")
             return []
         
-        strategy = ScrapingStrategyFactory.create_strategy(media_type, use_local_html)
+        strategy = ScrapingStrategyFactory.create_strategy(media_type, use_local_html, specific_file)
         cast_statuses = await strategy.scrape_working_status(
             business_name=business_name,
             business_id=str(business_id), 
@@ -109,7 +109,7 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
         return []
 
 
-async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]], use_local_html: bool = False, dom_check_mode: bool = False) -> List[Dict[str, Any]]:
+async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]], use_local_html: bool = False, dom_check_mode: bool = False, specific_file: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     全店舗のキャスト稼働ステータスを並行収集
     
@@ -117,6 +117,7 @@ async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]], use_
         businesses: 店舗データ
         use_local_html: ローカルHTML使用フラグ
         dom_check_mode: 追加店舗DOM確認モード（HTML詳細出力）
+        specific_file: 指定するローカルHTMLファイル名
     """
     if dom_check_mode:
         mode_text = "追加店舗DOM確認モード"
@@ -140,7 +141,7 @@ async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]], use_
     
     async def collect_with_semaphore(session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
         async with semaphore:
-            return await collect_status_for_business(session, business, use_local_html, dom_check_mode)
+            return await collect_status_for_business(session, business, use_local_html, dom_check_mode, specific_file)
     
     try:
         # HTTPセッションを作成

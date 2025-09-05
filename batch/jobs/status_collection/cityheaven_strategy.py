@@ -66,15 +66,16 @@ class ScrapingStrategy(ABC):
 class CityheavenStrategy(ScrapingStrategy):
     """Cityheavenサイト用のスクレイピング戦略（Selenium使用）"""
     
-    def __init__(self, use_local_html: bool = False):
+    def __init__(self, use_local_html: bool = False, specific_file: Optional[str] = None):
         """
         初期化
         
         Args:
             use_local_html: ローカルHTMLファイルを使用するかどうか（開発用）
+            specific_file: 特定のHTMLファイル名を指定（DOM確認モード用）
         """
         self.use_local_html = use_local_html
-        self.html_loader = HTMLLoader(use_local_html)
+        self.html_loader = HTMLLoader(use_local_html, specific_file)
         
         if use_local_html:
             logger.info("🔧 開発モード: ローカルHTMLファイルを使用します")
