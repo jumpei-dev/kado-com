@@ -418,7 +418,7 @@ async def run_shop_check(args):
         
         # 本番のCityheavenTypeAAAParserを使用
         from jobs.status_collection.cityheaven_parsers import CityheavenTypeAAAParser
-        from utils.datetime_utils import now_jst_naive
+        import pytz
         
         # HTMLファイル読み込み
         html_path = Path(__file__).parent.parent / "data" / "raw_html" / "cityhaven" / html_file
@@ -427,7 +427,11 @@ async def run_shop_check(args):
         
         # 本番パーサーで解析実行（debug-htmlと同じ処理）
         parser = CityheavenTypeAAAParser()
-        current_time = now_jst_naive()
+        
+        # 正確な日本時間を取得
+        jst = pytz.timezone('Asia/Tokyo')
+        current_time = datetime.now(jst).replace(tzinfo=None)  # naive datetimeに変換
+        print(f"📅 現在時刻（JST）: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
         
         print(f"📊 HTML解析開始...")
         cast_list = await parser.parse_cast_list(
@@ -496,7 +500,43 @@ async def run_shop_check(args):
         else:
             print(f"   最終稼働率: N/A（出勤中キャストなし）")
         
-        # Step 5: 最終結果サマリー
+        # Step 5: 営業時間判定とシステム正常性評価
+        print(f"\n🕐 Step 4: 営業時間判定とシステム正常性評価")
+        print("-" * 40)
+        
+        # 営業時間判定：キャストの出勤時間から判断
+        currently_open_count = 0
+        future_shifts_count = 0
+        for cast in cast_list:
+            if cast.get('is_on_shift', False):
+                currently_open_count += 1
+            # 「受付終了」でない且つ総キャスト数に含まれる = 何らかの営業予定がある
+            if '受付終了' not in str(cast.get('status_text', '')):
+                future_shifts_count += 1
+        
+        # 営業状況判定
+        if currently_open_count > 0:
+            business_status = "営業中"
+            status_reason = f"出勤中キャスト{currently_open_count}人"
+            system_health = "✅ 正常"
+            health_detail = "営業時間内での適切な稼働率"
+        elif future_shifts_count > 0:
+            business_status = "営業時間外"
+            status_reason = f"営業予定キャスト{future_shifts_count}人（現在は時間外）"
+            system_health = "✅ 正常"
+            health_detail = "営業時間外のため稼働率0%は正常"
+        else:
+            business_status = "休業中"
+            status_reason = "営業予定キャストなし"
+            system_health = "⚠️ 要確認"
+            health_detail = "全キャスト受付終了状態"
+        
+        print(f"   営業状況判定: {business_status}")
+        print(f"   判定根拠: {status_reason}")
+        print(f"   システム正常性: {system_health}")
+        print(f"   評価詳細: {health_detail}")
+        
+        # Step 6: 最終結果サマリー
         print(f"\n🎉 新店舗チェック完了!")
         print("=" * 80)
         print(f"📊 最終結果サマリー:")
@@ -524,6 +564,8 @@ async def run_shop_check(args):
         print(f"   📥 出勤中: {on_shift_count}人")
         print(f"   📈 稼働中: {working_count}人（補正前）")
         print(f"   📈 稼働中: {capacity_limited_working}人（補正後）")
+        print(f"   🕐 営業状況: {business_status}")
+        print(f"   ✅ システム判定: {system_health}")
         
         # 本番関数使用の確認
         print(f"\n✅ 使用した本番関数:")
