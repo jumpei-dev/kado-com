@@ -217,6 +217,11 @@ def setup_argument_parser():
     debug_parser.add_argument('--url', type=str, help='URLを指定してHTMLをローカルに保存し、ファイル名を返す')
     debug_parser.add_argument('--local-file', type=str, help='ローカルHTMLファイルを指定してDOM構造を詳細出力')
     
+    # DB統合テスト
+    test_parser = subparsers.add_parser('test-db-integration', help='DB統合テスト（HTML→解析→DB保存）')
+    test_parser.add_argument('html_file', help='テスト対象HTMLファイル名')
+    test_parser.add_argument('--business-name', help='店舗名（任意）')
+    
     return parser
 
 async def run_collect_command(args):
@@ -433,6 +438,21 @@ async def main():
         
         elif args.command == 'debug-html':
             return await run_debug_html_command(args)
+        
+        elif args.command == 'test-db-integration':
+            print("🧪 DB統合テストを実行中...")
+            
+            # プロジェクトルートをパスに追加
+            project_root = Path(__file__).parent.parent
+            sys.path.insert(0, str(project_root))
+            
+            from tests.integration.test_html_to_db import HTMLToDBIntegrationTest
+            
+            # テスト実行（非同期）
+            test_runner = HTMLToDBIntegrationTest()
+            result = await test_runner.run_integration_test(args.html_file)
+            
+            return 0 if result['success'] else 1
         
     except KeyboardInterrupt:
         print("\nユーザーによる操作中断")

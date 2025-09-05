@@ -93,17 +93,27 @@ class DatabaseManager:
         """
         return self.execute_query(query, (business_id,))
     
-    def insert_status(self, cast_id: str, is_working: bool, is_on_shift: bool, recorded_at: str) -> bool:
+    def insert_status(self, cast_id, business_id = None, is_working: bool = False, is_on_shift: bool = False, collected_at = None, recorded_at: str = None, is_dummy: bool = False) -> bool:
         """新しいステータスレコードを挿入する"""
         try:
+            # IDを確実にintに変換（文字列の場合）
+            if isinstance(cast_id, str):
+                cast_id = int(cast_id)
+            if isinstance(business_id, str):
+                business_id = int(business_id)
+                
+            # recorded_atとcollected_atの処理
+            if recorded_at is None and collected_at is not None:
+                recorded_at = collected_at
+            elif recorded_at is None:
+                from datetime import datetime
+                recorded_at = datetime.now()
+            
             command = """
-            INSERT INTO status (cast_id, is_working, is_on_shift, recorded_at)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (cast_id, recorded_at) DO UPDATE SET
-            is_working = EXCLUDED.is_working,
-            is_on_shift = EXCLUDED.is_on_shift
+            INSERT INTO status (cast_id, business_id, is_working, is_on_shift, recorded_at, is_dummy)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """
-            rows = self.execute_command(command, (cast_id, is_working, is_on_shift, recorded_at))
+            rows = self.execute_command(command, (cast_id, business_id, is_working, is_on_shift, recorded_at, is_dummy))
             return rows > 0
         except Exception as e:
             logger.error(f"キャストID {cast_id} のステータス挿入エラー: {e}")

@@ -201,8 +201,8 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
             logger.debug(f"📊 キャスト{cast_id}: on_shift={is_on_shift}, is_working={is_working}")
             
             cast_result = {
-                'business_id': business_id,
-                'cast_id': cast_id,
+                'business_id': int(business_id) if business_id else None,
+                'cast_id': int(cast_id) if cast_id else None,
                 'is_working': is_working,
                 'is_on_shift': is_on_shift,
                 'collected_at': current_time,

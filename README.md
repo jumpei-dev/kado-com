@@ -9,7 +9,7 @@
 
 | カラム名 | 型 | 説明 |
 |---------|-----|------|
-| business_id | TEXT (Primary Key) | 店舗ID |
+| business_id | BIGINT (Primary Key) | 店舗ID |
 | area | TEXT | 日本の中のエリア |
 | prefecture | TEXT | 都道府県 |
 | type | TEXT | 業種 |
@@ -28,20 +28,21 @@
 
 | カラム名 | 型 | 説明 |
 |---------|-----|------|
-| id | SERIAL (Primary Key) | レコードID |
+| id | BIGSERIAL (Primary Key) | レコードID |
 | datetime | TIMESTAMP | 取得日時 |
-| business_id | TEXT | 店舗ID（Business.business_idと関連） |
-| cast_id | TEXT | キャストID |
+| business_id | BIGINT | 店舗ID（Business.business_idと関連） |
+| cast_id | BIGINT | キャストID |
 | is_working | BOOLEAN | 稼働しているか |
 | is_on_shift | BOOLEAN | 出勤しているか |
+| is_dummy | BOOLEAN | テストデータフラグ |
 
 ### StatusHistory（稼働履歴）
 1日に1回（閉店時間後）算出する稼働率
 
 | カラム名 | 型 | 説明 |
 |---------|-----|------|
-| id | SERIAL (Primary Key) | レコードID |
-| business_id | TEXT | 店舗ID（Business.business_idと関連） |
+| id | BIGSERIAL (Primary Key) | レコードID |
+| business_id | BIGINT | 店舗ID（Business.business_idと関連） |
 | date | DATE | 日付 |
 | working_rate | DECIMAL | 稼働率(%) |
 
