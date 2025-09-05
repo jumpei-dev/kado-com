@@ -11,14 +11,28 @@ from datetime import datetime
 import json
 import re
 
-from ...core.models import CastStatus
+try:
+    from ...core.models import CastStatus
+except ImportError:
+    try:
+        from core.models import CastStatus
+    except ImportError as e:
+        print(f"CastStatus import failed: {e}")
+        # Fallback CastStatus definition
+        class CastStatus:
+            def __init__(self, **kwargs):
+                for key, value in kwargs.items():
+                    setattr(self, key, value)
 
 try:
     from ..utils.logging_utils import get_logger
 except ImportError:
-    def get_logger(name):
-        import logging
-        return logging.getLogger(name)
+    try:
+        from utils.logging_utils import get_logger
+    except ImportError:
+        def get_logger(name):
+            import logging
+            return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -27,33 +41,74 @@ class CityheavenParserBase(ABC):
     """Cityheavenパーサーの基底クラス"""
     
     @abstractmethod
-    async def parse_cast_data(
-        self, 
-        soup: BeautifulSoup, 
-        business_id: str, 
-        current_time: datetime
-    ) -> List[Dict[str, Any]]:
-        """キャストデータをパースする抽象メソッド"""
+    async def parse_cast_list(self, html_content: str, html_acquisition_time: datetime, dom_check_mode: bool = False, business_id: str = "test") -> List['CastStatus']:
+        """
+        HTMLコンテンツからCastStatusオブジェクトのリストを生成
+        
+        Args:
+            html_content: HTMLコンテンツ
+            html_acquisition_time: HTML取得時刻
+            dom_check_mode: DOM確認モード
+            business_id: 店舗ID
+            
+        Returns:
+            CastStatusオブジェクトのリスト
+        """
         pass
 
 
 class CityheavenTypeAAAParser(CityheavenParserBase):
     """type=a,a,a パターン用パーサー（指示書準拠）"""
     
-    async def parse_cast_data(self, soup: BeautifulSoup, business_id: str, current_time: datetime) -> List[Dict[str, Any]]:
+    async def parse_cast_list(self, html_content: str, html_acquisition_time: datetime, dom_check_mode: bool = False, business_id: str = "test") -> List['CastStatus']:
         """
         指示書準拠の type=a,a,a パターン
         
         条件:
         - Class名が"sugunavi_wrapper"のdiv要素
         - その中でsugunaviboxを含むものが対象（5-40個程度）
+        
+        Args:
+            html_content: HTMLコンテンツ
+            html_acquisition_time: HTML取得時刻
+            dom_check_mode: 追加店舗DOM確認モード（HTML詳細出力）
+            business_id: 店舗ID
         """
+        # CastStatusクラスをインポート
+        try:
+            from ...core.models import CastStatus
+        except ImportError:
+            try:
+                from core.models import CastStatus
+            except ImportError:
+                # CastStatusクラスが見つからない場合の仮実装
+                class CastStatus:
+                    def __init__(self, cast_id, cast_name, is_working, on_shift, collected_at):
+                        self.cast_id = cast_id
+                        self.cast_name = cast_name
+                        self.is_working = is_working
+                        self.on_shift = on_shift
+                        self.collected_at = collected_at
+        
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
         cast_list = []
+        current_time = html_acquisition_time  # 変数名を統一
+        
+        # DOM確認モード用のヘッダー
+        if dom_check_mode:
+            print(f"\n🔍 【追加店舗DOM確認モード】")
+            print(f"📅 HTML取得時刻: {html_acquisition_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print("=" * 80)
         
         try:
             # 1. sugunavi_wrapperを全て取得
             sugunavi_wrappers = soup.find_all('div', class_='sugunavi_wrapper')
             logger.info(f"📦 sugunavi_wrapper要素: {len(sugunavi_wrappers)}個発見")
+            
+            if dom_check_mode:
+                print(f"📦 発見した要素: {len(sugunavi_wrappers)}個のsugunavi_wrapper")
             
             # 2. その中でsugunaviboxを含むものを特定
             target_wrappers = []
@@ -64,6 +119,9 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
             
             logger.info(f"🎯 sugunaviboxを含むwrapper: {len(target_wrappers)}個（期待範囲: 5-40個）")
             
+            if dom_check_mode:
+                print(f"🎯 有効なキャスト要素: {len(target_wrappers)}個")
+            
             if len(target_wrappers) == 0:
                 logger.warning("⚠️ 対象wrapper要素が見つかりません")
                 return cast_list
@@ -71,7 +129,7 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
             # 3. 各target_wrapperを指示書通りに処理
             for i, wrapper in enumerate(target_wrappers):
                 try:
-                    cast_data = await self._process_wrapper_type_aaa(wrapper, business_id, current_time)
+                    cast_data = await self._process_wrapper_type_aaa(wrapper, business_id, current_time, dom_check_mode)
                     if cast_data:
                         cast_list.append(cast_data)
                         logger.debug(f"✅ キャスト情報抽出成功: {i+1}/{len(target_wrappers)} - {cast_data['cast_id']}")
@@ -81,6 +139,10 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
                 except Exception as extract_error:
                     logger.error(f"❌ キャスト{i+1}抽出エラー: {extract_error}")
             
+            # DOM確認モード用の最終サマリー
+            if dom_check_mode:
+                self._display_dom_check_summary(cast_list)
+            
             logger.info(f"🎯 type=a,a,a パターン完了: {len(cast_list)}件のキャスト情報を抽出")
                     
         except Exception as e:
@@ -88,7 +150,7 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
             
         return cast_list
     
-    async def _process_wrapper_type_aaa(self, wrapper_element, business_id: str, current_time: datetime) -> Optional[Dict[str, Any]]:
+    async def _process_wrapper_type_aaa(self, wrapper_element, business_id: str, current_time: datetime, dom_check_mode: bool = False) -> Optional[Dict[str, Any]]:
         """
         指示書準拠の単一wrapper要素処理 (type=a,a,a)
         
@@ -96,6 +158,9 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
         1. cast_id: a要素のhrefからgirlid-xxxxxを抽出
         2. on_shift: shukkin_detail_timeの時間範囲と現在時刻を比較  
         3. is_working: sugunavibox内のclass="title"から時間を抽出し、現在時刻以降 & on_shift=true
+        
+        Args:
+            dom_check_mode: 追加店舗DOM確認モード（HTML詳細出力）
         """
         
         try:
@@ -115,8 +180,12 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
             # 3. is_workingの判定（指示書準拠）
             is_working = self._determine_working_type_aaa(wrapper_element, current_time, is_on_shift)
             
-            # 🔍 詳細デバッグ出力（キャスト稼働判定の全詳細）
-            self._output_detailed_debug(cast_id, wrapper_element, current_time, is_on_shift, is_working)
+            # DOM確認モード時の詳細HTML出力
+            if dom_check_mode and is_on_shift:
+                self._output_cast_dom_details(cast_id, wrapper_element, current_time, is_on_shift, is_working)
+            elif not dom_check_mode:
+                # 通常時の簡潔デバッグ出力
+                self._output_detailed_debug(cast_id, wrapper_element, current_time, is_on_shift, is_working)
             
             logger.debug(f"📊 キャスト{cast_id}: on_shift={is_on_shift}, is_working={is_working}")
             
@@ -210,10 +279,10 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
         """
         指示書準拠のis_working判定 (type=a,a,a)
         
-        要件: sugunavibox内のclass="title"から時間を抽出し、
-             以下の条件が両方満たされる場合にis_working=true:
-             1. その時間が現在時刻以降（現在時刻と同じかそれより後）
-             2. on_shift=true
+        要件: 
+        1. 「受付終了」がある場合は完売とみなしてis_working=true（ただしon_shift=trueの場合のみ）
+        2. sugunavibox内のclass="title"から時間を抽出し、現在時刻以降の場合にis_working=true
+        3. on_shift=trueが前提条件
         """
         
         try:
@@ -227,6 +296,12 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
             if not suguna_box:
                 logger.debug("❌ sugunaviboxが見つからないためis_working=False")
                 return False
+            
+            # sugunaviboxの全テキストを取得して「受付終了」をチェック
+            suguna_box_text = suguna_box.get_text(strip=True)
+            if '受付終了' in suguna_box_text:
+                logger.debug(f"✅ 「受付終了」検出 → 完売状態のためis_working=True")
+                return True
             
             # sugunavibox内のclass="title"要素を探す
             title_elements = suguna_box.find_all(class_='title')
@@ -468,6 +543,87 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
         print(f"   最終結果: on_shift={is_on_shift} AND 現在時刻以降=? → is_working={is_working}")
         
         print(f"{'='*80}\n")
+
+    def _output_cast_dom_details(self, cast_id: str, wrapper_element, current_time: datetime, 
+                                is_on_shift: bool, is_working: bool):
+        """追加店舗DOM確認モード用：キャストHTML詳細出力"""
+        status_icon = "🟢" if is_working else ("🟡" if is_on_shift else "🔴")
+        print(f"\n{status_icon} 【キャストID: {cast_id}】")
+        print("-" * 50)
+        
+        # 出勤時間情報
+        time_elements = wrapper_element.find_all(class_=lambda x: x and 'shukkin_detail_time' in str(x))
+        if time_elements:
+            print(f"⏰ 出勤時間情報:")
+            for i, time_element in enumerate(time_elements, 1):
+                time_text = time_element.get_text(strip=True)
+                print(f"   出勤時間{i}: '{time_text}'")
+                print(f"   HTML: {time_element}")
+        else:
+            print(f"⏰ 出勤時間情報: 見つかりませんでした")
+        
+        # 待機状態情報
+        suguna_box = wrapper_element.find(class_='sugunavibox')
+        if suguna_box:
+            full_content = suguna_box.get_text(strip=True)
+            print(f"\n💼 待機状態:")
+            print(f"   全文: '{full_content}'")
+            
+            title_elements = suguna_box.find_all(class_='title')
+            if title_elements:
+                for i, title in enumerate(title_elements, 1):
+                    title_text = title.get_text(strip=True)
+                    print(f"   title{i}: '{title_text}'")
+                    print(f"   HTML: {title}")
+            else:
+                print(f"   title要素: 見つかりませんでした")
+                
+            print(f"\n   sugunavibox HTML:")
+            print(f"   {suguna_box}")
+        else:
+            print(f"\n💼 待機状態: sugunavibox要素が見つかりませんでした")
+        
+        print(f"\n🎯 判定結果: on_shift={is_on_shift}, is_working={is_working}")
+        
+        # 判定ロジックの詳細
+        print(f"🧮 判定根拠:")
+        print(f"   HTML取得時刻: {current_time.strftime('%H:%M')}")
+        
+        if time_elements:
+            for i, time_element in enumerate(time_elements, 1):
+                time_text = time_element.get_text(strip=True)
+                in_range = self._is_current_time_in_range_type_aaa(time_text, current_time)
+                print(f"   出勤判定{i}: '{time_text}' → 時間内={in_range}")
+        
+        if suguna_box and is_on_shift:
+            if '受付終了' in full_content:
+                print(f"   稼働判定: '受付終了'検出 → 完売状態=稼働中 → working={is_working}")
+            else:
+                title_elements = suguna_box.find_all(class_='title')
+                for i, title in enumerate(title_elements, 1):
+                    title_text = title.get_text(strip=True)
+                    is_future = self._is_time_current_or_later_type_aaa(title_text, current_time)
+                    print(f"   稼働判定{i}: '{title_text}' → 未来時刻={is_future}")
+        elif suguna_box and not is_on_shift:
+            print(f"   稼働判定: on_shift=Falseのためスキップ")
+        
+        print("-" * 50)
+    
+    def _display_dom_check_summary(self, cast_list: List[Dict[str, Any]]):
+        """追加店舗DOM確認モード用：最終サマリー表示"""
+        working_count = sum(1 for cast in cast_list if cast.get('is_working', False))
+        on_shift_count = sum(1 for cast in cast_list if cast.get('is_on_shift', False))
+        
+        print(f"\n" + "=" * 80)
+        print(f"🎉 追加店舗DOM確認モード - 処理完了")
+        print("=" * 80)
+        print(f"📈 最終結果:")
+        print(f"   総処理件数: {len(cast_list)}件")
+        print(f"   出勤中キャスト: {on_shift_count}人")
+        print(f"   稼働中キャスト: {working_count}人")
+        print(f"   稼働率: {working_count/on_shift_count*100:.1f}%" if on_shift_count > 0 else "   稼働率: N/A")
+        print(f"   出勤率: {on_shift_count/len(cast_list)*100:.1f}%" if len(cast_list) > 0 else "   出勤率: N/A")
+        print("=" * 80)
 
 
 class CityheavenTypeAABParser(CityheavenParserBase):

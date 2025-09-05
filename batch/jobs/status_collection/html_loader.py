@@ -10,14 +10,24 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from .webdriver_manager import WebDriverManager
+try:
+    from .webdriver_manager import WebDriverManager
+except ImportError:
+    try:
+        from webdriver_manager import WebDriverManager
+    except ImportError as e:
+        print(f"WebDriverManager import failed: {e}")
+        WebDriverManager = None
 
 try:
     from ..utils.logging_utils import get_logger
 except ImportError:
-    def get_logger(name):
-        import logging
-        return logging.getLogger(name)
+    try:
+        from utils.logging_utils import get_logger
+    except ImportError:
+        def get_logger(name):
+            import logging
+            return logging.getLogger(name)
 
 logger = get_logger(__name__)
 

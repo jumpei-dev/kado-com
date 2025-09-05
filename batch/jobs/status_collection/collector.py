@@ -10,23 +10,39 @@ from typing import Dict, List, Any
 from datetime import datetime
 import json
 
-from .cityheaven_strategy import CityheavenStrategy
-from .dto_strategy import DtoStrategy
-from .database_saver import save_working_status_to_database
+# Strategy imports
+try:
+    from .cityheaven_strategy import CityheavenStrategy
+    from .dto_strategy import DtoStrategy
+    from .database_saver import save_working_status_to_database
+except ImportError:
+    try:
+        from cityheaven_strategy import CityheavenStrategy
+        from dto_strategy import DtoStrategy
+        from database_saver import save_working_status_to_database
+    except ImportError as e:
+        print(f"Strategy imports failed: {e}")
 
+# Utilities imports
 try:
     from ..utils.datetime_utils import get_current_jst_datetime
 except ImportError:
-    def get_current_jst_datetime():
-        from datetime import datetime
-        return datetime.now()
+    try:
+        from utils.datetime_utils import get_current_jst_datetime
+    except ImportError:
+        def get_current_jst_datetime():
+            from datetime import datetime
+            return datetime.now()
 
 try:
     from ..utils.logging_utils import get_logger
 except ImportError:
-    def get_logger(name):
-        import logging
-        return logging.getLogger(name)
+    try:
+        from utils.logging_utils import get_logger
+    except ImportError:
+        def get_logger(name):
+            import logging
+            return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -45,8 +61,13 @@ class ScrapingStrategyFactory:
             raise ValueError(f"未対応のメディアタイプ: {media_type}")
 
 
-async def collect_status_for_business(session: aiohttp.ClientSession, business: Dict[str, Any], use_local_html: bool = False) -> List[Dict[str, Any]]:
-    """単一の店舗のステータス収集を実行"""
+async def collect_status_for_business(session: aiohttp.ClientSession, business: Dict[str, Any], use_local_html: bool = False, dom_check_mode: bool = False) -> List[Dict[str, Any]]:
+    """
+    単一の店舗のステータス収集を実行
+    
+    Args:
+        dom_check_mode: 追加店舗DOM確認モード（HTML詳細出力）
+    """
     try:
         media_type = business.get("media", "cityhaven")  # デフォルトはcityhaven
         business_name = business.get("name", "")
@@ -62,7 +83,8 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
             business_name=business_name,
             business_id=str(business_id), 
             base_url=base_url,
-            use_local=use_local_html
+            use_local=use_local_html,
+            dom_check_mode=dom_check_mode  # DOM確認モードを戦略に渡す
         )
         
         # CastStatusオブジェクトを辞書形式に変換
@@ -87,10 +109,27 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
         return []
 
 
-async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]], use_local_html: bool = False) -> List[Dict[str, Any]]:
-    """全店舗のキャスト稼働ステータスを並行収集"""
-    mode_text = "ローカルHTML" if use_local_html else "ライブスクレイピング"
+async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]], use_local_html: bool = False, dom_check_mode: bool = False) -> List[Dict[str, Any]]:
+    """
+    全店舗のキャスト稼働ステータスを並行収集
+    
+    Args:
+        businesses: 店舗データ
+        use_local_html: ローカルHTML使用フラグ
+        dom_check_mode: 追加店舗DOM確認モード（HTML詳細出力）
+    """
+    if dom_check_mode:
+        mode_text = "追加店舗DOM確認モード"
+        logger.info(f"🔍 {mode_text} - HTML詳細出力が有効です")
+    else:
+        mode_text = "ローカルHTML" if use_local_html else "ライブスクレイピング"
+    
     logger.info(f"全店舗のキャスト稼働ステータス収集を開始 ({mode_text}モード)")
+    
+    # DOM確認モードでは1店舗のみ処理
+    if dom_check_mode:
+        businesses = dict(list(businesses.items())[:1])
+        logger.info(f"DOM確認モード: {len(businesses)}店舗のみ処理")
     
     # 固定値でmax_concurrentを設定
     max_concurrent = 5  # デフォルト値
@@ -101,7 +140,7 @@ async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]], use_
     
     async def collect_with_semaphore(session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
         async with semaphore:
-            return await collect_status_for_business(session, business, use_local_html)
+            return await collect_status_for_business(session, business, use_local_html, dom_check_mode)
     
     try:
         # HTTPセッションを作成
@@ -214,3 +253,131 @@ async def run_status_collection(businesses: Dict[int, Dict[str, Any]]) -> bool:
     except Exception as e:
         logger.error(f"ステータス収集処理で予期しないエラーが発生: {str(e)}")
         return False
+
+
+async def collect_status_by_url(target_url: str, dom_check_mode: bool = False) -> List[Dict[str, Any]]:
+    """
+    URL直接指定による稼働状況収集（新店舗確認用）
+    
+    Args:
+        target_url: 対象店舗のURL
+        dom_check_mode: DOM確認モード
+    """
+    logger.info(f"URL直接指定による稼働状況収集開始: {target_url} (dom_check_mode={dom_check_mode})")
+    
+    # DOM確認モード時の特別処理
+    if dom_check_mode:
+        print(f"🔧 追加店舗DOM確認モード: URL直接指定")
+        print(f"🌐 対象URL: {target_url}")
+        print("=" * 80)
+    
+    try:
+        # URLから店舗名を推測（URL解析）
+        business_name = _extract_business_name_from_url(target_url)
+        
+        # 一時的なbusiness_idを生成（URLベース）
+        temp_business_id = _generate_temp_business_id(target_url)
+        
+        logger.info(f"URL解析結果: 店舗名={business_name}, 一時ID={temp_business_id}")
+        
+        if dom_check_mode:
+            print(f"🔍 URL解析結果:")
+            print(f"   推定店舗名: {business_name}")
+            print(f"   一時business_id: {temp_business_id}")
+            print()
+        
+        # CityheavenStrategyでスクレイピング実行
+        strategy = CityheavenStrategy(use_local_html=False)
+        cast_statuses = await strategy.scrape_working_status(
+            business_name=business_name,
+            business_id=temp_business_id,
+            base_url=target_url,
+            use_local=False,  # URL直接指定時は強制的にリモート取得
+            dom_check_mode=dom_check_mode
+        )
+        
+        logger.info(f"URL直接指定スクレイピング完了: {len(cast_statuses)}件")
+        
+        # DOM確認モードでの詳細サマリー
+        if dom_check_mode and cast_statuses:
+            _display_url_debug_summary(cast_statuses, business_name, target_url)
+        
+        # DB保存は行わない（新店舗確認用のため）
+        if dom_check_mode:
+            print(f"\n💡 DOM確認モードのため、データベースには保存しません")
+        
+        return cast_statuses
+        
+    except Exception as e:
+        logger.error(f"URL直接指定エラー: {e}")
+        return []
+
+
+def _extract_business_name_from_url(url: str) -> str:
+    """URLから店舗名を推測"""
+    try:
+        import re
+        from urllib.parse import urlparse
+        
+        # URLから店舗部分を抽出
+        # 例: https://www.cityheaven.net/kanagawa/A1401/A140103/new-shop/attend/ → new-shop
+        parsed = urlparse(url)
+        path_parts = [p for p in parsed.path.split('/') if p]
+        
+        # 通常、店舗名は最後から2番目または最後の部分
+        if len(path_parts) >= 2 and path_parts[-1] in ['attend', 'girllist']:
+            business_name = path_parts[-2]
+        elif len(path_parts) >= 1:
+            business_name = path_parts[-1]
+        else:
+            business_name = "unknown-shop"
+        
+        # URLエンコードを解除し、読みやすい形に
+        import urllib.parse
+        business_name = urllib.parse.unquote(business_name)
+        
+        return business_name or "URL解析店舗"
+        
+    except Exception as e:
+        logger.warning(f"URL解析エラー: {e}")
+        return "URL直接指定店舗"
+
+
+def _generate_temp_business_id(url: str) -> str:
+    """URLから一時的なbusiness_IDを生成"""
+    try:
+        import hashlib
+        
+        # URLのハッシュから短いIDを生成
+        url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
+        temp_id = f"temp_{url_hash}"
+        
+        return temp_id
+        
+    except Exception as e:
+        logger.warning(f"一時ID生成エラー: {e}")
+        return "temp_unknown"
+
+
+def _display_url_debug_summary(cast_statuses: List[Dict[str, Any]], business_name: str, target_url: str):
+    """URL直接指定時の詳細サマリー表示"""
+    working_count = sum(1 for cast in cast_statuses if cast.get('is_working', False))
+    on_shift_count = sum(1 for cast in cast_statuses if cast.get('is_on_shift', False))
+    
+    print(f"\n" + "=" * 80)
+    print(f"🌐 URL直接指定 - DOM確認結果")
+    print("=" * 80)
+    print(f"🏪 店舗名: {business_name}")
+    print(f"🌐 URL: {target_url}")
+    print(f"📊 スクレイピング結果:")
+    print(f"   総キャスト数: {len(cast_statuses)}人")
+    print(f"   出勤中: {on_shift_count}人")
+    print(f"   稼働中: {working_count}人")
+    print(f"   稼働率: {working_count/on_shift_count*100:.1f}%" if on_shift_count > 0 else "   稼働率: N/A")
+    
+    print(f"\n💡 新店舗追加時のチェックポイント:")
+    print(f"   ✅ HTMLの構造が既存パーサーで解析可能か")
+    print(f"   ✅ sugunavi_wrapper要素の存在: {len(cast_statuses) > 0}")
+    print(f"   ✅ キャストデータの抽出精度")
+    print(f"   ✅ 出勤時間・稼働状態の判定精度")
+    print("=" * 80)

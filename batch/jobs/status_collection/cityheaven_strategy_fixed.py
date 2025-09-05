@@ -11,45 +11,23 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
 
-# Core models import
-try:
-    from ...core.models import CastStatus
-except ImportError:
-    try:
-        from core.models import CastStatus
-    except ImportError as e:
-        print(f"CastStatus import failed: {e}")
-
-# Local imports
-try:
-    from .html_loader import HTMLLoader
-    from .cityheaven_parsers import CityheavenParserFactory
-except ImportError:
-    try:
-        from html_loader import HTMLLoader
-        from cityheaven_parsers import CityheavenParserFactory
-    except ImportError as e:
-        print(f"Local imports failed: {e}")
+from ...core.models import CastStatus
+from .html_loader import HTMLLoader
+from .cityheaven_parsers import CityheavenParserFactory
 
 try:
     from ..utils.datetime_utils import get_current_jst_datetime
 except ImportError:
-    try:
-        from utils.datetime_utils import get_current_jst_datetime
-    except ImportError:
-        def get_current_jst_datetime():
-            from datetime import datetime
-            return datetime.now()
+    def get_current_jst_datetime():
+        from datetime import datetime
+        return datetime.now()
 
 try:
     from ..utils.logging_utils import get_logger
 except ImportError:
-    try:
-        from utils.logging_utils import get_logger
-    except ImportError:
-        def get_logger(name):
-            import logging
-            return logging.getLogger(name)
+    def get_logger(name):
+        import logging
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -88,11 +66,6 @@ class CityheavenStrategy(ScrapingStrategy):
         Args:
             dom_check_mode: 追加店舗DOM確認モード（HTML詳細出力）
         """
-        # URL直接指定（DOM確認モード）の場合は強制的にリモート取得
-        if dom_check_mode and base_url and base_url.startswith('http'):
-            use_local = False
-            logger.info(f"🔍 DOM確認モード: URL直接指定のためリモート取得を強制")
-        
         if dom_check_mode:
             logger.info(f"🔍 追加店舗DOM確認モード: {business_name} - HTML詳細出力有効")
         else:
