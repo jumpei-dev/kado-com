@@ -1,258 +1,176 @@
-# 稼働.com
+# 稼働.com - バッチ処理システム
 
-風俗店の稼働状況をリアルタイムで収集・分析し、稼働率ランキングを提供するLINE Botシステム
+風俗店の稼働状況を自動収集・分析するバッチ処理システム
 
-## 📋 概要
+## 📊 データベース構造
 
-**稼働.com**は、シティヘブンとデリヘルタウンから風俗店の稼働状況を自動収集し、稼働率に基づいたランキングを提供するシステムです。公式LINEアカウントからのみアクセス可能で、ID単位での閲覧権限管理を行います。
+### Business（店舗）
+管理者があらかじめ登録しておく店舗マスタ情報
 
-### 主な機能
+| カラム名 | 型 | 説明 |
+|---------|-----|------|
+| business_id | BIGINT (Primary Key) | 店舗ID |
+| area | TEXT | 日本の中のエリア |
+| prefecture | TEXT | 都道府県 |
+| type | TEXT | 業種 |
+| name | TEXT | 店舗名 |
+| capacity | INTEGER | 部屋数 |
+| status_accuracy | TEXT | 情報の正確性 |
+| working_type | TEXT | 稼働表示タイプ |
+| in_scope | BOOLEAN | 計算対象とするか |
+| open_hour | TEXT | 開業時間 |
+| close_hour | TEXT | 閉業時間 |
+| regular_holiday | TEXT | 定休日 |
+| schedule_url1 | TEXT | スクレイピング先URL |
 
-- 🏆 **稼働率ランキング**: 店舗の稼働率に基づいたリアルタイムランキング
-- 🔍 **店舗検索・詳細**: 特定店舗の詳細情報と稼働履歴
-- 📊 **稼働データ分析**: 時間帯別・日別の稼働傾向分析
-- 🔐 **アクセス制御**: LINE ID単位での閲覧権限管理
-- 📱 **LIFF対応**: LINE内でのシームレスな利用体験
+### Status（稼働）
+30分ごとに自動取得する稼働状況データ
+
+| カラム名 | 型 | 説明 |
+|---------|-----|------|
+| id | BIGSERIAL (Primary Key) | レコードID |
+| datetime | TIMESTAMP | 取得日時 |
+| business_id | BIGINT | 店舗ID（Business.business_idと関連） |
+| cast_id | BIGINT | キャストID |
+| is_working | BOOLEAN | 稼働しているか |
+| is_on_shift | BOOLEAN | 出勤しているか |
+| is_dummy | BOOLEAN | テストデータフラグ |
+
+### StatusHistory（稼働履歴）
+1日に1回（閉店時間後）算出する稼働率
+
+| カラム名 | 型 | 説明 |
+|---------|-----|------|
+| id | BIGSERIAL (Primary Key) | レコードID |
+| business_id | BIGINT | 店舗ID（Business.business_idと関連） |
+| date | DATE | 日付 |
+| working_rate | DECIMAL | 稼働率(%) |
 
 ## 🏗️ システム構成
 
-### アーキテクチャ
-
+### バッチ処理システム
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   LINE Bot   │    │  LIFF Web   │    │  FastAPI    │
-│             │───▶│    App      │───▶│   Backend   │
-│             │    │             │    │             │
-└─────────────┘    └─────────────┘    └─────────────┘
-                                              │
-                   ┌─────────────┐           │
-                   │   Google    │◀──────────┘
-                   │ Spreadsheet │
-                   │     DB      │
-                   └─────────────┘
-                           ▲
-                           │
-                   ┌─────────────┐
-                   │   GitHub    │
-                   │   Actions   │
-                   │   Batch     │
-                   └─────────────┘
+batch/
+├── core/              # コアモジュール
+│   ├── database.py   # データベース管理
+│   ├── models.py     # データモデル
+│   └── scraper.py    # スクレイピング機能
+├── jobs/              # バッチジョブ
+│   ├── status_collection.py  # ステータス収集（30分間隔）
+│   └── working_rate_calculation.py # 稼働率計算（日次）および稼働履歴計算
+├── scheduler/         # スケジューラー
+│   └── main.py       # メインスケジューラー
+└── utils/            # ユーティリティ
+    ├── config.py     # 設定管理
+    ├── datetime_utils.py  # 日時処理
+    └── logging_utils.py   # ログ管理
 ```
 
-### 技術スタック
-
-- **ホスティング**: Cloudflare Pages
-- **認証**: LINE LIFF
-- **バックエンド**: FastAPI + Uvicorn
-- **バッチ処理**: GitHub Actions
-- **スクレイピング**: Selenium
-- **データベース**: Google Spreadsheet
-- **CI/CD**: GitHub Actions
-- **監視・通知**: LINE Notify
-
-## 📁 プロジェクト構成
-
+### 設定ファイル
 ```
-kado-com/
-├── app/                    # FastAPI Webアプリケーション
-│   ├── api/               # API エンドポイント
-│   ├── models/            # データモデル
-│   ├── services/          # ビジネスロジック
-│   ├── middleware/        # ミドルウェア
-│   └── utils/             # ユーティリティ
-├── frontend/              # フロントエンド（LIFF）
-│   ├── static/            # 静的ファイル
-│   ├── templates/         # HTMLテンプレート
-│   └── components/        # 再利用可能コンポーネント
-├── batch/                 # バッチ処理
-│   ├── scheduler/         # スケジュール管理・実行判定
-│   ├── processors/        # データ処理
-│   ├── scrapers/          # スクレイピング
-│   ├── services/          # 共通サービス
-│   └── utils/             # ユーティリティ
-├── admin/                 # 管理者用ツール
-├── config/                # 設定ファイル
-├── tests/                 # テスト
-├── .github/workflows/     # GitHub Actions
-└── docs/                  # ドキュメント
-```
-
-## 🔄 バッチ処理スケジュール
-
-### 自動実行タスク
-
-| タスク | 実行頻度 | 説明 |
-|--------|----------|------|
-| **キャスト情報取得** | 6時間毎 | 出勤スケジュール情報を取得 |
-| **稼働状況取得** | 30分毎 | リアルタイムの稼働状況を取得 |
-| **稼働率計算** | 1日1回 | 前日の稼働率を計算・保存 |
-
-### 稼働率計算ロジック
-
-```
-稼働率(%) = (実際の稼働時間 / 出勤予定時間) × 100
-
-- 部屋数を超える同時稼働の場合、部屋割れ補正を適用
-- 例: 2部屋に3人同時稼働 → 66%の補正係数を適用
-- 営業時間外のデータは除外して計算
-```
-
-## 📊 データベース構成
-
-### Google Spreadsheet シート構成
-
-#### Business（店舗マスタ）
-```
-- BusinessID: 店舗ID
-- Area: エリア（東京、大阪等）
-- Prefecture: 都道府県
-- Type: 業種（デリヘル、ソープ等）
-- Name: 店舗名
-- Capacity: 部屋数
-- OpenHour: 開業時間
-- CloseHour: 閉業時間
-- ScheduleURL1: スクレイピング先URL
-```
-
-#### Status（稼働状況）
-```
-- BusinessID: 店舗ID
-- Datetime: 取得日時
-- CastID: キャストID
-- IsActive: 稼働中フラグ
-- OvercapacityCoefficient: 部屋割れ係数
-```
-
-#### StatusHistory（稼働履歴）
-```
-- BusinessID: 店舗ID
-- Date: 日付
-- WorkingRate: 稼働率(%)
-```
-
-#### Cast（キャスト情報）
-```
-- BusinessID: 店舗ID
-- Name: キャスト名
-- Date: 取得日時
-- Schedule: 出勤時間
-- IsWorking: 稼働フラグ
+config/
+├── development.yaml  # 開発環境設定
+├── production.yaml   # 本番環境設定
+└── testing.yaml     # テスト環境設定
 ```
 
 ## 🚀 セットアップ
 
-### 1. 必要な環境変数
+1. **依存関係インストール**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```env
-# Google Spreadsheet
-GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
-SPREADSHEET_NAME=kado-com-db
+2. **データベース設定**
+   - Supabaseプロジェクトを作成
+   - 環境変数またはconfig/production.yamlで接続情報を設定
 
-# LINE設定
-LIFF_ID=your-liff-id
-LINE_CHANNEL_ACCESS_TOKEN=your-access-token
-LINE_NOTIFY_TOKEN=your-notify-token
+3. **バッチスケジューラー起動**
+   ```bash
+   python -m batch.scheduler.main
+   ```
 
-# FastAPI設定
-SECRET_KEY=your-secret-key
-DEBUG=false
-```
+## � 詳細デバッグ機能
 
-### 2. 依存関係のインストール
+### キャスト稼働判定デバッグツール
 
+HTMLを取得してキャストの稼働状況を判定する際の重要なデバッグ機能です。
+
+#### 使用方法
 ```bash
-# アプリケーション用
-pip install -r requirements.txt
-
-# バッチ処理用
-pip install -r batch-requirements.txt
+python3 test_detailed_debug.py
 ```
 
-### 3. Googleスプレッドシートの準備
+#### 出力内容
 
-1. Google Cloud Consoleでサービスアカウントを作成
-2. Google Sheets APIを有効化
-3. スプレッドシートを作成し、サービスアカウントに編集権限を付与
-4. 必要なシートを作成（Business, Status, StatusHistory, Cast, AuthorizedUsers）
+**1. 基本情報**
+- HTML内容長とsugunavi_wrapper要素数
+- sugunaviboxでフィルタリングされたキャスト数（期待値: 41人）
 
-### 4. LINE LIFF設定
+**2. 各キャストの詳細分析（出勤中のみ）**
+```
+🔍 デバッグ詳細出力 - キャスト ID: 60539207
+================================================================================
+📅 HTML取得時間: 2025-08-25 21:52:50
 
-1. LINE Developersでプロバイダーとチャンネルを作成
-2. LIFF アプリを追加
-3. エンドポイントURLを設定
+⏰ 出勤時間情報:
+   出勤時間1: '10:30～2:00'
+   DOM内容: <p class="time_font_size shadow shukkin_detail_time">...</p>
 
-## 🔧 開発・デプロイ
+💼 待機状態表記:
+   待機状態1: '次回22:10～'
+   DOM内容: <div class="title"><span>次回22:10～</span></div>
 
-### ローカル開発
+📦 sugunavibox全体:
+   '次回22:10～合言葉【即姫+10分】今すぐ遊べる女の子選んで+10分GET'
 
-```bash
-# アプリケーション起動
-cd app
-uvicorn main:app --reload --port 8000
+🎯 ソースコード判定結果:
+   is_on_shift (出勤中): True
+   is_working (稼働中): True
 
-# バッチテスト実行
-cd batch
-python main.py cast --dry-run
+🧮 判定ロジック詳細:
+   【出勤判定 (on_shift)】
+     '10:30～2:00' → 休み/調整中: False, 時間範囲内: True
+   【稼働判定 (is_working)】
+     '次回22:10～' → 現在時刻以降: True
+       💡 詳細計算: 22:10 - 21:52 = 17.2分後
+   最終結果: on_shift=True AND 現在時刻以降=True → is_working=True
 ```
 
-### GitHub Actionsによる自動デプロイ
+#### 判定ロジック
 
-- **アプリケーション**: Cloudflare Pagesに自動デプロイ
-- **バッチ処理**: GitHub Actionsで定期実行
+**出勤判定 (is_on_shift)**
+1. 出勤時間が「お休み」「調整中」等でないか確認
+2. 現在時刻が出勤時間範囲内にあるか確認
+3. 夜間営業の場合の跨日計算に対応
 
-## 📈 マネタイズ
+**稼働判定 (is_working)**
+1. 出勤中（is_on_shift=True）が前提条件
+2. 待機状態が「次回XX:XX～」形式で未来時刻を示すか確認
+3. 「XX:XX ～待機中」（過去時刻）は非稼働として判定
+4. 「受付終了」は自動的に非稼働
 
-### 収益モデル
+#### 実際の分析例
 
-- **月額利用料**: ID単位での閲覧権限販売
-- **管理機能**: 手動でのID許可制御
-- **プレミアム機能**: 詳細分析・アラート機能（将来実装予定）
+**✅ 稼働中パターン**
+- `次回22:10～` → 17.2分後 → is_working=True
+- `次回23:40～` → 107.2分後 → is_working=True
 
-### ユーザー管理
+**❌ 非稼働パターン**
+- `21:13 ～待機中` → 39.8分前 → is_working=False
+- `受付終了` → title要素なし → is_working=False
 
-- LINE IDベースでのアクセス制御
-- スプレッドシートでの許可ユーザー管理
-- 管理者による手動承認システム
+このデバッグ機能により、HTML解析とキャスト稼働判定の精度を詳細に検証できます。
 
-## 🛡️ セキュリティ
+## �📈 機能
 
-- **認証**: LINE LIFF による確実な本人確認
-- **アクセス制御**: ID単位での厳密な権限管理
-- **データ保護**: スクレイピング対象サイトのガイドライン遵守
-- **レート制限**: 適切な間隔でのデータ取得
+- **自動スクレイピング**: 店舗の稼働情報を30分間隔で収集
+- **稼働率計算**: 日次で稼働率を算出・保存
+- **営業時間考慮**: 店舗の営業時間内のみスクレイピング実行
+- **エラー処理**: 堅牢なエラーハンドリングとリトライ機能
+- **ログ管理**: 詳細なログ出力とローテーション
+- **詳細デバッグ**: キャスト稼働判定の詳細分析機能
 
-## 📚 API仕様
+## 📝 ライセンス
 
-### 主要エンドポイント
-
-```
-GET  /api/ranking              # 稼働率ランキング取得
-GET  /api/ranking/trending     # 稼働率上昇トレンド
-GET  /api/business/{id}        # 店舗詳細情報
-GET  /api/business/{id}/history # 店舗稼働履歴
-POST /api/admin/users          # ユーザー管理（管理者のみ）
-```
-
-## 📋 今後の開発予定
-
-- [ ] Figmaベースの本格的UIデザイン実装
-- [ ] プッシュ通知機能
-- [ ] 詳細な稼働分析レポート
-- [ ] モバイルアプリ版の検討
-- [ ] AI予測機能の追加
-
-## 🤝 コントリビューション
-
-このプロジェクトは現在プライベート開発中です。
-
-## 📄 ライセンス
-
-このプロジェクトは商用利用を目的として開発されています。
-
-## 📞 サポート
-
-技術的な問題や機能要望がある場合は、プロジェクト管理者までお問い合わせください。
-
----
-
-**稼働.com** - 風俗業界の稼働データを革新的に可視化するシステム
+Private Project

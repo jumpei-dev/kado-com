@@ -167,3 +167,10 @@ service-account-key.json
 # Local configuration
 config/local.yaml
 config/secrets.yaml
+
+# Data folders (HTML dumps, parsed data)
+data/raw_html/
+data/parsed_data/
+data/test_samples/
+*.html
+*.htm
