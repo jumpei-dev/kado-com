@@ -310,8 +310,13 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
             # sugunaviboxの全テキストを取得して「受付終了」をチェック
             suguna_box_text = suguna_box.get_text(strip=True)
             if '受付終了' in suguna_box_text:
-                logger.debug(f"✅ 「受付終了」検出 → 完売状態のためis_working=True")
-                return True
+                # 🔧 出勤時間終了1時間前かチェック
+                if self._is_near_shift_end(wrapper_element, current_time, hours_before=1):
+                    logger.debug(f"⏰ 「受付終了」検出 → しかし出勤時間終了1時間前のためis_working=False")
+                    return False
+                else:
+                    logger.debug(f"✅ 「受付終了」検出 → 完売状態のためis_working=True")
+                    return True
             
             # sugunavibox内のclass="title"要素を探す
             title_elements = suguna_box.find_all(class_='title')
@@ -605,7 +610,11 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
         
         if suguna_box and is_on_shift:
             if '受付終了' in full_content:
-                print(f"   稼働判定: '受付終了'検出 → 完売状態=稼働中 → working={is_working}")
+                is_near_end = self._is_near_shift_end(wrapper_element, current_time, hours_before=1)
+                if is_near_end:
+                    print(f"   稼働判定: '受付終了'検出 → しかし出勤終了1時間前 → working=False")
+                else:
+                    print(f"   稼働判定: '受付終了'検出 → 完売状態=稼働中 → working={is_working}")
             else:
                 title_elements = suguna_box.find_all(class_='title')
                 for i, title in enumerate(title_elements, 1):
@@ -616,6 +625,68 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
             print(f"   稼働判定: on_shift=Falseのためスキップ")
         
         print("-" * 50)
+    
+    def _is_near_shift_end(self, wrapper_element, current_time: datetime, hours_before: int = 1) -> bool:
+        """
+        出勤時間終了の指定時間前かどうかを判定
+        
+        既存の_is_current_time_in_range_type_aaaの内部ロジックを活用し、
+        終了時刻の指定時間前との比較のみを追加実装
+        
+        Args:
+            wrapper_element: キャストのwrapper要素
+            current_time: 現在時刻
+            hours_before: 終了何時間前かを指定（デフォルト: 1時間前）
+        
+        Returns:
+            bool: 出勤時間終了の指定時間前なら True
+        """
+        try:
+            # 既存メソッドと同じ要素取得ロジックを使用
+            time_elements = wrapper_element.find_all(class_=lambda x: x and 'shukkin_detail_time' in str(x))
+            
+            if not time_elements:
+                return False
+            
+            import re
+            
+            for time_element in time_elements:
+                time_text = time_element.get_text(strip=True)
+                
+                # 既存メソッドと同じ正規表現パターンを使用
+                time_pattern = r'(\d{1,2}):(\d{2})[\s～〜\-~]+(\d{1,2}):(\d{2})'
+                match = re.search(time_pattern, time_text)
+                
+                if match:
+                    start_hour, start_min, end_hour, end_min = map(int, match.groups())
+                    
+                    # 既存メソッドと同じ分換算ロジックを使用
+                    current_minutes = current_time.hour * 60 + current_time.minute
+                    start_minutes = start_hour * 60 + start_min
+                    end_minutes = end_hour * 60 + end_min
+                    
+                    # 🔧 終了時刻判定用の追加実装（既存ロジックとの差分部分のみ）
+                    # 既存の日跨ぎ判定を適用
+                    if start_minutes > end_minutes:  # 日跨ぎケース
+                        if current_minutes < 12 * 60:  # 午前中なら翌日扱い
+                            current_minutes += 24 * 60
+                        end_minutes += 24 * 60
+                    
+                    # 終了時刻の指定時間前を計算（新規実装部分）
+                    threshold_minutes = end_minutes - (hours_before * 60)
+                    
+                    # 現在時刻が終了指定時間前以降かチェック（新規実装部分）
+                    is_near_end = current_minutes >= threshold_minutes
+                    
+                    if is_near_end:
+                        logger.info(f"⏰ 出勤時間終了{hours_before}時間前検出: 終了{end_hour:02d}:{end_min:02d}, 現在{current_time.hour:02d}:{current_time.minute:02d}")
+                        return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"出勤時間終了判定エラー: {e}")
+            return False
     
     def _display_dom_check_summary(self, cast_list: List[Dict[str, Any]]):
         """追加店舗DOM確認モード用：最終サマリー表示"""

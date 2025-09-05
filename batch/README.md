@@ -1,53 +1,29 @@
-# 稼働.com Batch Processing System
+# Batch Processing Module
 
-This batch processing system automatically collects and analyzes cast working status for the wind industry activity tracking platform.
+このモジュールは `/Users/admin/Projects/kado-com/README.md` に統合されました。
 
-## Features
+メインREADMEを参照してください：
+- プロジェクト全体の構成
+- 最新実装機能（capacity補正、受付終了判定等）
+- 詳細なコマンドライン操作
+- DOM確認モード
+- テスト機能
 
-- **Status Collection**: Automatically scrape cast working status every 30 minutes during business hours
-- **History Calculation**: Calculate daily working rates every 6 hours for historical analysis
-- **Multi-site Support**: Supports CityHeaven and DTO (デリヘルタウン) scraping
-- **Robust Scheduling**: APScheduler-based job scheduling with proper error handling
-- **Comprehensive Logging**: Structured logging with rotation and different log levels
-- **Database Integration**: Direct PostgreSQL connection to Supabase
+## クイックリファレンス
 
-## Architecture
-
-```
-batch/
-├── core/              # Core business logic
-│   ├── database.py    # Database operations
-│   ├── models.py      # Data models
-│   └── scraper.py     # Web scraping logic
-├── jobs/              # Batch jobs
-│   ├── status_collection.py  # Status collection job
-│   └── working_rate_calculation.py # Working rate and history calculation job
-├── scheduler/         # Job scheduling
-│   └── main.py        # Main scheduler daemon
-├── utils/             # Utilities
-│   ├── config.py      # Configuration management
-│   ├── datetime_utils.py  # Date/time utilities
-│   └── logging_utils.py   # Logging utilities
-└── main.py            # CLI entry point
-```
-
-## Installation
-
-1. Install dependencies:
 ```bash
-cd batch
-pip install -r requirements.txt
+# メインディレクトリから実行
+cd /Users/admin/Projects/kado-com
+
+# 基本操作
+python batch/main.py test-db
+python batch/main.py collect --force
+python batch/main.py calculate --date 2025-09-05
+
+# 新機能テスト
+python batch/main.py test-working-rate --business-id 1 --date 2025-09-05 --capacity 6 --type soapland
+python batch/main.py debug-html --url "https://example.com/attend/"
 ```
-
-2. Verify database connection:
-```bash
-python main.py test-db
-```
-
-## Usage
-
-### Run the Scheduler Daemon
-```bash
 python main.py scheduler
 ```
 This runs the scheduler daemon that automatically executes jobs based on business hours and intervals.
