@@ -209,6 +209,12 @@ def setup_argument_parser():
     calc_parser.add_argument('--date', type=str, help='計算対象日付 (YYYY-MM-DD、省略時は前日)')
     calc_parser.add_argument('--force', action='store_true', help='強制実行')
     
+    # 手動実行: 稼働率計算テスト（単一店舗）
+    test_calc_parser = subparsers.add_parser('test-working-rate', help='稼働率計算テスト（特定店舗・日付指定）')
+    test_calc_parser.add_argument('--business-id', type=int, required=True, help='対象店舗ID')
+    test_calc_parser.add_argument('--date', type=str, required=True, help='計算対象日付 (YYYY-MM-DD)')
+    test_calc_parser.add_argument('--force', action='store_true', help='強制実行（既存データ上書き）')
+    
     # データベーステスト
     subparsers.add_parser('test-db', help='データベース接続テスト')
     
@@ -451,6 +457,28 @@ async def main():
             # テスト実行（非同期）
             test_runner = HTMLToDBIntegrationTest()
             result = await test_runner.run_integration_test(args.html_file)
+            
+            return 0 if result['success'] else 1
+        
+        elif args.command == 'test-working-rate':
+            print("稼働率計算テストを実行中...")
+            
+            # 日付をパース
+            try:
+                target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
+            except ValueError:
+                print(f"❌ 無効な日付形式: {args.date}. YYYY-MM-DD形式で指定してください")
+                return 1
+            
+            # プロジェクトルートをパスに追加
+            project_root = Path(__file__).parent.parent
+            sys.path.insert(0, str(project_root))
+            
+            from tests.integration.test_working_rate_calculation import WorkingRateCalculationTest
+            
+            # テスト実行（非同期）
+            test_runner = WorkingRateCalculationTest()
+            result = await test_runner.run_working_rate_test(args.business_id, target_date)
             
             return 0 if result['success'] else 1
         

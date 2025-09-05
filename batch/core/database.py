@@ -42,6 +42,22 @@ class DatabaseManager:
                 cursor.execute(query, params)
                 return cursor.fetchall()
     
+    def fetch_all(self, query: str, params: tuple = None) -> List[Dict[str, Any]]:
+        """SELECTクエリを実行して全結果を返す（execute_queryのエイリアス）"""
+        return self.execute_query(query, params)
+    
+    def fetch_one(self, query: str, params: tuple = None) -> Optional[Dict[str, Any]]:
+        """SELECTクエリを実行して最初の結果を返す"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                result = cursor.fetchone()
+                return dict(result) if result else None
+    
+    def execute(self, command: str, params: tuple = None) -> int:
+        """INSERT/UPDATE/DELETEコマンドを実行（execute_commandのエイリアス）"""
+        return self.execute_command(command, params)
+    
     def execute_command(self, command: str, params: tuple = None) -> int:
         """INSERT/UPDATE/DELETEコマンドを実行して影響を受けた行数を返す"""
         with self.get_connection() as conn:
