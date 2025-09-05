@@ -171,6 +171,70 @@ async def download_html_from_url(url: str) -> str:
         print(f"❌ HTMLダウンロードエラー: {e}")
         return None
 
+def is_business_open(business_data: dict, current_time: datetime = None) -> bool:
+    """店舗が現在営業中かチェックする"""
+    if current_time is None:
+        import pytz
+        jst = pytz.timezone('Asia/Tokyo')
+        current_time = datetime.now(jst).replace(tzinfo=None)
+    
+    # DatabaseManagerから取得されるキー名に合わせて修正
+    openhour = business_data.get('open_hour')
+    closehour = business_data.get('close_hour')
+    
+    # 営業時間データがない場合は常に営業中とする
+    if openhour is None or closehour is None:
+        return True
+    
+    # datetime.timeオブジェクトの場合はhour属性を取得
+    if hasattr(openhour, 'hour'):
+        openhour = openhour.hour
+    if hasattr(closehour, 'hour'):
+        closehour = closehour.hour
+    
+    current_hour = current_time.hour
+    
+    # 日跨ぎ営業の場合（例: 20:00-05:00）
+    if openhour > closehour:
+        return current_hour >= openhour or current_hour < closehour
+    # 通常営業の場合（例: 10:00-22:00）
+    else:
+        return openhour <= current_hour < closehour
+
+def filter_open_businesses(businesses: dict, force: bool = False, ignore_hours: bool = False) -> dict:
+    """営業中の店舗のみをフィルタリング"""
+    if force or ignore_hours:
+        return businesses
+    
+    import pytz
+    jst = pytz.timezone('Asia/Tokyo')
+    current_time = datetime.now(jst).replace(tzinfo=None)
+    
+    open_businesses = {}
+    closed_count = 0
+    
+    for key, business in businesses.items():
+        if is_business_open(business, current_time):
+            open_businesses[key] = business
+        else:
+            closed_count += 1
+            business_name = business.get('name', 'Unknown')
+            openhour = business.get('open_hour', 'N/A')
+            closehour = business.get('close_hour', 'N/A')
+            
+            # datetime.timeオブジェクトの場合は時間のみ表示
+            if hasattr(openhour, 'hour'):
+                openhour = openhour.hour
+            if hasattr(closehour, 'hour'):
+                closehour = closehour.hour
+                
+            print(f"   ⏰ スキップ: {business_name} (営業時間: {openhour}:00-{closehour}:00)")
+    
+    if closed_count > 0:
+        print(f"⏰ 営業時間外のため{closed_count}店舗をスキップしました")
+    
+    return open_businesses
+
 def setup_argument_parser():
     """コマンドライン引数パーサーを設定する"""
     parser = argparse.ArgumentParser(
@@ -179,6 +243,9 @@ def setup_argument_parser():
         epilog="""
 使用例:
   %(prog)s status-collection                            # 稼働状況取得スケジューラー開始
+  %(prog)s status-collection --once                     # 一回だけ実行（in_scope=true、営業中のみ）
+  %(prog)s status-collection --once --force             # 一回だけ強制実行（営業時間外も含む）
+  %(prog)s status-collection --once --ignore-hours      # 一回だけ実行（営業時間制限無視）
   %(prog)s working-rate                                # 稼働率計算スケジューラー開始
   %(prog)s collect --force                             # 稼働状況取得を手動実行
   %(prog)s collect --local-html                        # ローカルHTMLファイルで開発テスト
@@ -195,6 +262,9 @@ def setup_argument_parser():
     
     # 稼働状況取得スケジューラー
     status_parser = subparsers.add_parser('status-collection', help='稼働状況取得スケジューラー（30分ごと）')
+    status_parser.add_argument('--once', action='store_true', help='スケジューラーを一回だけ実行（in_scope=trueの全店舗）')
+    status_parser.add_argument('--force', action='store_true', help='営業時間外でも強制実行')
+    status_parser.add_argument('--ignore-hours', action='store_true', help='営業時間制限を無視')
     
     # 稼働率計算スケジューラー
     rate_parser = subparsers.add_parser('working-rate', help='稼働率計算スケジューラー（毎日12時）')
@@ -614,11 +684,110 @@ async def main():
     
     try:
         if args.command == 'status-collection':
-            print("稼働状況取得スケジューラーを開始中...")
-            print("30分ごとに営業中店舗の稼働状況を取得します")
-            print("停止するにはCtrl+Cを押してください")
-            await run_status_collection_scheduler()
-            return 0
+            if hasattr(args, 'once') and args.once:
+                # 一回だけ強制実行モード
+                print("📊 稼働状況取得スケジューラーを一回だけ強制実行中...")
+                print("🎯 対象: business.in_scope = true の全店舗")
+                
+                if collect_all_working_status is None:
+                    print("❌ collect_all_working_statusが利用できません")
+                    return 1
+                
+                try:
+                    db_manager = DatabaseManager()
+                    all_businesses = db_manager.get_businesses()
+                    
+                    # in_scope=trueの店舗のみフィルタリング
+                    in_scope_businesses = {
+                        k: v for k, v in all_businesses.items() 
+                        if v.get('in_scope', False) == True
+                    }
+                    
+                    if not in_scope_businesses:
+                        print("⚠️ in_scope=trueの店舗が見つかりませんでした")
+                        return 0
+                    
+                    print(f"✓ in_scope=true店舗: {len(in_scope_businesses)}店舗")
+                    
+                    # 営業時間チェック
+                    force_execution = hasattr(args, 'force') and args.force
+                    ignore_hours = hasattr(args, 'ignore_hours') and args.ignore_hours
+                    
+                    target_businesses = filter_open_businesses(
+                        in_scope_businesses, 
+                        force=force_execution,
+                        ignore_hours=ignore_hours
+                    )
+                    
+                    print(f"✓ 営業中店舗: {len(target_businesses)}店舗")
+                    
+                    if not target_businesses:
+                        print("⚠️ 営業中の店舗がありません")
+                        return 0
+                    
+                    # 店舗情報を表示
+                    for i, (key, business) in enumerate(target_businesses.items()):
+                        name = business.get('Name', business.get('name', 'Unknown'))
+                        print(f"  店舗{i+1}: {name} (ID: {business.get('Business ID')})")
+                    
+                    print("🚀 稼働状況収集を実行中...")
+                    
+                    # 収集実行
+                    results = await collect_all_working_status(target_businesses, use_local_html=False)
+                    
+                    print(f"✅ 結果: {len(results)}件のデータを収集しました")
+                    
+                    if results:
+                        print("💾 データベースに保存中...")
+                        saved_count = 0
+                        business_id_counts = {}  # business_id別の集計
+                        
+                        for result in results:
+                            try:
+                                # デバッグ: business_idの確認
+                                actual_business_id = result.get('business_id', 1)
+                                cast_id = result['cast_id']
+                                
+                                # business_id別カウント
+                                business_id_counts[actual_business_id] = business_id_counts.get(actual_business_id, 0) + 1
+                                
+                                print(f"  💾 保存中: cast_id={cast_id}, business_id={actual_business_id}")
+                                
+                                success = db_manager.insert_status(
+                                    cast_id=result['cast_id'],
+                                    business_id=actual_business_id,
+                                    is_working=result['is_working'],
+                                    is_on_shift=result['is_on_shift'],
+                                    collected_at=result.get('collected_at')
+                                )
+                                if success:
+                                    saved_count += 1
+                            except Exception as save_error:
+                                print(f"保存エラー (cast_id: {result.get('cast_id', 'unknown')}): {save_error}")
+                        
+                        print(f"💾 データベースに{saved_count}件保存しました")
+                        print(f"📊 business_id別内訳: {business_id_counts}")
+                    
+                    print("🎉 稼働状況取得スケジューラーの一回実行が完了しました")
+                    return 0
+                    
+                except Exception as e:
+                    print(f"❌ スケジューラー一回実行エラー: {e}")
+                    import traceback
+                    print(f"詳細: {traceback.format_exc()}")
+                    return 1
+            else:
+                # 通常のスケジューラーモード（30分ごと）
+                print("稼働状況取得スケジューラーを開始中...")
+                print("30分ごとに営業中店舗の稼働状況を取得します")
+                print("停止するにはCtrl+Cを押してください")
+                
+                if run_status_collection_scheduler is None:
+                    print("❌ run_status_collection_schedulerが利用できません")
+                    return 1
+                
+                await run_status_collection_scheduler()
+                return 0
             
         elif args.command == 'working-rate':
             print("稼働率計算スケジューラーを開始中...")
