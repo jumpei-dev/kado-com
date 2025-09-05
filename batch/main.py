@@ -231,6 +231,13 @@ def setup_argument_parser():
     test_parser.add_argument('html_file', help='テスト対象HTMLファイル名')
     test_parser.add_argument('--business-name', help='店舗名（任意）')
     
+    # 🔧 新店舗チェックモード（DB登録なし）
+    shop_check_parser = subparsers.add_parser('shop-check', help='新店舗事前チェック（HTML取得→解析→計算テスト、DB登録なし）')
+    shop_check_parser.add_argument('--url', type=str, help='店舗のURL（HTMLダウンロード用）')
+    shop_check_parser.add_argument('--local-file', type=str, help='ローカルHTMLファイル名（data/raw_html/cityhaven/内）')
+    shop_check_parser.add_argument('--type', type=str, default='delivery_health', choices=['soapland', 'delivery_health', 'fashion_health'], help='店舗タイプ（デフォルト：delivery_health）')
+    shop_check_parser.add_argument('--capacity', type=int, help='Capacity値（soapland店舗の場合のみ必要）')
+    
     return parser
 
 async def run_collect_command(args):
@@ -361,6 +368,180 @@ async def run_debug_html_command(args):
         print(f"✗ 店舗追加検証エラー: {e}")
         import traceback
         print(f"詳細エラー: {traceback.format_exc()}")
+        return 1
+
+async def run_shop_check(args):
+    """
+    新店舗事前チェック（本番コード使用版）
+    HTML取得→本番解析→稼働率計算をワンストップで実行
+    """
+    print(f"� 新店舗事前チェック開始（本番コード使用）")
+    print(f"URL: {args.url}")
+    print(f"Type: {args.type}")
+    
+    # capacity処理（店舗タイプ別）
+    if args.type == 'soapland':
+        if not hasattr(args, 'capacity') or args.capacity is None:
+            print("❌ soapland店舗ではcapacityの指定が必要です")
+            print("使用例: python main.py shop-check --url [URL] --type soapland --capacity 8")
+            return 1
+        print(f"Capacity: {args.capacity}")
+    else:
+        if hasattr(args, 'capacity') and args.capacity is not None:
+            print(f"⚠️ {args.type}店舗ではcapacityは使用されません（指定値：{args.capacity}は無視）")
+        print(f"Capacity: N/A ({args.type}店舗)")
+    
+    print("=" * 80)
+    
+    try:
+        # Step 1: URLから店舗名抽出
+        from urllib.parse import urlparse
+        parsed_url = urlparse(args.url)
+        path_parts = parsed_url.path.strip('/').split('/')
+        
+        # URLから店舗名を自動抽出
+        shop_name = path_parts[-2] if len(path_parts) >= 2 else "new_shop"
+        print(f"🏪 店舗名を自動抽出: {shop_name}")
+        
+        # Step 2: 本番のHTML取得・保存関数を使用
+        print(f"\n📄 Step 1: HTML取得・保存（本番関数使用）")
+        print("-" * 40)
+        html_file = await download_html_from_url(args.url)
+        if not html_file:
+            print(f"❌ HTMLダウンロード失敗")
+            return 1
+        print(f"✅ HTML保存完了: {html_file}")
+        
+        # Step 3: 本番パーサーでHTML解析実行
+        print(f"\n🔍 Step 2: HTML解析実行（本番CityheavenTypeAAAParser使用）")
+        print("-" * 40)
+        
+        # 本番のCityheavenTypeAAAParserを使用
+        from jobs.status_collection.cityheaven_parsers import CityheavenTypeAAAParser
+        from utils.datetime_utils import now_jst_naive
+        
+        # HTMLファイル読み込み
+        html_path = Path(__file__).parent.parent / "data" / "raw_html" / "cityhaven" / html_file
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # 本番パーサーで解析実行（debug-htmlと同じ処理）
+        parser = CityheavenTypeAAAParser()
+        current_time = now_jst_naive()
+        
+        print(f"📊 HTML解析開始...")
+        cast_list = await parser.parse_cast_list(
+            html_content=html_content,
+            html_acquisition_time=current_time,
+            dom_check_mode=False,  # shop-checkでは簡潔な出力
+            business_id="999999"  # shop-check用の仮ID（数値文字列）
+        )
+        
+        # 解析結果サマリー
+        total_count = len(cast_list)
+        on_shift_count = sum(1 for cast in cast_list if cast.get('is_on_shift', False))
+        working_count = sum(1 for cast in cast_list if cast.get('is_working', False))
+        
+        print(f"\n✅ HTML解析完了（本番パーサー使用）:")
+        print(f"   総キャスト数: {total_count}人")
+        print(f"   出勤中: {on_shift_count}人")
+        print(f"   稼働中: {working_count}人")
+        
+        if on_shift_count > 0:
+            basic_working_rate = (working_count / on_shift_count * 100)
+            print(f"   基本稼働率: {basic_working_rate:.1f}%")
+        else:
+            print(f"   基本稼働率: N/A（出勤中キャストなし）")
+        
+        # Step 4: 本番のCapacity補正ロジックを使用
+        print(f"\n🔧 Step 3: Capacity補正（本番RateCalculatorロジック使用）")
+        print("-" * 40)
+        
+        # 本番のRateCalculatorを使用
+        from jobs.working_rate_calculation.rate_calculator import RateCalculator
+        
+        # 本番と同じbusiness_info形式を作成
+        business_info = {
+            'type': args.type,
+            'capacity': args.capacity if (args.type == 'soapland' and hasattr(args, 'capacity') and args.capacity is not None) else None
+        }
+        
+        # 本番のCapacity補正メソッドを直接使用
+        rate_calculator = RateCalculator()
+        capacity_limited_working = rate_calculator._apply_capacity_limit(working_count, business_info)
+        
+        # 補正結果の表示
+        print(f"   補正前稼働数: {working_count}人")
+        
+        if args.type == 'soapland':
+            if hasattr(args, 'capacity') and args.capacity is not None:
+                print(f"   Capacity制限: {args.capacity}人（soapland店舗）")
+                if working_count > args.capacity:
+                    print(f"   🔧 補正効果: あり（-{working_count - capacity_limited_working}人）")
+                    print(f"   補正後稼働数: {capacity_limited_working}人")
+                else:
+                    print(f"   🔧 補正効果: なし（Capacity上限以下）")
+                    print(f"   補正後稼働数: {capacity_limited_working}人")
+            else:
+                print(f"   Capacity制限: 未設定（soapland店舗だが制限なし）")
+                print(f"   補正後稼働数: {capacity_limited_working}人")
+        else:
+            print(f"   Capacity制限: N/A（{args.type}店舗は制限対象外）")
+            print(f"   補正後稼働数: {capacity_limited_working}人（制限なし）")
+        
+        # 最終稼働率計算（本番ロジック）
+        if on_shift_count > 0:
+            final_rate = (capacity_limited_working / on_shift_count * 100)
+            print(f"   最終稼働率: {final_rate:.1f}%")
+        else:
+            print(f"   最終稼働率: N/A（出勤中キャストなし）")
+        
+        # Step 5: 最終結果サマリー
+        print(f"\n🎉 新店舗チェック完了!")
+        print("=" * 80)
+        print(f"📊 最終結果サマリー:")
+        print(f"   🏪 店舗名: {shop_name}")
+        print(f"   🌐 URL: {args.url}")
+        print(f"   📦 店舗タイプ: {args.type}")
+        
+        if args.type == 'soapland' and hasattr(args, 'capacity') and args.capacity is not None:
+            print(f"   🏠 Capacity: {args.capacity}人")
+            if on_shift_count > 0:
+                final_rate = (capacity_limited_working / on_shift_count * 100)
+                print(f"   📊 最終稼働率: {final_rate:.1f}%（Capacity補正後）")
+            else:
+                print(f"   📊 最終稼働率: N/A")
+        else:
+            print(f"   🏠 Capacity: N/A（{args.type}店舗）")
+            if on_shift_count > 0:
+                final_rate = (capacity_limited_working / on_shift_count * 100)
+                print(f"   📊 最終稼働率: {final_rate:.1f}%")
+            else:
+                print(f"   📊 最終稼働率: N/A")
+        
+        print(f"   📄 HTMLファイル: {html_file}")
+        print(f"   👥 総キャスト数: {total_count}人")
+        print(f"   📥 出勤中: {on_shift_count}人")
+        print(f"   📈 稼働中: {working_count}人（補正前）")
+        print(f"   📈 稼働中: {capacity_limited_working}人（補正後）")
+        
+        # 本番関数使用の確認
+        print(f"\n✅ 使用した本番関数:")
+        print(f"   🔧 HTML取得: download_html_from_url()")
+        print(f"   🔧 HTML解析: CityheavenTypeAAAParser.parse_cast_list()")
+        print(f"   🔧 日跨ぎ判定: _is_time_current_or_later_type_aaa()（修正版）")
+        print(f"   🔧 稼働判定: _determine_working_type_aaa()")
+        print(f"   🔧 出勤判定: _determine_on_shift_type_aaa()")
+        print(f"   🔧 Capacity補正: RateCalculator._apply_capacity_limit()")
+        
+        print(f"\n💡 出力結果を確認して問題がなければ、店舗({args.url})を手動でDBに登録してください。")
+        
+        return 0
+        
+    except Exception as e:
+        print(f"❌ 新店舗チェックエラー: {e}")
+        import traceback
+        print(f"詳細: {traceback.format_exc()}")
         return 1
 
 async def main():
@@ -540,6 +721,10 @@ async def main():
                         print(f"✅ 店舗設定を復元完了")
                     except Exception as e:
                         print(f"⚠️ 設定復元エラー: {e}")
+        
+        elif args.command == 'shop-check':
+            print("新店舗事前チェックを実行中...")
+            return await run_shop_check(args)
         
     except KeyboardInterrupt:
         print("\nユーザーによる操作中断")

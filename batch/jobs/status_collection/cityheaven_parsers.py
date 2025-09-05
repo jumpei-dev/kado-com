@@ -392,9 +392,10 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
     
     def _is_time_current_or_later_type_aaa(self, title_text: str, current_time: datetime) -> bool:
         """
-        指示書準拠の現在時刻以降判定 (type=a,a,a)
+        指示書準拠の現在時刻以降判定 (type=a,a,a) - 営業日ベース（6時境界）
         
-        titleテキストから時間を抽出し、現在時刻以降（現在時刻と同じかそれより後）かチェック
+        「次回○○:○○～」は現在から○○:○○まで稼働中を意味する
+        営業日境界を6:00として、同一営業日内での時刻比較を行う
         """
         
         try:
@@ -407,25 +408,37 @@ class CityheavenTypeAAAParser(CityheavenParserBase):
                 logger.debug(f"❌ 時間パターンなし: '{title_text}'")
                 return False
             
-            for hour_str, min_str in time_patterns:
-                hour, minute = int(hour_str), int(min_str)
-                
-                # 今日の該当時刻を作成
-                target_time = current_time.replace(hour=hour, minute=minute, second=0, microsecond=0)
-                
-                # 現在時刻との差分を分で計算
-                time_diff = (target_time - current_time).total_seconds() / 60
-                
-                # 現在時刻以降かチェック（0分以上後、つまり現在時刻と同じかそれより後）
-                if time_diff >= 0:
-                    logger.debug(f"✅ 現在時刻以降判定成功: 対象時刻:{hour:02d}:{minute:02d}, 現在:{current_time.hour:02d}:{current_time.minute:02d}, 差分:{time_diff:.1f}分")
-                    # 詳細計算ログを削除（ログ簡略化）
-                    return True
-                else:
-                    logger.debug(f"❌ 現在時刻より前: 対象時刻:{hour:02d}:{minute:02d}, 差分:{time_diff:.1f}分")
-                    # 詳細計算ログを削除（ログ簡略化）
+            # 最初に見つかった時間を使用
+            target_hour, target_minute = map(int, time_patterns[0])
+            target_minutes = target_hour * 60 + target_minute
+            current_minutes = current_time.hour * 60 + current_time.minute
             
-            return False
+            # 🔧 営業日ベースの時刻正規化（6:00境界）
+            
+            # 現在時刻の正規化
+            current_normalized = current_minutes
+            if current_time.hour < 6:
+                # 現在が6:00以前なら前日営業日の延長として扱う
+                current_normalized += 24 * 60
+            
+            # 対象時刻の正規化
+            target_normalized = target_minutes
+            if current_time.hour >= 6 and target_hour < 6:
+                # 現在が6:00以降で対象が6:00以前なら、対象を翌営業日として扱う
+                target_normalized += 24 * 60
+            elif current_time.hour < 6 and target_hour < 6:
+                # 両方とも6:00以前なら同一営業日として扱う
+                target_normalized += 24 * 60
+            
+            # 「次回○○:○○～」の判定
+            # 対象時刻が現在時刻より未来なら稼働中
+            is_working = target_normalized > current_normalized
+            
+            logger.debug(f"✅ 営業日ベース判定 (6:00境界): '{title_text}' → working={is_working}")
+            logger.debug(f"   現在: {current_time.hour:02d}:{current_time.minute:02d} → {current_normalized}分")
+            logger.debug(f"   対象: {target_hour:02d}:{target_minute:02d} → {target_normalized}分")
+            
+            return is_working
                 
         except Exception as e:
             logger.error(f"現在時刻以降判定エラー (type=aaa): {str(e)}")
