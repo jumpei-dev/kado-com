@@ -28,7 +28,7 @@ try:
     # 相対インポート
     from .schedulers.status_collection_scheduler import run_status_collection_scheduler
     from .schedulers.working_rate_scheduler import run_working_rate_scheduler  
-    from .jobs.status_collection import collect_all_working_status, collect_status_by_url
+    from .jobs.status_collection.collector import collect_all_working_status, collect_status_by_url
     from .jobs.working_rate_calculation import run_working_rate_calculation
     from .utils.logging_utils import setup_logging
     from .utils.config import get_config
@@ -43,7 +43,7 @@ except ImportError as e:
         # ローカルインポート
         from schedulers.status_collection_scheduler import run_status_collection_scheduler
         from schedulers.working_rate_scheduler import run_working_rate_scheduler  
-        from jobs.status_collection import collect_all_working_status, collect_status_by_url
+        from jobs.status_collection.collector import collect_all_working_status, collect_status_by_url
         from jobs.working_rate_calculation import run_working_rate_calculation
         from utils.logging_utils import setup_logging
         from utils.config import get_config
@@ -65,7 +65,7 @@ except ImportError as e:
         
         # collect_all_working_status をインポートを試行
         try:
-            from jobs.status_collection import collect_all_working_status, collect_status_by_url
+            from jobs.status_collection.collector import collect_all_working_status, collect_status_by_url
             print("✓ collect_all_working_statusとcollect_status_by_urlは利用可能です")
         except ImportError as import_error:
             print(f"collect_all_working_status インポート失敗: {import_error}")
@@ -269,7 +269,7 @@ async def run_collect_command(args):
         
         print(f"✓ 処理対象: {len(target_businesses)}店舗")
         
-        # 店舗情報を詳細表示
+        # 店舗情報を表示
         for i, (key, business) in enumerate(target_businesses.items()):
             name = business.get('Name', business.get('name', 'Unknown'))
             print(f"  店舗{i+1}: {name} (ID: {business.get('Business ID')})")
@@ -287,10 +287,11 @@ async def run_collect_command(args):
             for result in results:
                 try:
                     success = db_manager.insert_status(
-                        result['cast_id'],
-                        result['is_working'],
-                        result['is_on_shift'],
-                        result['collected_at']
+                        cast_id=result['cast_id'],
+                        business_id=result.get('business_id', 1),
+                        is_working=result['is_working'],
+                        is_on_shift=result['is_on_shift'],  # キー名を統一
+                        collected_at=result.get('collected_at')
                     )
                     if success:
                         saved_count += 1

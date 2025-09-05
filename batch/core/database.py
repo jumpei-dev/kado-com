@@ -69,7 +69,7 @@ class DatabaseManager:
         """すべてのアクティブな店舗を取得する"""
         query = """
         SELECT business_id, name, area, prefecture, type, capacity, 
-               open_hour, close_hour, schedule_url1, in_scope,
+               open_hour, close_hour, schedule_url, in_scope,
                working_type, cast_type, shift_type, media
         FROM business 
         WHERE in_scope = true
@@ -89,7 +89,7 @@ class DatabaseManager:
                 "capacity": row["capacity"],
                 "open_hour": row["open_hour"],
                 "close_hour": row["close_hour"], 
-                "URL": row["schedule_url1"],  # schedule_url1をURLとして使用
+                "URL": row["schedule_url"],  # schedule_urlをURLとして使用
                 "in_scope": row["in_scope"],
                 "working_type": row["working_type"],
                 "cast_type": row["cast_type"],
@@ -102,10 +102,10 @@ class DatabaseManager:
     def get_casts_by_business(self, business_id: int) -> List[Dict[str, Any]]:
         """指定した店舗のすべてのキャストを取得する"""
         query = """
-        SELECT cast_id, business_id, name, profile_url
+        SELECT cast_id, business_id, profile_url
         FROM cast 
         WHERE business_id = %s AND is_active = true
-        ORDER BY name
+        ORDER BY cast_id
         """
         return self.execute_query(query, (business_id,))
     

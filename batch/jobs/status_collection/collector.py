@@ -72,7 +72,7 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
         media_type = business.get("media", "cityhaven")  # デフォルトはcityhaven
         business_name = business.get("name", "")
         business_id = business.get("Business ID", "")
-        base_url = business.get("schedule_url", "")
+        base_url = business.get("URL", business.get("schedule_url", ""))
         
         if not business_name:
             logger.warning(f"店舗名が指定されていません: {business}")
@@ -87,19 +87,35 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
             dom_check_mode=dom_check_mode  # DOM確認モードを戦略に渡す
         )
         
-        # CastStatusオブジェクトを辞書形式に変換
+        # CastStatusオブジェクトを辞書形式に変換（statusテーブル構造に合わせて）
         cast_list = []
         for cast_status in cast_statuses:
-            cast_dict = {
-                "name": cast_status.name,
-                "is_working": cast_status.is_working,
-                "business_id": cast_status.business_id,
-                "cast_id": cast_status.cast_id,
-                "on_shift": cast_status.on_shift,
-                "shift_times": cast_status.shift_times,
-                "working_times": cast_status.working_times
-            }
-            cast_list.append(cast_dict)
+            try:
+                # 収集時刻を取得
+                collected_at = get_current_jst_datetime()
+                
+                # cast_statusが既に辞書の場合とオブジェクトの場合を両方処理
+                if isinstance(cast_status, dict):
+                    cast_dict = {
+                        "cast_id": cast_status.get("cast_id", ""),
+                        "business_id": cast_status.get("business_id", business_id),
+                        "is_working": cast_status.get("is_working", False),
+                        "is_on_shift": cast_status.get("is_on_shift", False),  # パーサーのキー名に合わせて修正
+                        "collected_at": collected_at
+                    }
+                else:
+                    # オブジェクトの場合（従来の方式）
+                    cast_dict = {
+                        "cast_id": cast_status.cast_id,
+                        "business_id": cast_status.business_id,
+                        "is_working": cast_status.is_working,
+                        "is_on_shift": cast_status.on_shift,  # キー名を統一
+                        "collected_at": collected_at
+                    }
+                cast_list.append(cast_dict)
+            except Exception as e:
+                logger.error(f"CastStatus変換エラー: {e}, データ: {cast_status}")
+                continue
         
         return cast_list
         
