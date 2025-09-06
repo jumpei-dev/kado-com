@@ -6,6 +6,7 @@ import asyncio
 import argparse
 import sys
 import logging
+import random
 from pathlib import Path
 from datetime import datetime
 import aiohttp
@@ -251,6 +252,7 @@ def setup_argument_parser():
   %(prog)s working-rate --once --date 2025-09-05       # 一回だけ実行（特定日付の稼働率計算）
   %(prog)s working-rate --once --business-id 1         # 一回だけ実行（特定店舗のみ）
   %(prog)s working-rate --once --business-id 1 --date 2025-09-05  # 特定店舗・特定日付
+  %(prog)s test-scheduler                              # 統合テスト（status収集2回→稼働率計算）
   %(prog)s collect --force                             # 稼働状況取得を手動実行
   %(prog)s collect --local-html                        # ローカルHTMLファイルで開発テスト
   %(prog)s calculate --date 2024-01-15                 # 特定日の稼働率を計算
@@ -258,6 +260,7 @@ def setup_argument_parser():
   %(prog)s debug-html --url "https://example.com/attend/"    # URLからHTMLを保存
   %(prog)s debug-html --local-file "filename.html"        # ローカルファイルのDOM構造確認
   %(prog)s test-working-rate --business-id 1 --date 2025-09-05 --capacity 6 --type soapland  # inhouse店舗テスト
+  %(prog)s test-scheduler                              # 統合テスト（並行処理・ブロック対策版）
         """
     )
     
@@ -269,6 +272,8 @@ def setup_argument_parser():
     status_parser.add_argument('--once', action='store_true', help='スケジューラーを一回だけ実行（in_scope=trueの全店舗）')
     status_parser.add_argument('--force', action='store_true', help='営業時間外でも強制実行')
     status_parser.add_argument('--ignore-hours', action='store_true', help='営業時間制限を無視')
+    status_parser.add_argument('--parallel', action='store_true', help='並行処理版を使用（高速化・ブロック対策）')
+    status_parser.add_argument('--max-workers', type=int, help='並行処理数（デフォルト: 3）')
     
     # 稼働率計算スケジューラー
     rate_parser = subparsers.add_parser('working-rate', help='稼働率計算スケジューラー（毎日12時）')
@@ -281,6 +286,8 @@ def setup_argument_parser():
     collect_parser.add_argument('--force', action='store_true', help='営業時間外でも強制実行')
     collect_parser.add_argument('--business-id', type=str, help='特定店舗のみ処理')
     collect_parser.add_argument('--local-html', action='store_true', help='ローカルHTMLファイルを使用（開発用）')
+    collect_parser.add_argument('--parallel', action='store_true', help='並行処理版を使用（高速化・ブロック対策）')
+    collect_parser.add_argument('--max-workers', type=int, help='並行処理数（デフォルト: 3）')
     
     # 手動実行: 稼働率計算
     calc_parser = subparsers.add_parser('calculate', help='稼働率を手動計算')
@@ -314,6 +321,9 @@ def setup_argument_parser():
     shop_check_parser.add_argument('--local-file', type=str, help='ローカルHTMLファイル名（data/raw_html/cityhaven/内）')
     shop_check_parser.add_argument('--type', type=str, default='delivery_health', choices=['soapland', 'delivery_health', 'fashion_health'], help='店舗タイプ（デフォルト：delivery_health）')
     shop_check_parser.add_argument('--capacity', type=int, help='Capacity値（soapland店舗の場合のみ必要）')
+    
+    # 🧪 統合テストモード（ワンライナー）
+    test_scheduler_parser = subparsers.add_parser('test-scheduler', help='統合テスト（status収集2回→稼働率計算）')
     
     return parser
 
@@ -352,8 +362,24 @@ async def run_collect_command(args):
             print(f"  店舗{i+1}: {name} (ID: {business.get('Business ID')})")
         
         print("✓ 稼働状況収集を実行中...")
-        # 収集実行（local_htmlオプション追加）
-        results = await collect_all_working_status(target_businesses, use_local_html=args.local_html)
+        
+        # 並行処理版または従来版を選択
+        use_parallel = hasattr(args, 'parallel') and args.parallel
+        max_workers = getattr(args, 'max_workers', None)
+        
+        if use_parallel:
+            print(f"🚀 並行処理版を使用 (max_workers: {max_workers or 'デフォルト'})")
+            # 並行処理版をインポート
+            from jobs.status_collection.collector import collect_all_working_status_parallel
+            results = await collect_all_working_status_parallel(
+                target_businesses, 
+                use_local_html=args.local_html,
+                max_workers=max_workers
+            )
+        else:
+            print("🔧 従来版（逐次処理）を使用")
+            # 従来版を使用
+            results = await collect_all_working_status(target_businesses, use_local_html=args.local_html)
         
         print(f"✓ 結果: {len(results)}件のデータを収集しました")
         
@@ -739,8 +765,23 @@ async def main():
                     
                     print("🚀 稼働状況収集を実行中...")
                     
-                    # 収集実行
-                    results = await collect_all_working_status(target_businesses, use_local_html=False)
+                    # 並行処理版または従来版を選択
+                    use_parallel = hasattr(args, 'parallel') and args.parallel
+                    max_workers = getattr(args, 'max_workers', None)
+                    
+                    if use_parallel:
+                        print(f"🚀 並行処理版を使用 (max_workers: {max_workers or 'デフォルト'})")
+                        # 並行処理版をインポート
+                        from jobs.status_collection.collector import collect_all_working_status_parallel
+                        results = await collect_all_working_status_parallel(
+                            target_businesses, 
+                            use_local_html=False,
+                            max_workers=max_workers
+                        )
+                    else:
+                        print("🔧 従来版（逐次処理）を使用")
+                        # 従来版を使用
+                        results = await collect_all_working_status(target_businesses, use_local_html=False)
                     
                     print(f"✅ 結果: {len(results)}件のデータを収集しました")
                     
@@ -1070,6 +1111,94 @@ async def main():
                         print(f"✅ 店舗設定を復元完了")
                     except Exception as e:
                         print(f"⚠️ 設定復元エラー: {e}")
+        
+        elif args.command == 'test-scheduler':
+            # ワンライナー統合テスト: status-collection 2回 → working-rate 1回
+            print("🧪 統合テスト開始: status収集2回 → 稼働率計算")
+            
+            try:
+                import asyncio
+                from datetime import datetime
+                import pytz
+                
+                # 1回目のstatus収集
+                print("\n📊 status収集 1/2")
+                args_once = type('Args', (), {
+                    'command': 'status-collection',
+                    'once': True,
+                    'force': False,
+                    'ignore_hours': True
+                })()
+                
+                # 既存のstatus-collection --once処理を実行
+                db_manager = DatabaseManager()
+                all_businesses = db_manager.get_businesses()
+                target_businesses = filter_open_businesses(all_businesses, force=True, ignore_hours=True)
+                
+                if target_businesses:
+                    # 設定によりランダム化された並行処理を使用
+                    from jobs.status_collection.collector import collect_all_working_status_parallel
+                    results1 = await collect_all_working_status_parallel(target_businesses, use_local_html=False)
+                    saved1 = 0
+                    if results1:
+                        for result in results1:
+                            try:
+                                success = db_manager.insert_status(
+                                    cast_id=result['cast_id'],
+                                    business_id=result.get('business_id'),
+                                    is_working=result['is_working'],
+                                    is_on_shift=result['is_on_shift'],
+                                    collected_at=result.get('collected_at')
+                                )
+                                if success:
+                                    saved1 += 1
+                            except Exception:
+                                pass
+                    print(f"✅ {saved1}件保存")
+                
+                # ランダム待機（30-90秒）でブロック対策
+                wait_time = random.randint(30, 90)
+                print(f"⏰ {wait_time}秒待機中（ブロック対策）...")
+                await asyncio.sleep(wait_time)
+                
+                # 2回目のstatus収集
+                print("\n📊 status収集 2/2")
+                if target_businesses:
+                    results2 = await collect_all_working_status_parallel(target_businesses, use_local_html=False)
+                    saved2 = 0
+                    if results2:
+                        for result in results2:
+                            try:
+                                success = db_manager.insert_status(
+                                    cast_id=result['cast_id'],
+                                    business_id=result.get('business_id'),
+                                    is_working=result['is_working'],
+                                    is_on_shift=result['is_on_shift'],
+                                    collected_at=result.get('collected_at')
+                                )
+                                if success:
+                                    saved2 += 1
+                            except Exception:
+                                pass
+                    print(f"✅ {saved2}件保存")
+                
+                # working-rate計算
+                print("\n📊 稼働率計算")
+                jst = pytz.timezone('Asia/Tokyo')
+                today = datetime.now(jst).date()
+                print(f"📅 対象日付: {today}")
+                
+                result = await run_working_rate_calculation(target_date=today, force=True)
+                if result and hasattr(result, 'success') and result.success:
+                    processed_count = getattr(result, 'processed_count', 0)
+                    print(f"✅ {processed_count}店舗処理完了")
+                
+                print(f"\n🎉 統合テスト完了: 合計{saved1 + saved2}件収集")
+                return 0
+                
+            except Exception as e:
+                print(f"❌ テストエラー: {e}")
+                return 1
         
         elif args.command == 'shop-check':
             print("新店舗事前チェックを実行中...")

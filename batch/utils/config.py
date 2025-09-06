@@ -316,3 +316,70 @@ def get_database_config():
         print(f"設定ファイル読み込みエラー: {e}")
         # フォールバック: 環境変数
         return DatabaseConfig.from_env()
+
+def get_scraping_config():
+    """スクレイピング設定を取得"""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        config_file = project_root / 'config' / 'config.yml'
+        
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config_dict = yaml.safe_load(f)
+            
+            scraping_config = config_dict.get('scraping', {})
+            
+            # デフォルト値を設定
+            return {
+                'timeout': scraping_config.get('timeout', 30),
+                'retry_attempts': scraping_config.get('retry_attempts', 3),
+                'user_agents': scraping_config.get('user_agents', [
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ]),
+                'max_parallel_businesses': scraping_config.get('max_parallel_businesses', 3),
+                'min_delay': scraping_config.get('min_delay', 0.5),
+                'max_delay': scraping_config.get('max_delay', 2.0),
+                'request_interval': scraping_config.get('request_interval', 1.0),
+                'retry_delay': scraping_config.get('retry_delay', 3.0),
+                'use_aiohttp': scraping_config.get('use_aiohttp', True),
+                'connection_pooling': scraping_config.get('connection_pooling', True),
+                'keep_alive': scraping_config.get('keep_alive', True),
+                'compress': scraping_config.get('compress', True)
+            }
+        else:
+            # フォールバック: デフォルト設定
+            return {
+                'timeout': 30,
+                'retry_attempts': 3,
+                'user_agents': [
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ],
+                'max_parallel_businesses': 3,
+                'min_delay': 0.5,
+                'max_delay': 2.0,
+                'request_interval': 1.0,
+                'retry_delay': 3.0,
+                'use_aiohttp': True,
+                'connection_pooling': True,
+                'keep_alive': True,
+                'compress': True
+            }
+    except Exception as e:
+        print(f"スクレイピング設定読み込みエラー: {e}")
+        # エラー時のフォールバック
+        return {
+            'timeout': 30,
+            'retry_attempts': 3,
+            'user_agents': [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ],
+            'max_parallel_businesses': 1,  # 安全のため並行処理を無効
+            'min_delay': 1.0,
+            'max_delay': 3.0,
+            'request_interval': 2.0,
+            'retry_delay': 5.0,
+            'use_aiohttp': False,  # 安全のためaiohttp無効
+            'connection_pooling': False,
+            'keep_alive': False,
+            'compress': False
+        }

@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 100vh 揺れ対策（互換用） */
+:root { --vh: 1vh; }
+.min-h-screen-fix { min-height: calc(var(--vh) * 100); }
