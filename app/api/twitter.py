@@ -1,9 +1,6 @@
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.templating import Jinja2Templates
-import httpx
-import re
-import json
-import logging
+from fastapi.responses import HTMLResponse
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import os
@@ -13,20 +10,86 @@ from pathlib import Path
 # プロジェクトルートをパスに追加
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.absolute()))
 
-router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-logger = logging.getLogger(__name__)
+# テンプレートの設定
+templates_dir = Path(__file__).parent.parent / "templates"
+templates = Jinja2Templates(directory=str(templates_dir.absolute()))
 
-# キャッシュ設定
-CACHE_EXPIRY = 3600  # 1時間（秒）
-tweet_cache = {
-    "data": [],
-    "last_updated": None
-}
+router = APIRouter(prefix="/api/twitter", tags=["twitter"])
 
-async def get_twitter_timeline(username: str = "kadou_com", count: int = 3) -> List[Dict[str, Any]]:
-    """TwitterのタイムラインをAPIから取得（または、キャッシュから）"""
-    global tweet_cache
+@router.get("", response_class=HTMLResponse)
+async def get_tweets(
+    request: Request,
+    count: int = 5
+):
+    """イーロンマスクのツイートを取得 - HTMLレスポンス"""
+    
+    # ダミーのツイートデータ
+    elon_tweets = [
+        {
+            "id": "1",
+            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
+            "content": "SpaceX Starship 飛行試験成功！全段回収も間もなく実現します。火星移住への大きな一歩です 🚀",
+            "timestamp": "2時間前",
+            "source": "Twitter for iPhone",
+            "image": "https://pbs.twimg.com/media/GHFmnVaWIAA3uwh?format=jpg&name=medium",
+            "replies": "5.2K",
+            "retweets": "28.5K",
+            "likes": "142.7K"
+        },
+        {
+            "id": "2",
+            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
+            "content": "Tesla AI Dayで新しいヒューマノイドロボット「Optimus Gen 2」を発表します。人間の仕事を代替し、危険な作業から人を解放します。",
+            "timestamp": "5時間前",
+            "source": "Twitter Web App",
+            "image": None,
+            "replies": "3.1K",
+            "retweets": "18.2K",
+            "likes": "95.3K"
+        },
+        {
+            "id": "3",
+            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
+            "content": "Neuralink人体実験が成功。被験者はわずかな思考だけでコンピュータを操作できるようになりました。医療革命の始まりです。",
+            "timestamp": "昨日",
+            "source": "Twitter for Android",
+            "image": "https://pbs.twimg.com/media/GGwZSGEXoAAFC3V?format=jpg&name=medium",
+            "replies": "8.7K", 
+            "retweets": "42.1K",
+            "likes": "201.8K"
+        },
+        {
+            "id": "4",
+            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
+            "content": "Xのビジョンは、世界中の金融をより効率的にすること。すべてのユーザーが簡単に送金や貯蓄ができるようにします。銀行口座不要の時代へ。",
+            "timestamp": "2日前",
+            "source": "Twitter Web App",
+            "image": None,
+            "replies": "4.5K",
+            "retweets": "22.3K",
+            "likes": "118.6K"
+        },
+        {
+            "id": "5",
+            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
+            "content": "宇宙インターネットStarlinkが緊急災害支援を強化。被災地でも高速インターネットを提供し、命を救います。通信は基本的人権です。",
+            "timestamp": "3日前",
+            "source": "Twitter for iPhone",
+            "image": "https://pbs.twimg.com/media/GGMNXo0WMAAoMDx?format=jpg&name=medium",
+            "replies": "2.9K",
+            "retweets": "15.7K",
+            "likes": "87.4K"
+        }
+    ]
+    
+    # 要求されたツイート数に制限
+    tweets = elon_tweets[:count]
+    
+    # HTMLテンプレートをレンダリングして返す
+    return templates.TemplateResponse(
+        "components/twitter_timeline.html", 
+        {"request": request, "tweets": tweets}
+    )
     
     # キャッシュチェック
     now = datetime.now()

@@ -139,38 +139,106 @@ async def stores_page(request: Request, db = Depends(get_database)):
 
 # 店舗詳細ページ
 @app.get("/stores/{store_id}", response_class=HTMLResponse)
-async def store_detail(request: Request, store_id: str, db = Depends(get_database)):
-    """店舗詳細ページ表示"""
+async def get_store_detail(request: Request, store_id: str):
+    """店舗詳細ページを表示"""
+    
     try:
-        # APIから店舗詳細を取得
-        store_detail = await stores.get_store_detail(store_id=store_id, db=db)
+        # 実際のデータベースでは店舗IDを使って詳細情報を取得
+        # ここではデモ用のダミーデータを返す
+        store = generate_dummy_store(store_id)
+        related_stores = generate_dummy_related_stores(store_id, store["area"], store["genre"])
         
         return templates.TemplateResponse(
-            "components/store_detail.html", 
-            {"request": request, "store": store_detail}
+            "store_detail.html",
+            {
+                "request": request,
+                "store": store,
+                "related_stores": related_stores
+            }
         )
     except Exception as e:
-        logger.error(f"店舗詳細取得エラー: {e}")
+        logger.error(f"店舗詳細表示エラー: {e}")
         return templates.TemplateResponse(
             "error.html", 
-            {"request": request, "message": "店舗詳細の取得に失敗しました"}
+            {"request": request, "message": "店舗情報の取得に失敗しました"}
         )
 
-# HTMXコンポーネント: 店舗カード
-@app.get("/components/store_card/{store_id}", response_class=HTMLResponse)
-async def store_card(request: Request, store_id: str, db = Depends(get_database)):
-    """店舗カードコンポーネント取得"""
-    try:
-        # APIから店舗詳細を取得
-        store_detail = await stores.get_store_detail(store_id=store_id, db=db)
+def generate_dummy_store(store_id: str) -> dict:
+    """指定されたIDの店舗の詳細情報（ダミー）を生成"""
+    import random
+    from datetime import datetime, timedelta
+    
+    # 店舗名は ID によって決定（安定したデモ用）
+    names = ["エンジェルハート", "エレガンス", "クラブ美人館", "ベストパートナー", "ブルーハート", "ドレス倶楽部",
+             "ウルトラグレース", "プレミアムクラブ", "ロイヤルVIP", "人妻城", "セレブクイーン"]
+    
+    areas = ["新宿", "池袋", "渋谷", "銀座", "六本木", "上野", "横浜", "大阪", "名古屋", "福岡"]
+    genres = ["ソープランド", "ヘルス", "デリヘル", "キャバクラ", "ピンサロ"]
+    
+    # IDに基づいて安定したデータを生成
+    id_num = int(store_id) if store_id.isdigit() else hash(store_id) % 100
+    name_index = id_num % len(names)
+    area_index = (id_num // 10) % len(areas)
+    genre_index = (id_num // 3) % len(genres)
+    
+    # 稼働率データの生成
+    working_rate = 30 + (id_num % 70)  # 30-99%の範囲
+    previous_rate = max(20, working_rate - 10 + (id_num % 20))
+    weekly_rate = max(25, working_rate - 5 + (id_num % 15))
+    
+    # エリア平均と業種平均
+    area_avg_rate = working_rate - 15 + random.randint(-10, 10)
+    area_avg_rate = max(20, min(95, area_avg_rate))
+    
+    genre_avg_rate = working_rate - 10 + random.randint(-10, 10)
+    genre_avg_rate = max(20, min(95, genre_avg_rate))
+    
+    # 履歴データの生成
+    history = []
+    for i in range(7):
+        day = datetime.now() - timedelta(days=6-i)
+        day_of_week = ["月", "火", "水", "木", "金", "土", "日"][day.weekday()]
+        rate = max(20, min(95, working_rate - 15 + random.randint(-20, 20)))
         
-        return templates.TemplateResponse(
-            "components/store_card.html", 
-            {"request": request, "store": store_detail}
-        )
-    except Exception as e:
-        logger.error(f"店舗カード取得エラー: {e}")
-        return HTMLResponse(f"<div>店舗データ取得エラー</div>")
+        history.append({
+            "date": day.strftime("%Y/%m/%d"),
+            "label": day_of_week,
+            "rate": rate
+        })
+    
+    return {
+        "id": store_id,
+        "name": names[name_index],
+        "area": areas[area_index],
+        "genre": genres[genre_index],
+        "working_rate": working_rate,
+        "previous_rate": previous_rate,
+        "weekly_rate": weekly_rate,
+        "area_avg_rate": area_avg_rate,
+        "genre_avg_rate": genre_avg_rate,
+        "cast_count": 15 + (id_num % 30),
+        "website": f"https://example.com/shop/{store_id}",
+        "history": history
+    }
+
+def generate_dummy_related_stores(current_id: str, area: str, genre: str) -> list:
+    """関連店舗（同エリア・同業種）のダミーデータを生成"""
+    related_stores = []
+    
+    # 同エリア・同業種の店舗をIDベースで生成（現在の店舗を除く）
+    for i in range(1, 11):
+        store_id = str(i)
+        if store_id == current_id:
+            continue
+            
+        store = generate_dummy_store(store_id)
+        
+        # 一部の店舗だけを関連店舗として選択（同エリアまたは同業種）
+        if store["area"] == area or store["genre"] == genre:
+            related_stores.append(store)
+    
+    # 最大3件まで
+    return related_stores[:3]
 
 # エラーハンドラー
 @app.exception_handler(404)

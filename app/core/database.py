@@ -113,9 +113,13 @@ except ImportError as e:
 # API用のデータベースヘルパー関数
 db_manager = DatabaseManager()
 
-def get_database():
-    """依存性注入用のデータベースマネージャーを取得する"""
-    return db_manager
 async def get_database():
-    """Dependency: データベース接続を取得"""
-    return DatabaseManager()
+    """依存性注入用のデータベースマネージャーを取得する"""
+    try:
+        # ここで実際のデータベース接続を試みる場合の処理
+        # 本番環境では実際の接続を返す
+        return db_manager
+    except Exception as e:
+        # エラーがあった場合もダミーデータを返せるようにする
+        logger.error(f"データベース接続エラー: {e}")
+        return db_manager
