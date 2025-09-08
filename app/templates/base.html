@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="HandheldFriendly" content="true">
+  <meta name="MobileOptimized" content="320">
+  <title>{% block title %}稼働.com - 風俗店の稼働を比較{% endblock %}</title>
+  <meta name="description" content="風俗店の稼働をリアルタイムで比較・分析するサイト。エリア別・業種別で探せます。">
+  <link href="/static/css/tailwind.css" rel="stylesheet">
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+  <script src="/static/js/htmx.min.js" defer></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    /* サイト全体の幅を640pxに強制固定 */
+    body {
+      max-width: 640px;
+      margin: 0 auto;
+      overflow-x: hidden;
+    }
+    
+    /* コンテナ幅の強制制限 */
+    .container, .w-full, .max-w-3xl, .max-w-md, .max-w-lg, .max-w-7xl {
+      max-width: 640px !important;
+      width: 100% !important;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+    
+    [x-cloak] { 
+      display: none !important; 
+    }
+    
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    }
+    
+    /* ランキング上位のアニメーション */
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(254, 215, 70, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(254, 215, 70, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(254, 215, 70, 0); }
+    }
+    .rank-1 {
+      animation: pulse 2s infinite;
+    }
+    .rank-2 {
+      animation: pulse 3s infinite;
+    }
+    .rank-3 {
+      animation: pulse 4s infinite;
+    }
+    
+    /* スマホ特化のスタイル */
+    body {
+      font-size: 16px;
+      touch-action: manipulation;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* タップ領域の最適化 */
+    button, a, input, select, textarea {
+      touch-action: manipulation;
+    }
+    
+    /* スマホでのテキスト選択を防止 */
+    .no-select {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    
+    /* スマホ特化のスタイル */
+    body {
+      font-size: 16px;
+      touch-action: manipulation;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* タップ領域の最適化 */
+    button, a, input, select, textarea {
+      touch-action: manipulation;
+    }
+    
+    /* スマホでのテキスト選択を防止 */
+    .no-select {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    /* マシュマロ風の淡い背景色 */
+    .bg-marshmallow {
+      background-color: #fcf9f7; /* 淡いベージュピンク（マシュマロ風） */
+    }
+  </style>
+</head>
+<body class="bg-marshmallow min-h-screen flex flex-col">
+  <div class="min-h-screen bg-white rounded-lg shadow-sm my-2" style="max-width: 640px; margin: 0 auto;">
+  {% include "components/header.html" %}
+  
+  <div class="flex-grow px-1">
+    {% block content %}{% endblock %}
+  </div>
+  
+  {% include "components/footer.html" %}
+  </div>
+</body>
+</html>
