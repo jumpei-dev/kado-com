@@ -43,20 +43,20 @@
       -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
     }
     
-    /* ランキング上位のアニメーション */
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(254, 215, 70, 0.4); }
-      70% { box-shadow: 0 0 0 10px rgba(254, 215, 70, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(254, 215, 70, 0); }
+    /* ランキング上位のアニメーション - より繊細な効果 */
+    @keyframes subtleGlow {
+      0% { box-shadow: 0 0 3px 0 rgba(255, 215, 0, 0.1); }
+      50% { box-shadow: 0 0 6px 3px rgba(255, 215, 0, 0.1); }
+      100% { box-shadow: 0 0 3px 0 rgba(255, 215, 0, 0.1); }
     }
     .rank-1 {
-      animation: pulse 2s infinite;
+      animation: subtleGlow 3s ease-in-out infinite;
     }
     .rank-2 {
-      animation: pulse 3s infinite;
+      animation: subtleGlow 4s ease-in-out infinite;
     }
     .rank-3 {
-      animation: pulse 4s infinite;
+      animation: subtleGlow 5s ease-in-out infinite;
     }
     
     /* スマホ特化のスタイル */

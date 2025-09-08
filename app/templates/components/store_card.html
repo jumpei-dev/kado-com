@@ -1,40 +1,48 @@
 <div class="bg-white rounded-lg shadow-sm p-3 hover:shadow-md transition-all duration-300 hover:bg-pink-50 border border-gray-100
-  {% if rank == 1 or store.rank == 1 %}border-2 border-yellow-400 bg-gradient-to-r from-yellow-50 to-white rank-1{% endif %}
-  {% if rank == 2 or store.rank == 2 %}border-2 border-gray-400 bg-gradient-to-r from-gray-50 to-white rank-2{% endif %}
-  {% if rank == 3 or store.rank == 3 %}border-2 border-amber-600 bg-gradient-to-r from-amber-50 to-white rank-3{% endif %}
+  {% if rank == 1 or store.rank == 1 %}rank-1{% endif %}
+  {% if rank == 2 or store.rank == 2 %}rank-2{% endif %}
+  {% if rank == 3 or store.rank == 3 %}rank-3{% endif %}
 ">
   <div class="grid grid-cols-6 gap-2 items-center">
     <!-- 順位 -->
-    <div class="font-bold text-gray-900 text-center relative">
+    <div class="font-bold text-center relative">
       {% if rank == 1 or store.rank == 1 %}
         <div class="absolute -top-2 -left-2 text-yellow-500">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
         </div>
-        <span class="text-xl text-yellow-500">{{ rank if rank is defined else store.rank }}</span>
+        <span class="text-xl font-bold text-yellow-500">{{ rank if rank is defined else store.rank }}</span>
       {% elif rank == 2 or store.rank == 2 %}
         <div class="absolute -top-2 -left-2 text-gray-500">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
         </div>
-        <span class="text-lg text-gray-500">{{ rank if rank is defined else store.rank }}</span>
+        <span class="text-lg font-bold text-gray-500">{{ rank if rank is defined else store.rank }}</span>
       {% elif rank == 3 or store.rank == 3 %}
         <div class="absolute -top-2 -left-2 text-amber-600">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
         </div>
-        <span class="text-lg text-amber-600">{{ rank if rank is defined else store.rank }}</span>
+        <span class="text-lg font-bold text-amber-600">{{ rank if rank is defined else store.rank }}</span>
       {% else %}
-        {{ rank if rank is defined else (store.rank if store.rank is defined else "-") }}
+        <span class="text-gray-700">{{ rank if rank is defined else (store.rank if store.rank is defined else "-") }}</span>
       {% endif %}
     </div>
     
     <!-- 店舗名 -->
     <div class="col-span-2">
-      <h3 class="font-bold text-gray-900 truncate">{{ store.name }}</h3>
+      {% if rank == 1 or store.rank == 1 %}
+        <h3 class="font-bold text-gray-900 truncate text-lg">{{ store.name }}</h3>
+      {% elif rank == 2 or store.rank == 2 %}
+        <h3 class="font-bold text-gray-900 truncate text-base">{{ store.name }}</h3>
+      {% elif rank == 3 or store.rank == 3 %}
+        <h3 class="font-bold text-gray-900 truncate text-base">{{ store.name }}</h3>
+      {% else %}
+        <h3 class="font-bold text-gray-900 truncate">{{ store.name }}</h3>
+      {% endif %}
     </div>
     
     <!-- エリア -->
