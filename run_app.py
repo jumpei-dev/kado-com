@@ -162,6 +162,16 @@ if __name__ == "__main__":
         os.environ["PYTHONPATH"] = os.getcwd()
         os.environ["PYTHONUNBUFFERED"] = "1"
         
+        # ダミーユーザーを作成
+        print("👤 ダミーユーザーを作成しています...")
+        try:
+            import asyncio
+            from app.core.seed import create_dummy_users
+            asyncio.run(create_dummy_users())
+            print("✅ ダミーユーザーの作成が完了しました")
+        except Exception as e:
+            print(f"⚠️ ダミーユーザー作成中にエラーが発生しました: {e}")
+        
         # Tailwind CSSを一度ビルド
         print("🎨 Tailwind CSSをビルド中...")
         try:
