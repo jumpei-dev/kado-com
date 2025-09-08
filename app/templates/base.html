@@ -11,6 +11,13 @@
   <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
   <script src="/static/js/htmx.min.js" defer></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.store('periodFilter', {
+        value: 'week'
+      });
+    });
+  </script>
   <style>
     /* サイト全体の幅を640pxに強制固定 */
     body {
