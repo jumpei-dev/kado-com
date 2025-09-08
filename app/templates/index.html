@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}稼働.com | 風俗店の稼働比較サイト{% endblock %}
+
+{% block content %}
+<main class="py-6 px-4" style="max-width: 640px; margin: 0 auto;">
+
+  
+  <!-- フィルターセクション -->
+  <div class="bg-white p-6 rounded-lg shadow-md mb-8" id="filters">
+    <h2 class="text-xl font-bold text-gray-900 mb-4">条件で絞り込む</h2>
+    
+    <!-- フィルターグループ - 横並び -->
+    <div class="grid grid-cols-4 gap-3 mb-6">
+      <!-- エリアフィルター -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">エリア</label>
+        <select name="area" class="w-full rounded-md border border-gray-300 py-2 px-2 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                hx-get="/api/stores" 
+                hx-target="#store-list"
+                hx-trigger="change"
+                hx-indicator="#loading">
+          <option value="all">すべて</option>
+          <option value="関東">関東</option>
+          <option value="関西">関西</option>
+          <option value="中部">中部</option>
+          <option value="北海道・東北">北海道・東北</option>
+          <option value="中国・四国">中国・四国</option>
+          <option value="九州・沖縄">九州・沖縄</option>
+        </select>
+      </div>
+      
+      <!-- 業種フィルター -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">業種</label>
+        <select name="genre" class="w-full rounded-md border border-gray-300 py-2 px-2 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                hx-get="/api/stores" 
+                hx-target="#store-list"
+                hx-trigger="change"
+                hx-indicator="#loading">
+          <option value="all">すべて</option>
+          <option value="ソープランド">ソープランド</option>
+          <option value="ヘルス">ヘルス</option>
+          <option value="デリヘル">デリヘル</option>
+          <option value="キャバクラ">キャバクラ</option>
+          <option value="ピンサロ">ピンサロ</option>
+        </select>
+      </div>
+      
+      <!-- ランクフィルター -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">ランク</label>
+        <select name="rank" class="w-full rounded-md border border-gray-300 py-2 px-2 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                hx-get="/api/stores" 
+                hx-target="#store-list"
+                hx-trigger="change"
+                hx-indicator="#loading">
+          <option value="all">すべて</option>
+          <option value="under100">スペ～99</option>
+          <option value="over100">それ以上</option>
+        </select>
+      </div>
+      
+      <!-- 期間フィルター -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">期間</label>
+        <select name="period" class="w-full rounded-md border border-gray-300 py-2 px-2 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                hx-get="/api/stores" 
+                hx-target="#store-list"
+                hx-trigger="change"
+                hx-indicator="#loading">
+          <option value="all">すべて</option>
+          <option value="week">先週</option>
+          <option value="month">過去一ヶ月</option>
+          <option value="three_months">過去三ヶ月</option>
+          <option value="six_months">過去半年</option>
+        </select>
+      </div>
+    </div>
+    
+    <!-- 検索ボタン -->
+    <div class="flex justify-end">
+      <button class="bg-gray-700 text-white font-semibold py-2 px-5 rounded-lg hover:bg-gray-800 transition-colors"
+              hx-get="/api/stores" 
+              hx-target="#store-list"
+              hx-trigger="click"
+              hx-indicator="#loading">
+        検索する
+      </button>
+    </div>
+    
+    <!-- ローディングインジケータ -->
+    <div id="loading" class="htmx-indicator flex justify-center mt-4">
+      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
+    </div>
+  </div>
+  
+  <div class="flex flex-col gap-8">
+    <!-- 店舗一覧 -->
+    <div>
+      <h2 class="text-xl font-bold text-gray-900 mb-4">店舗一覧</h2>
+      <div id="store-list" class="grid grid-cols-1 gap-6"
+           hx-get="/api/stores" 
+           hx-trigger="load"
+           hx-swap="innerHTML">
+        <!-- ここにHTMXがAPIから店舗一覧を読み込みます -->
+      </div>
+    </div>
+    
+    <!-- Twitter タイムライン -->
+    <div class="mt-6">
+      <div id="twitter-timeline"
+           hx-get="/api/twitter" 
+           hx-trigger="load"
+           hx-swap="innerHTML">
+        <!-- ここにTwitterタイムラインが読み込まれます -->
+      </div>
+    </div>
+  </div>
+  
+  <!-- LINE相談バナー -->
+  <div class="mt-12 mb-12">
+    <div class="bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg shadow-md p-6">
+      <div class="flex flex-col items-center">
+        <h2 class="text-xl font-bold text-white mb-2">あなたに合う店舗をご紹介します</h2>
+        <p class="text-gray-300 mb-4">稼働率以外の情報も含めて、最適なお店をご提案します</p>
+        <a href="#" class="w-2/4 mx-auto py-3 px-6 bg-[#06C755] text-white font-bold rounded-full hover:opacity-90 transition-colors text-center">
+          LINEで相談する
+        </a>
+      </div>
+    </div>
+  </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
