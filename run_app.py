@@ -165,8 +165,8 @@ if __name__ == "__main__":
         # ダミーユーザーを作成
         print("👤 ダミーユーザーを作成しています...")
         try:
-            import asyncio
             from app.core.seed import create_dummy_users
+            import asyncio
             asyncio.run(create_dummy_users())
             print("✅ ダミーユーザーの作成が完了しました")
         except Exception as e:

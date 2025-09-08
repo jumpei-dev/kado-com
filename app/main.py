@@ -38,7 +38,8 @@ try:
     print("✅ APIモジュールのインポート成功")
     
     print("🔄 コアモジュールをインポート中...")
-    from app.core.database import get_database
+    from app.core.database import get_database, DatabaseManager
+    from app.core.seed import create_dummy_users
     print("✅ コアモジュールのインポート成功")
 except Exception as e:
     print(f"❌ インポートエラー: {e}")
@@ -99,6 +100,18 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def startup_db_client():
+    """アプリ起動時のイベント処理"""
+    try:
+        print("🔄 データベース初期化を実行中...")
+        # ダミーユーザーの作成
+        await create_dummy_users()
+        print("✅ データベース初期化が完了しました")
+    except Exception as e:
+        print(f"❌ データベース初期化エラー: {e}")
+        logger.error(f"データベース初期化エラー: {e}")
 
 # ミドルウェア
 @app.middleware("http")
