@@ -4,133 +4,154 @@
 
 {% block content %}
 <main class="py-6 px-4" style="max-width: 640px; margin: 0 auto;">
-
   
-  <!-- フィルターセクション -->
-  <div class="bg-white p-6 rounded-lg shadow-md mb-8" id="filters">
-    <h2 class="text-xl font-bold text-gray-900 mb-4">条件で絞り込む</h2>
-    
-    <!-- フィルターグループ - 横並び -->
-    <div class="grid grid-cols-4 gap-3 mb-6">
-      <!-- エリアフィルター -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">エリア</label>
-        <select name="area" class="w-full rounded-md border border-gray-300 py-2 px-2 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                hx-get="/api/stores" 
-                hx-target="#store-list"
-                hx-trigger="change"
-                hx-indicator="#loading">
-          <option value="all">すべて</option>
-          <option value="関東">関東</option>
-          <option value="関西">関西</option>
-          <option value="中部">中部</option>
-          <option value="北海道・東北">北海道・東北</option>
-          <option value="中国・四国">中国・四国</option>
-          <option value="九州・沖縄">九州・沖縄</option>
-        </select>
-      </div>
-      
-      <!-- 業種フィルター -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">業種</label>
-        <select name="genre" class="w-full rounded-md border border-gray-300 py-2 px-2 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                hx-get="/api/stores" 
-                hx-target="#store-list"
-                hx-trigger="change"
-                hx-indicator="#loading">
-          <option value="all">すべて</option>
-          <option value="ソープランド">ソープランド</option>
-          <option value="ヘルス">ヘルス</option>
-          <option value="デリヘル">デリヘル</option>
-          <option value="キャバクラ">キャバクラ</option>
-          <option value="ピンサロ">ピンサロ</option>
-        </select>
-      </div>
-      
-      <!-- ランクフィルター -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">ランク</label>
-        <select name="rank" class="w-full rounded-md border border-gray-300 py-2 px-2 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                hx-get="/api/stores" 
-                hx-target="#store-list"
-                hx-trigger="change"
-                hx-indicator="#loading">
-          <option value="all">すべて</option>
-          <option value="under100">スペ～99</option>
-          <option value="over100">それ以上</option>
-        </select>
-      </div>
-      
-      <!-- 期間フィルター -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">期間</label>
-        <select name="period" class="w-full rounded-md border border-gray-300 py-2 px-2 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                hx-get="/api/stores" 
-                hx-target="#store-list"
-                hx-trigger="change"
-                hx-indicator="#loading">
-          <option value="all">すべて</option>
-          <option value="week">先週</option>
-          <option value="month">過去一ヶ月</option>
-          <option value="three_months">過去三ヶ月</option>
-          <option value="six_months">過去半年</option>
-        </select>
-      </div>
-    </div>
-    
-    <!-- 検索ボタン -->
-    <div class="flex justify-end">
-      <button class="bg-gray-700 text-white font-semibold py-2 px-5 rounded-lg hover:bg-gray-800 transition-colors"
-              hx-get="/api/stores" 
-              hx-target="#store-list"
-              hx-trigger="click"
-              hx-indicator="#loading">
-        検索する
+  <!-- フィルタードロワー -->
+  <div x-data="{ open: false }">
+    <!-- フィルターボタン -->
+    <div class="flex justify-between items-center mb-2 mt-4">
+      <h2 class="text-2xl font-extrabold text-gray-900">稼働率ランキング</h2>
+      <button @click="open = true" type="button" class="flex items-center bg-gray-700 text-white py-1 px-3 rounded-full text-sm">
+        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+        </svg>
+        絞り込む
       </button>
     </div>
     
-    <!-- ローディングインジケータ -->
-    <div id="loading" class="htmx-indicator flex justify-center mt-4">
-      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
+    <!-- オーバーレイとパネル -->
+    <div x-show="open" class="fixed inset-0 z-50 flex items-center justify-center" x-cloak>
+      <!-- オーバーレイ背景 -->
+      <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="open = false"></div>
+      
+      <!-- モーダルパネル -->
+      <div class="relative max-w-[640px] w-full mx-auto bg-white rounded-xl shadow-lg" style="max-height: 80vh; overflow-y: auto; margin-top: -10vh;">
+        <div class="px-4 py-5">
+            <!-- ハンドル -->
+            <div class="flex justify-center mb-4">
+              <div class="w-12 h-1 rounded-full bg-gray-300"></div>
+            </div>
+            
+            <h3 class="text-lg font-medium text-gray-900 mb-4">条件で絞り込む</h3>
+            
+            <div class="space-y-4 mb-6">
+              <!-- エリア -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">エリア</label>
+                <select name="area" class="w-full rounded-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        hx-get="/api/stores?page=1&page_size=30" 
+                        hx-target="#store-list"
+                        hx-trigger="change"
+                        hx-indicator="#loading">
+                  <option value="all">すべて</option>
+                  <option value="関東">関東</option>
+                  <option value="関西">関西</option>
+                  <option value="中部">中部</option>
+                  <option value="北海道・東北">北海道・東北</option>
+                  <option value="中国・四国">中国・四国</option>
+                  <option value="九州・沖縄">九州・沖縄</option>
+                </select>
+              </div>
+              
+              <!-- 業種 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">業種</label>
+                <select name="genre" class="w-full rounded-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        hx-get="/api/stores?page=1&page_size=30" 
+                        hx-target="#store-list"
+                        hx-trigger="change"
+                        hx-indicator="#loading">
+                  <option value="all">すべて</option>
+                  <option value="ソープランド">ソープランド</option>
+                  <option value="ヘルス">ヘルス</option>
+                  <option value="デリヘル">デリヘル</option>
+                  <option value="キャバクラ">キャバクラ</option>
+                  <option value="ピンサロ">ピンサロ</option>
+                </select>
+              </div>
+              
+              <!-- ランク -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ランク</label>
+                <select name="rank" class="w-full rounded-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        hx-get="/api/stores?page=1&page_size=30" 
+                        hx-target="#store-list"
+                        hx-trigger="change"
+                        hx-indicator="#loading">
+                  <option value="all">すべて</option>
+                  <option value="under100">スペ～99</option>
+                  <option value="over100">それ以上</option>
+                </select>
+              </div>
+              
+              <!-- 期間 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">期間</label>
+                <select name="period" class="w-full rounded-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        hx-get="/api/stores?page=1&page_size=30" 
+                        hx-target="#store-list"
+                        hx-trigger="change"
+                        hx-indicator="#loading">
+                  <option value="all">すべて</option>
+                  <option value="week">先週</option>
+                  <option value="month">過去一ヶ月</option>
+                  <option value="three_months">過去三ヶ月</option>
+                  <option value="six_months">過去半年</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="flex gap-3">
+              <button @click="open = false" class="flex-1 py-3 px-4 border border-gray-300 rounded-md text-gray-700 font-medium">
+                キャンセル
+              </button>
+              <button class="flex-1 py-3 px-4 bg-gray-700 text-white rounded-md font-medium hover:bg-gray-800 transition-colors"
+                      hx-get="/api/stores?page=1&page_size=30" 
+                      hx-target="#store-list"
+                      hx-trigger="click"
+                      hx-indicator="#loading"
+                      @click="open = false">
+                適用
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   
-  <div class="flex flex-col gap-8">
-    <!-- 店舗一覧 -->
-    <div>
-      <h2 class="text-xl font-bold text-gray-900 mb-4">店舗一覧</h2>
-      <div id="store-list" class="grid grid-cols-1 gap-6"
-           hx-get="/api/stores" 
-           hx-trigger="load"
-           hx-swap="innerHTML">
-        <!-- ここにHTMXがAPIから店舗一覧を読み込みます -->
-      </div>
+  <!-- ローディングインジケータ -->
+  <div id="loading" class="htmx-indicator flex justify-center mt-4">
+    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-500"></div>
+  </div>
+  
+    <!-- メインコンテンツ（ストアリスト） -->
+    <div id="store-list" class="grid grid-cols-1 gap-3 mb-8 p-2 bg-gray-50 rounded-lg border border-gray-100"
+         hx-get="/api/stores?page=1&page_size=30" 
+         hx-trigger="load"
+         hx-swap="innerHTML">
+      <!-- ここにHTMXがAPIから店舗一覧を読み込みます -->
     </div>
     
-    <!-- Twitter タイムライン -->
-    <div class="mt-6">
-      <div id="twitter-timeline"
-           hx-get="/api/twitter" 
-           hx-trigger="load"
-           hx-swap="innerHTML">
-        <!-- ここにTwitterタイムラインが読み込まれます -->
-      </div>
+    <!-- Twitter タイムライン（PC・モバイル共通） -->
+    <div id="twitter-timeline" class="mb-8"
+         hx-get="/api/twitter" 
+         hx-trigger="load"
+         hx-swap="innerHTML">
+      <!-- ここにTwitterタイムラインが読み込まれます -->
     </div>
-  </div>
-  
-  <!-- LINE相談バナー -->
-  <div class="mt-12 mb-12">
-    <div class="bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg shadow-md p-6">
+    
+    <!-- LINE相談バナー -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg shadow-md p-6 mb-8">
       <div class="flex flex-col items-center">
-        <h2 class="text-xl font-bold text-white mb-2">あなたに合う店舗をご紹介します</h2>
-        <p class="text-gray-300 mb-4">稼働率以外の情報も含めて、最適なお店をご提案します</p>
-        <a href="#" class="w-2/4 mx-auto py-3 px-6 bg-[#06C755] text-white font-bold rounded-full hover:opacity-90 transition-colors text-center">
-          LINEで相談する
-        </a>
+        <h2 class="text-xl font-bold text-white mb-2">あなたに合う店舗をご紹介</h2>
+        <p class="text-white text-sm text-center mb-4">あなたの希望条件に合った高稼働店舗をLINEで相談できます</p>
+        <button class="bg-green-500 text-white px-6 py-2 rounded-full flex items-center hover:bg-green-600 transition-colors">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19.365 9.89c.50 0 .866.37.866.877 0 .524-.338.903-.866.903H17.71v1.342h1.655c.53 0 .866.38.866.903 0 .508-.337.878-.866.878H16.82c-.53 0-.866-.37-.866-.878V8.967c0-.507.336-.877.866-.877h3.456c.53 0 .866.37.866.877 0 .508-.337.903-.866.903H17.71v1.342h1.655zm-4.262.903h-1.655v1.342h1.655c.53 0 .866.38.866.903 0 .508-.337.878-.866.878H9.495c-.53 0-.866-.37-.866-.878V8.967c0-.507.336-.877.866-.877h3.456c.53 0 .866.37.866.877 0 .508-.337.903-.866.903zM8.941 14.69c-.506 0-.878-.37-.878-.878V8.967c0-.507.335-.877.865-.877.506 0 .878.37.878.877v4.846c0 .507-.335.877-.865.877zm-3.877 0c-.507 0-.877-.37-.877-.878V8.967c0-.507.37-.877.877-.877s.878.37.878.877v4.846c0 .507-.37.877-.878.877zM24 10.88c0-5.118-5.14-9.28-11.472-9.28C6.194 1.6 1.055 5.763 1.055 10.88c0 4.58 4.063 8.42 9.552 9.143.372.08.877.238 1.006.547.114.278.075.71.037 1.006-.11.63-.53 2.476.837 1.344 1.37-1.13 7.32-4.34 10-7.34 1.84-2.030 2.83-4.090 2.83-6.30V12.3z"/>
+          </svg>
+          <span>LINE相談する</span>
+        </button>
       </div>
     </div>
-  </div>
-    </div>
-  </div>
 </main>
 {% endblock %}
