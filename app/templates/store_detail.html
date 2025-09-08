@@ -70,53 +70,36 @@
     </div>
   </div>
 
-  <!-- 分析情報 -->
+  <!-- 比較情報 -->
   <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-    <h2 class="text-xl font-bold text-gray-900 mb-4">分析情報</h2>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- 稼働状況 -->
-      <div class="bg-gradient-to-r 
-                {{ 'from-green-50 to-green-100/30' if store.working_rate > 70 else 
-                   'from-yellow-50 to-yellow-100/30' if store.working_rate > 40 else 
-                   'from-red-50 to-red-100/30' }} 
-                p-5 rounded-lg border 
-                {{ 'border-green-200' if store.working_rate > 70 else 
-                   'border-yellow-200' if store.working_rate > 40 else 
-                   'border-red-200' }}">
-        <h3 class="font-medium text-gray-900 mb-2">現在の稼働状況</h3>
-      </div>
-      
-      <!-- 稼働比較 -->
-      <div class="bg-gray-50 p-5 rounded-lg border border-gray-200">
-        <h3 class="font-medium text-gray-900 mb-2">同エリア・業種との比較</h3>
-        <div class="space-y-3">
-          <div>
-            <div class="flex justify-between items-center mb-1">
-              <span class="text-sm text-gray-600">同エリア平均</span>
-              <span class="text-sm font-medium">{{ store.area_avg_rate }}%</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
-              <div class="bg-gray-600 h-2.5 rounded-full" style="width: {{ store.area_avg_rate }}%"></div>
-            </div>
+    <div class="bg-gray-50 p-5 rounded-lg border border-gray-200">
+      <h3 class="font-medium text-gray-900 mb-2">同エリア・業種との比較</h3>
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-sm text-gray-600">同エリア平均</span>
+            <span class="text-sm font-medium">{{ store.area_avg_rate }}%</span>
           </div>
-          <div>
-            <div class="flex justify-between items-center mb-1">
-              <span class="text-sm text-gray-600">同業種平均</span>
-              <span class="text-sm font-medium">{{ store.genre_avg_rate }}%</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
-              <div class="bg-gray-600 h-2.5 rounded-full" style="width: {{ store.genre_avg_rate }}%"></div>
-            </div>
+          <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div class="bg-gray-600 h-2.5 rounded-full" {% if store.area_avg_rate %}style="width: {{ store.area_avg_rate }}%"{% endif %}></div>
           </div>
-          <div>
-            <div class="flex justify-between items-center mb-1">
-              <span class="text-sm text-gray-600">{{ store.name }}</span>
-              <span class="text-sm font-medium">{{ store.working_rate }}%</span>
-            </div>
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
-              <div class="bg-{{ 'green-600' if store.working_rate > 70 else 'yellow-600' if store.working_rate > 40 else 'red-600' }} h-2.5 rounded-full" style="width: {{ store.working_rate }}%"></div>
-            </div>
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-sm text-gray-600">同業種平均</span>
+            <span class="text-sm font-medium">{{ store.genre_avg_rate }}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div class="bg-gray-600 h-2.5 rounded-full" {% if store.genre_avg_rate %}style="width: {{ store.genre_avg_rate }}%"{% endif %}></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-sm text-gray-600">{{ store.name }}</span>
+            <span class="text-sm font-medium">{{ store.working_rate }}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div class="bg-{{ 'green-600' if store.working_rate > 70 else 'yellow-600' if store.working_rate > 40 else 'red-600' }} h-2.5 rounded-full" {% if store.working_rate %}style="width: {{ store.working_rate }}%"{% endif %}></div>
           </div>
         </div>
       </div>
@@ -141,7 +124,8 @@
               <span class="text-xs font-medium">{{ related_store.working_rate }}%</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-1.5">
-              <div class="bg-{{ 'green-600' if related_store.working_rate > 70 else 'yellow-600' if related_store.working_rate > 40 else 'red-600' }} h-1.5 rounded-full" style="width: {{ related_store.working_rate }}%"></div>
+              <div class="bg-{{ 'green-600' if related_store.working_rate > 70 else 'yellow-600' if related_store.working_rate > 40 else 'red-600' }} h-1.5 rounded-full" 
+                   {% if related_store.working_rate %}style="width: {{ related_store.working_rate }}%"{% endif %}></div>
             </div>
           </div>
         </a>
