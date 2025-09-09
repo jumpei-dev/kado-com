@@ -1,198 +1,176 @@
 """
-シンプル認証API
-- メール認証不要
-- LINEでの手動登録を前提
+新しい認証API
+- ログイン/ログアウト機能
+- HTMXとの連携対応
+- シンプルなユーザー管理
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Form, Cookie, Response
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Request, Response, Form, HTTPException, Depends, status
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from typing import Optional, Dict, Any
-import bcrypt
-import jwt
-import os
 from datetime import datetime, timedelta
-import sys
+import os
 from pathlib import Path
+import logging
 
-# プロジェクトルートへのパス設定
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
+# 認証サービスのインポート
+from app.core.auth_service import auth_service
 
-# 認証設定
-from app.core.config import config_manager
-from app.core.database import DatabaseManager
+# テンプレート設定
+templates_path = Path(__file__).parent.parent / "templates"
+templates = Jinja2Templates(directory=str(templates_path))
 
-# 設定読み込み
-auth_config = config_manager.get_auth_config()
-JWT_SECRET_KEY = auth_config.get("secret_key", "fallback-secret-key")
-JWT_ALGORITHM = auth_config.get("algorithm", "HS256")
-JWT_ACCESS_TOKEN_EXPIRE_DAYS = auth_config.get("access_token_expire_days", 7)
+# ロガー設定
+logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["auth"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+# ルーター定義
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# ユーティリティ関数
-def verify_password(plain_password, hashed_password):
-    """パスワード検証"""
-    return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
-
-def create_access_token(data: dict):
-    """JWTトークン生成"""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=JWT_ACCESS_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
-
-def decode_token(token):
-    """トークンのデコード"""
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        return payload
-    except:
-        return None
-
-def get_user_by_username(username: str) -> Dict[str, Any]:
-    """ユーザー名でユーザーを検索"""
-    db = DatabaseManager()
-    try:
-        with db.get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "SELECT * FROM users WHERE name = %s",
-                    (username,)
-                )
-                return cursor.fetchone()
-    except Exception as e:
-        print(f"ユーザー検索エラー: {e}")
-        return None
-
-# API エンドポイント
-@router.post("/api/auth/login", response_class=HTMLResponse)
+@router.post("/login")
 async def login(
     request: Request,
+    response: Response,
     username: str = Form(...),
     password: str = Form(...)
-):
-    """ユーザーログイン - ユーザー名とパスワードでログイン"""
-    # ユーザー検索
-    user = get_user_by_username(username)
-    
-    # ユーザーが存在しない場合
-    if not user:
+) -> HTMLResponse:
+    """ログイン処理"""
+    try:
+        # ユーザー認証
+        user = await auth_service.authenticate_user(username, password)
+        
+        if not user:
+            logger.warning(f"ログイン失敗: ユーザー {username} - 無効な認証情報")
+            return templates.TemplateResponse(
+                "components/auth_response.html",
+                {"request": request, "error": "ユーザー名またはパスワードが正しくありません。"}
+            )
+        
+        # アクセストークンの作成
+        token_data = {"sub": str(user["id"])}
+        access_token = auth_service.create_access_token(token_data)
+        
+        # トークンをCookieに設定
+        response = templates.TemplateResponse(
+            "components/auth_response.html",
+            {
+                "request": request,
+                "success": "ログインしました。",
+                "user_name": user["username"],
+                "reload": True
+            }
+        )
+        
+        # セキュアなCookie設定
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            max_age=60 * 60 * 24 * 7,  # 7日間
+            samesite="lax",
+            secure=os.getenv("ENVIRONMENT", "development") == "production"
+        )
+        
+        logger.info(f"ログイン成功: ユーザー {username}")
+        return response
+        
+    except Exception as e:
+        logger.error(f"ログイン処理エラー: {str(e)}")
         return templates.TemplateResponse(
             "components/auth_response.html",
-            {"request": request, "error": "ユーザー名またはパスワードが正しくありません"}
+            {"request": request, "error": "ログイン処理中にエラーが発生しました。"}
         )
-    
-    # パスワード検証
-    password_hash = user["password_hash"]
-    if not verify_password(password, password_hash):
-        return templates.TemplateResponse(
-            "components/auth_response.html",
-            {"request": request, "error": "ユーザー名またはパスワードが正しくありません"}
-        )
-    
-    # アクティブユーザーかチェック
-    if not user.get("is_active", True):
-        return templates.TemplateResponse(
-            "components/auth_response.html",
-            {"request": request, "error": "このアカウントは現在無効化されています。管理者にお問い合わせください。"}
-        )
-    
-    # JWTトークン生成
-    token = create_access_token({
-        "sub": str(user["id"]),
-        "name": user["name"],
-        "can_see_contents": user.get("can_see_contents", False)
-    })
-    
-    # レスポンス
-    response = templates.TemplateResponse(
-        "components/auth_response.html",
-        {
-            "request": request,
-            "success": "ログインしました！",
-            "user_name": user["name"],
-            "reload": True
-        }
-    )
-    
-    # クッキーにトークンをセット
-    response.set_cookie(
-        key="token",
-        value=token,
-        httponly=True,
-        max_age=60*60*24*JWT_ACCESS_TOKEN_EXPIRE_DAYS,
-        secure=False,  # 本番環境ではTrueに
-        samesite="lax"
-    )
-    
-    return response
 
 @router.get("/logout")
-async def logout_get():
-    """ログアウト処理 (GET)"""
-    response = JSONResponse({"success": True, "message": "ログアウトしました"})
-    response.delete_cookie(key="token")
-    return response
-
-@router.post("/api/auth/logout")
-async def logout_post():
-    """ログアウト処理 (POST)"""
-    response = JSONResponse({"success": True, "message": "ログアウトしました"})
-    response.delete_cookie(key="token")
-    return response
-
-@router.get("/api/auth/me")
-async def get_current_user(
-    request: Request,
-    token: Optional[str] = Cookie(None)
-):
-    """現在のユーザー情報を取得"""
-    # トークンが存在しない場合
-    if not token:
-        return {"authenticated": False}
-    
-    # トークンの検証
-    payload = decode_token(token)
-    if not payload:
-        return {"authenticated": False}
-    
-    # ユーザーID取得
-    user_id = payload.get("sub")
-    if not user_id:
-        return {"authenticated": False}
-    
-    # データベースからユーザー情報を取得
-    db = DatabaseManager()
+async def logout(request: Request, response: Response) -> RedirectResponse:
+    """ログアウト処理"""
     try:
-        with db.get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT id, name, can_see_contents, created_at, is_active
-                    FROM users
-                    WHERE id = %s AND is_active = TRUE
-                    """,
-                    (user_id,)
-                )
-                user = cursor.fetchone()
-                
-                if not user:
-                    return {"authenticated": False}
-                
-                # レスポンスデータ整形
-                return {
-                    "authenticated": True,
-                    "user": {
-                        "id": str(user["id"]),
-                        "name": user["name"],
-                        "can_see_contents": user["can_see_contents"],
-                        "created_at": user["created_at"].isoformat() if user["created_at"] else None
-                    }
-                }
+        # トークンCookieを削除
+        response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+        response.delete_cookie(key="access_token")
+        
+        logger.info("ログアウト成功")
+        return response
+        
     except Exception as e:
-        print(f"ユーザー情報取得エラー: {e}")
-        return {"authenticated": False}
+        logger.error(f"ログアウト処理エラー: {str(e)}")
+        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+
+@router.get("/user")
+async def get_user(request: Request) -> JSONResponse:
+    """現在のユーザー情報を取得"""
+    try:
+        user = await auth_service.get_current_user(request)
+        
+        if not user:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"authenticated": False}
+            )
+            
+        return JSONResponse(
+            content={
+                "authenticated": True,
+                "user": {
+                    "id": user["id"],
+                    "username": user["username"],
+                    "is_admin": user["is_admin"]
+                }
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"ユーザー情報取得エラー: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": "ユーザー情報の取得中にエラーが発生しました。"}
+        )
+
+@router.post("/register")
+async def register(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    admin_key: Optional[str] = Form(None)
+) -> HTMLResponse:
+    """ユーザー登録（管理者キーが必要）"""
+    try:
+        # 管理者キーの検証 (実際の実装では環境変数や設定ファイルから取得)
+        valid_admin_key = os.getenv("ADMIN_KEY", "admin123")
+        is_admin = False
+        
+        # 一般ユーザー登録の場合は管理者キーが必要
+        if not admin_key or admin_key != valid_admin_key:
+            return templates.TemplateResponse(
+                "components/auth_response.html",
+                {"request": request, "error": "ユーザー登録には管理者キーが必要です。"}
+            )
+            
+        # 管理者登録の場合
+        if admin_key == os.getenv("SUPER_ADMIN_KEY", "super123"):
+            is_admin = True
+            
+        # ユーザー作成
+        new_user = await auth_service.create_user(username, password, is_admin)
+        
+        if not new_user:
+            return templates.TemplateResponse(
+                "components/auth_response.html",
+                {"request": request, "error": "このユーザー名は既に使用されています。"}
+            )
+            
+        logger.info(f"ユーザー登録成功: {username}, 管理者: {is_admin}")
+        return templates.TemplateResponse(
+            "components/auth_response.html",
+            {
+                "request": request,
+                "success": "ユーザー登録が完了しました。登録したアカウントでログインしてください。"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"ユーザー登録エラー: {str(e)}")
+        return templates.TemplateResponse(
+            "components/auth_response.html",
+            {"request": request, "error": "ユーザー登録中にエラーが発生しました。"}
+        )
