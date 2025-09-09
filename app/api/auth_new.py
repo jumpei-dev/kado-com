@@ -1,0 +1,176 @@
+"""
+新しい認証API
+- ログイン/ログアウト機能
+- HTMXとの連携対応
+- シンプルなユーザー管理
+"""
+
+from fastapi import APIRouter, Request, Response, Form, HTTPException, Depends, status
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
+import os
+from pathlib import Path
+import logging
+
+# 認証サービスのインポート
+from app.core.auth_service import auth_service
+
+# テンプレート設定
+templates_path = Path(__file__).parent.parent / "templates"
+templates = Jinja2Templates(directory=str(templates_path))
+
+# ロガー設定
+logger = logging.getLogger(__name__)
+
+# ルーター定義
+router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+@router.post("/login")
+async def login(
+    request: Request,
+    response: Response,
+    username: str = Form(...),
+    password: str = Form(...)
+) -> HTMLResponse:
+    """ログイン処理"""
+    try:
+        # ユーザー認証
+        user = await auth_service.authenticate_user(username, password)
+        
+        if not user:
+            logger.warning(f"ログイン失敗: ユーザー {username} - 無効な認証情報")
+            return templates.TemplateResponse(
+                "components/auth_response.html",
+                {"request": request, "error": "ユーザー名またはパスワードが正しくありません。"}
+            )
+        
+        # アクセストークンの作成
+        token_data = {"sub": str(user["id"])}
+        access_token = auth_service.create_access_token(token_data)
+        
+        # トークンをCookieに設定
+        response = templates.TemplateResponse(
+            "components/auth_response.html",
+            {
+                "request": request,
+                "success": "ログインしました。",
+                "user_name": user["username"],
+                "reload": True
+            }
+        )
+        
+        # セキュアなCookie設定
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            max_age=60 * 60 * 24 * 7,  # 7日間
+            samesite="lax",
+            secure=os.getenv("ENVIRONMENT", "development") == "production"
+        )
+        
+        logger.info(f"ログイン成功: ユーザー {username}")
+        return response
+        
+    except Exception as e:
+        logger.error(f"ログイン処理エラー: {str(e)}")
+        return templates.TemplateResponse(
+            "components/auth_response.html",
+            {"request": request, "error": "ログイン処理中にエラーが発生しました。"}
+        )
+
+@router.get("/logout")
+async def logout(request: Request, response: Response) -> RedirectResponse:
+    """ログアウト処理"""
+    try:
+        # トークンCookieを削除
+        response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+        response.delete_cookie(key="access_token")
+        
+        logger.info("ログアウト成功")
+        return response
+        
+    except Exception as e:
+        logger.error(f"ログアウト処理エラー: {str(e)}")
+        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+
+@router.get("/user")
+async def get_user(request: Request) -> JSONResponse:
+    """現在のユーザー情報を取得"""
+    try:
+        user = await auth_service.get_current_user(request)
+        
+        if not user:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"authenticated": False}
+            )
+            
+        return JSONResponse(
+            content={
+                "authenticated": True,
+                "user": {
+                    "id": user["id"],
+                    "username": user["username"],
+                    "is_admin": user["is_admin"]
+                }
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"ユーザー情報取得エラー: {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"error": "ユーザー情報の取得中にエラーが発生しました。"}
+        )
+
+@router.post("/register")
+async def register(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    admin_key: Optional[str] = Form(None)
+) -> HTMLResponse:
+    """ユーザー登録（管理者キーが必要）"""
+    try:
+        # 管理者キーの検証 (実際の実装では環境変数や設定ファイルから取得)
+        valid_admin_key = os.getenv("ADMIN_KEY", "admin123")
+        is_admin = False
+        
+        # 一般ユーザー登録の場合は管理者キーが必要
+        if not admin_key or admin_key != valid_admin_key:
+            return templates.TemplateResponse(
+                "components/auth_response.html",
+                {"request": request, "error": "ユーザー登録には管理者キーが必要です。"}
+            )
+            
+        # 管理者登録の場合
+        if admin_key == os.getenv("SUPER_ADMIN_KEY", "super123"):
+            is_admin = True
+            
+        # ユーザー作成
+        new_user = await auth_service.create_user(username, password, is_admin)
+        
+        if not new_user:
+            return templates.TemplateResponse(
+                "components/auth_response.html",
+                {"request": request, "error": "このユーザー名は既に使用されています。"}
+            )
+            
+        logger.info(f"ユーザー登録成功: {username}, 管理者: {is_admin}")
+        return templates.TemplateResponse(
+            "components/auth_response.html",
+            {
+                "request": request,
+                "success": "ユーザー登録が完了しました。登録したアカウントでログインしてください。"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"ユーザー登録エラー: {str(e)}")
+        return templates.TemplateResponse(
+            "components/auth_response.html",
+            {"request": request, "error": "ユーザー登録中にエラーが発生しました。"}
+        )

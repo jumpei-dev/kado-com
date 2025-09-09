@@ -1,0 +1,76 @@
+{% if error %}
+<div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4 rounded shadow-sm">
+  <div class="flex items-center">
+    <div class="flex-shrink-0">
+      <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+      </svg>
+    </div>
+    <div class="ml-3">
+      <p class="text-sm text-red-700 font-medium">{{ error }}</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  console.error('認証エラーが発生しました:', '{{ error }}');
+  
+  // エラー発生時の処理
+  // レスポンス要素までスクロール
+  const responseElement = document.getElementById('login-response');
+  if (responseElement) {
+    responseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // フォーカスをユーザー名フィールドに戻す
+    const usernameField = document.getElementById('login-username');
+    if (usernameField) {
+      setTimeout(() => {
+        usernameField.focus();
+      }, 500);
+    }
+  }
+</script>
+{% endif %}
+
+{% if success %}
+<div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4 rounded shadow-sm">
+  <div class="flex items-center">
+    <div class="flex-shrink-0">
+      <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+      </svg>
+    </div>
+    <div class="ml-3">
+      <p class="text-sm text-green-700 font-medium">{{ success }}</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ログイン成功イベントをディスパッチ
+  console.log("認証成功: {{ user_name|default('') }}");
+  
+  // カスタムイベントをディスパッチ
+  document.dispatchEvent(new CustomEvent('auth:login', { 
+    detail: { 
+      userName: '{{ user_name|default("") }}' 
+    } 
+  }));
+  
+  {% if reload %}
+  // リロード前に少し待機して成功メッセージを表示
+  setTimeout(function() {
+    console.log("ページをリロードします...");
+    window.location.reload();
+  }, 1500);
+  {% endif %}
+  
+  // 成功時のみモーダルを閉じる
+  setTimeout(() => {
+    console.log("認証モーダルを閉じます...");
+    // モーダルを閉じるためのカスタムイベントをディスパッチ
+    const event = new CustomEvent('modal-close', { detail: { id: 'loginModal' } });
+    document.dispatchEvent(event);
+  }, 1000);
+</script>
+{% endif %}
