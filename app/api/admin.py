@@ -18,7 +18,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
 
 from app.core.database import DatabaseManager
-from app.api.auth_simple import get_current_user
+from app.core.auth_service import auth_service
 
 router = APIRouter(tags=["admin"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -41,14 +41,12 @@ def hash_password(password):
 
 async def admin_required(request: Request):
     """管理者権限を要求するミドルウェア"""
-    user_data = await get_current_user(request)
-    if not user_data.get("authenticated"):
+    user = await auth_service.get_current_user(request)
+    if not user:
         raise HTTPException(status_code=401, detail="認証が必要です")
     
-    # 管理者権限チェック - 実際の条件はシステムに合わせて調整
-    # 例: is_adminフラグやユーザーIDで判定
-    user = user_data.get("user", {})
-    if not user.get("id") == "1":  # 仮の例: ID=1のユーザーが管理者
+    # 管理者権限チェック
+    if not user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="管理者権限が必要です")
     
     return user
