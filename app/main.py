@@ -35,6 +35,7 @@ print("=" * 60)
 try:
     print("🔄 APIモジュールをインポート中...")
     from app.api import auth, stores, twitter
+    from app.api.admin import router as admin_router
     print("✅ APIモジュールのインポート成功")
     
     print("🔄 コアモジュールをインポート中...")
@@ -93,6 +94,7 @@ except Exception as e:
 app.include_router(auth.router)
 app.include_router(stores.router)
 app.include_router(twitter.router)
+app.include_router(admin_router)
 
 # ロガー設定
 logging.basicConfig(

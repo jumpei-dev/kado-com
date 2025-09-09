@@ -1,0 +1,462 @@
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form, Cookie, Response
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from fastapi import BackgroundTasks
+from typing import Dict, Any, Optional
+from pydantic import BaseModel, EmailStr
+import sys
+import bcrypt
+import jwt
+import secrets
+import os
+from datetime import datetime, timedelta
+from pathlib import Path
+
+# プロジェクトルートをパスに追加
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.absolute()))
+
+# 認証設定をインポート
+from app.core.auth_config import JWT_SECRET_KEY, JWT_ALGORITHM, JWT_ACCESS_TOKEN_EXPIRE_DAYS
+from app.core.database import DatabaseManager
+
+router = APIRouter(tags=["auth"])
+security = HTTPBearer(auto_error=False)
+
+# テンプレートの設定
+templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+
+# 入力モデル
+class UserRegister(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class PasswordReset(BaseModel):
+    email: EmailStr
+
+# データベースユーティリティ関数
+def get_user_by_email(db, email):
+    """メールアドレスでユーザーを検索"""
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+                result = cursor.fetchone()
+                return result
+    except Exception as e:
+        print(f"ユーザー検索エラー: {e}")
+        return None
+
+def verify_password(plain_password, hashed_password):
+    """パスワード検証"""
+    return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
+
+def create_access_token(data: dict):
+    """JWTトークン生成"""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=JWT_ACCESS_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+def decode_token(token):
+    """トークンのデコード"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except:
+        return None
+
+# API エンドポイント
+@router.post("/api/auth/register", response_class=HTMLResponse)
+async def register(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    db = DatabaseManager()
+):
+    """ユーザー登録"""
+    
+    # メールアドレスの重複チェック
+    existing_user = get_user_by_email(db, email)
+    if existing_user:
+        return templates.TemplateResponse(
+            "components/auth_response.html", 
+            {"request": request, "error": "このメールアドレスは既に登録されています"}
+        )
+    
+    # パスワードのハッシュ化
+    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    
+    # 確認トークンの生成
+    verification_token = secrets.token_urlsafe(32)
+    expires = datetime.now() + timedelta(days=1)
+    
+    # 環境設定の取得
+    is_development = os.getenv("ENVIRONMENT", "development") == "development"
+    
+    # テスト用コンソール出力
+    print(f"環境モード: {'開発' if is_development else '本番'}")
+    
+    # ユーザー作成
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO users (name, email, password_hash, email_verified, verification_token, 
+                    verification_token_expires_at, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                """, (
+                    name,
+                    email,
+                    password_hash,
+                    False, # メール認証必須に変更
+                    verification_token,
+                    expires,
+                    datetime.now(),
+                    datetime.now()
+                ))
+                user_id = cursor.fetchone()['id']
+                conn.commit()
+        
+        # 確認メールの送信
+        verification_url = f"{request.base_url}api/auth/verify-email?token={verification_token}"
+        
+        # メール送信（開発モードでもメール送信処理を呼び出す）
+        from app.core.email_service import send_verification_email_background
+        send_verification_email_background(background_tasks, email, name, verification_url)
+        
+        # 開発モードの場合はコンソールにも出力
+        if is_development:
+            print(f"\n\n")
+            print(f"====================================================")
+            print(f"=== 開発モード: メール確認URL ===")
+            print(f"====================================================")
+            print(f"ユーザー: {name} <{email}>")
+            print(f"確認URL: {verification_url}")
+            print(f"====================================================")
+            print(f"\n\n")
+        
+        # JWTトークン生成
+        token = create_access_token({"sub": str(user_id), "name": name, "email": email})
+        
+        # レスポンス
+        response = templates.TemplateResponse(
+            "components/auth_response.html",
+            {
+                "request": request,
+                "success": "アカウント登録が完了しました！メールアドレスの確認リンクを送信しました。メールを確認してリンクをクリックしてください。",
+                "reload": True
+            }
+        )
+        
+        return response
+    
+    except Exception as e:
+        print(f"ユーザー登録エラー: {e}")
+        return templates.TemplateResponse(
+            "components/auth_response.html",
+            {"request": request, "error": "登録中にエラーが発生しました。もう一度お試しください。"}
+        )
+
+@router.post("/api/auth/login", response_class=HTMLResponse)
+async def login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...)
+):
+    """ユーザーログイン"""
+    db = DatabaseManager()
+    
+    # ユーザー検索
+    user = get_user_by_email(db, email)
+    if not user:
+        return templates.TemplateResponse(
+            "components/auth_response.html",
+            {"request": request, "error": "メールアドレスまたはパスワードが正しくありません"}
+        )
+    
+    # パスワード検証
+    password_hash = user["password_hash"]
+    if not verify_password(password, password_hash):
+        return templates.TemplateResponse(
+            "components/auth_response.html",
+            {"request": request, "error": "メールアドレスまたはパスワードが正しくありません"}
+        )
+    
+    # メール認証確認
+    if not user["email_verified"]:
+        return templates.TemplateResponse(
+            "components/auth_response.html",
+            {
+                "request": request, 
+                "error": "メールアドレスの確認が完了していません。メールに記載されたリンクをクリックして認証を完了してください。"
+            }
+        )
+    # JWTトークン生成
+    token = create_access_token({
+        "sub": str(user["id"]),
+        "name": user["name"],
+        "email": user["email"],
+        "verified": user["email_verified"]
+    })
+    
+    # レスポンス
+    response = templates.TemplateResponse(
+        "components/auth_response.html",
+        {
+            "request": request,
+            "success": "ログインしました！",
+            "user_name": user["name"],
+            "reload": True
+        }
+    )
+    
+    # クッキーにトークンをセット
+    response.set_cookie(
+        key="token",
+        value=token,
+        httponly=True,
+        max_age=60*60*24*JWT_ACCESS_TOKEN_EXPIRE_DAYS,
+        secure=False, # 開発環境ではFalse
+        samesite="lax"
+    )
+    
+    return response
+
+@router.get("/logout")
+async def logout_get():
+    """ログアウト処理 (GET)"""
+    response = JSONResponse({"success": True, "message": "ログアウトしました"})
+    response.delete_cookie(key="token")
+    return response
+
+@router.post("/api/auth/logout")
+async def logout_post():
+    """ログアウト処理 (POST)"""
+    response = JSONResponse({"success": True, "message": "ログアウトしました"})
+    response.delete_cookie(key="token")
+    return response
+
+@router.get("/api/auth/verify-email", response_class=HTMLResponse)
+async def verify_email(
+    request: Request,
+    token: str
+):
+    """メールアドレス確認処理"""
+    db = DatabaseManager()
+    
+    # トークンからユーザーを検索
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT id, name, email, verification_token_expires_at
+                    FROM users
+                    WHERE verification_token = %s
+                """, (token,))
+                user = cursor.fetchone()
+    except Exception as e:
+        print(f"ユーザー検索エラー: {e}")
+        return templates.TemplateResponse(
+            "auth_message.html", 
+            {"request": request, "error": "検証中にエラーが発生しました。もう一度お試しください。"}
+        )
+    
+    if not user:
+        return templates.TemplateResponse(
+            "auth_message.html", 
+            {"request": request, "error": "無効なトークンです。登録手続きをやり直してください。"}
+        )
+    
+    # トークンの有効期限チェック
+    if datetime.now() > user["verification_token_expires_at"]:
+        return templates.TemplateResponse(
+            "auth_message.html", 
+            {"request": request, "error": "トークンの有効期限が切れています。登録手続きをやり直してください。"}
+        )
+    
+    # メールの確認処理
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    UPDATE users
+                    SET email_verified = TRUE,
+                        verification_token = NULL,
+                        verification_token_expires_at = NULL,
+                        updated_at = %s
+                    WHERE id = %s
+                """, (
+                    datetime.now(),
+                    user["id"]
+                ))
+                conn.commit()
+        
+        # 認証成功時に自動ログイン処理を行う
+        token = create_access_token({
+            "sub": str(user["id"]), 
+            "name": user["name"], 
+            "email": user["email"],
+            "verified": True  # メール確認済みフラグ
+        })
+        
+        # レスポンスを作成
+        response = templates.TemplateResponse(
+            "auth_message.html", 
+            {
+                "request": request, 
+                "success": "メールアドレスの確認が完了しました！自動的にログインしています。",
+                "redirect_url": "/",
+                "redirect_text": "ホームに戻る",
+                "auto_login": True,
+                "user_name": user["name"]
+            }
+        )
+        
+        # クッキーにトークンをセット
+        response.set_cookie(
+            key="token",
+            value=token,
+            httponly=True,
+            max_age=60*60*24*JWT_ACCESS_TOKEN_EXPIRE_DAYS,
+            secure=False, # 開発環境ではFalse
+            samesite="lax"
+        )
+        
+        return response
+    except Exception as e:
+        print(f"メール確認エラー: {e}")
+        return templates.TemplateResponse(
+            "auth_message.html", 
+            {"request": request, "error": "メール確認中にエラーが発生しました。後ほど再試行してください。"}
+        )
+
+@router.get("/api/auth/me")
+async def get_current_user(
+    request: Request,
+    token: Optional[str] = Cookie(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+):
+    """現在のユーザー情報を取得"""
+    # トークンがクッキーとAuthorizationヘッダーの両方にある場合の処理
+    actual_token = token or (credentials.credentials if credentials else None)
+    
+    # トークンが存在しない場合
+    if not actual_token:
+        return {"authenticated": False}
+    
+    # トークンの検証
+    payload = decode_token(actual_token)
+    if not payload:
+        return {"authenticated": False}
+    
+    # ユーザーID取得
+    user_id = payload.get("sub")
+    if not user_id:
+        return {"authenticated": False}
+    
+    # データベースからユーザー情報を取得
+    db = DatabaseManager()
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT id, name, email, email_verified, can_see_contents, created_at
+                    FROM users
+                    WHERE id = %s
+                """, (user_id,))
+                user = cursor.fetchone()
+                
+                if not user:
+                    return {"authenticated": False}
+                
+                # レスポンスデータ整形
+                return {
+                    "authenticated": True,
+                    "user": {
+                        "id": str(user["id"]),
+                        "name": user["name"],
+                        "email": user["email"],
+                        "email_verified": user["email_verified"],
+                        "can_see_contents": user["can_see_contents"],
+                        "created_at": user["created_at"].isoformat() if user["created_at"] else None
+                    }
+                }
+    except Exception as e:
+        print(f"ユーザー情報取得エラー: {e}")
+        return {"authenticated": False, "error": str(e)}
+
+@router.post("/forgot-password", response_class=HTMLResponse)
+async def forgot_password(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    email: str = Form(...)
+):
+    """パスワードリセット"""
+    db = DatabaseManager()
+    
+    # ユーザー検索（セキュリティのため存在しなくても同じメッセージ）
+    user = get_user_by_email(db, email)
+    
+    if user:
+        # リセットトークンの生成
+        reset_token = secrets.token_urlsafe(32)
+        expires = datetime.now() + timedelta(hours=1)
+        
+        # トークンをDBに保存
+        try:
+            with db.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE users
+                        SET reset_password_token = %s,
+                            reset_password_token_expires_at = %s,
+                            updated_at = %s
+                        WHERE id = %s
+                    """, (
+                        reset_token,
+                        expires,
+                        datetime.now(),
+                        user["id"]
+                    ))
+                    conn.commit()
+            
+            # リセットURLの作成
+            reset_url = f"{request.base_url}reset-password?token={reset_token}"
+            
+            # メール送信
+            from app.core.email_service import send_password_reset_email_background
+            send_password_reset_email_background(background_tasks, email, user["name"], reset_url)
+            
+            # 環境設定の取得
+            is_development = os.getenv("ENVIRONMENT", "development") == "development"
+            # 開発モードではコンソールにも出力
+            if is_development:
+                print(f"\n\n")
+                print(f"====================================================")
+                print(f"=== 開発モード: パスワードリセットURL ===")
+                print(f"====================================================")
+                print(f"ユーザー: {user['name']} <{email}>")
+                print(f"リセットURL: {reset_url}")
+                print(f"====================================================")
+                print(f"\n\n")
+                
+        except Exception as e:
+            print(f"パスワードリセットエラー: {e}")
+    
+    # ユーザーが存在しなくても同じ応答を返す
+    return templates.TemplateResponse(
+        "components/auth_response.html",
+        {
+            "request": request,
+            "success": "パスワードリセット用のメールを送信しました"
+        }
+    )

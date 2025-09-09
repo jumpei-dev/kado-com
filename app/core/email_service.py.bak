@@ -1,21 +1,16 @@
 """
 SendGridを使用したメール送信サービス
-開発環境とSMTP対応両方に対応
 """
 
 import os
 import logging
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content, HtmlContent
-from typing import Optional, Dict, Any
+from typing import Optional
 from fastapi import BackgroundTasks
 from datetime import datetime
 from pathlib import Path
 import sys
-import traceback
 
 # プロジェクトルートをパスに追加
 project_root = Path(__file__).parent.parent.parent.absolute()
@@ -29,7 +24,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 class EmailService:
-    """SendGridを使用したメール送信サービス（SMTP対応）"""
+    """SendGridを使用したメール送信サービス"""
     
     def __init__(self):
         # 設定ファイルから読み込み
@@ -38,31 +33,15 @@ class EmailService:
             self.api_key = email_config.get('api_key')
             self.from_email = email_config.get('from_email', "noreply@kadocom.com")
             self.from_name = email_config.get('from_name', "稼働.com")
-            self.provider = email_config.get('provider', 'sendgrid')
             self.is_development = config_manager.get('environment.mode', 'development') == 'development'
-            
-            # SMTP設定
-            self.smtp_server = email_config.get('smtp_server', 'smtp.sendgrid.net')
-            self.smtp_port = int(email_config.get('smtp_port', 587))
-            self.smtp_username = email_config.get('smtp_username', 'apikey')
-            self.smtp_password = email_config.get('smtp_password', self.api_key)
-            
-            print(f"EmailService初期化: 設定ファイルから読み込み (Provider: {self.provider})")
+            print(f"EmailService初期化: 設定ファイルから読み込み")
         else:
             # フォールバック：環境変数から読み込み
             self.api_key = os.getenv("SENDGRID_API_KEY")
             self.from_email = os.getenv("EMAIL_FROM", "noreply@kadocom.com")
             self.from_name = os.getenv("EMAIL_FROM_NAME", "稼働.com")
-            self.provider = os.getenv("EMAIL_PROVIDER", "sendgrid")
             self.is_development = os.getenv("ENVIRONMENT", "development") == "development"
-            
-            # SMTP設定
-            self.smtp_server = os.getenv("SMTP_SERVER", "smtp.sendgrid.net")
-            self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
-            self.smtp_username = os.getenv("SMTP_USERNAME", "apikey")
-            self.smtp_password = os.getenv("SMTP_PASSWORD", self.api_key)
-            
-            print(f"EmailService初期化: 環境変数から読み込み (Provider: {self.provider})")
+            print(f"EmailService初期化: 環境変数から読み込み")
     
     async def send_email(self, to_email: str, subject: str, html_content: str) -> bool:
         """メールを送信する"""
@@ -86,74 +65,38 @@ class EmailService:
         
         # 本番環境では実際に送信
         try:
-            # プロバイダに応じた送信方法を使用
-            if self.provider == 'smtp':
-                return await self._send_via_smtp(to_email, subject, html_content)
-            else:  # デフォルトはSendGrid API
-                return await self._send_via_sendgrid(to_email, subject, html_content)
+            message = Mail(
+                from_email=Email(self.from_email, self.from_name),
+                to_emails=To(to_email),
+                subject=subject,
+                html_content=HtmlContent(html_content)
+            )
+            
+            # APIキーチェック
+            if not self.api_key:
+                logger.error("SendGrid API キーが設定されていません")
+                print("ERROR: SendGrid API キーが設定されていません")
+                return False
+                
+            sg = SendGridAPIClient(self.api_key)
+            print(f"SendGrid API接続を開始します: API_KEY={self.api_key[:5]}...")
+            response = sg.send(message)
+            status_code = response.status_code
+            
+            if status_code >= 200 and status_code < 300:
+                logger.info(f"メール送信成功: {to_email}, ステータス: {status_code}")
+                print(f"メール送信成功: {to_email}, ステータス: {status_code}")
+                return True
+            else:
+                logger.error(f"メール送信エラー: ステータス {status_code}")
+                print(f"メール送信エラー: ステータス {status_code}")
+                return False
                 
         except Exception as e:
             logger.error(f"メール送信例外: {str(e)}")
             print(f"メール送信エラー: {type(e).__name__}: {str(e)}")
             # スタックトレースも出力
-            print(traceback.format_exc())
-            return False
-    
-    async def _send_via_sendgrid(self, to_email: str, subject: str, html_content: str) -> bool:
-        """SendGrid APIを使用してメールを送信"""
-        # APIキーチェック
-        if not self.api_key:
-            logger.error("SendGrid API キーが設定されていません")
-            print("ERROR: SendGrid API キーが設定されていません")
-            return False
-            
-        message = Mail(
-            from_email=Email(self.from_email, self.from_name),
-            to_emails=To(to_email),
-            subject=subject,
-            html_content=HtmlContent(html_content)
-        )
-        
-        sg = SendGridAPIClient(self.api_key)
-        print(f"SendGrid API接続を開始します: API_KEY={self.api_key[:5]}...")
-        response = sg.send(message)
-        status_code = response.status_code
-        
-        if status_code >= 200 and status_code < 300:
-            logger.info(f"メール送信成功: {to_email}, ステータス: {status_code}")
-            print(f"メール送信成功: {to_email}, ステータス: {status_code}")
-            return True
-        else:
-            logger.error(f"メール送信エラー: ステータス {status_code}")
-            print(f"メール送信エラー: ステータス {status_code}")
-            return False
-    
-    async def _send_via_smtp(self, to_email: str, subject: str, html_content: str) -> bool:
-        """SMTPを使用してメールを送信"""
-        try:
-            # メッセージ作成
-            message = MIMEMultipart()
-            message["From"] = f"{self.from_name} <{self.from_email}>"
-            message["To"] = to_email
-            message["Subject"] = subject
-            
-            # HTML本文の設定
-            message.attach(MIMEText(html_content, "html"))
-            
-            # SMTP接続と送信
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-            server.starttls()
-            server.login(self.smtp_username, self.smtp_password)
-            server.sendmail(self.from_email, to_email, message.as_string())
-            server.quit()
-            
-            logger.info(f"SMTP メール送信成功: {to_email}")
-            print(f"SMTP メール送信成功: {to_email}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"SMTP メール送信エラー: {str(e)}")
-            print(f"SMTP メール送信エラー: {type(e).__name__}: {str(e)}")
+            import traceback
             print(traceback.format_exc())
             return False
     

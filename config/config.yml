@@ -12,7 +12,7 @@ environment:
 # 📊 データベース設定（全モジュール共通）
 database:
   # Supabase PostgreSQL接続情報（現在使用中）
-  host: "aws-1-ap-northeast-1.pooler.supabase.com"
+  host: "57.182.231.186"
   port: 6543
   database: "postgres"
   user: "postgres.hnmbsqydlfemlmsyexrq"
@@ -25,12 +25,28 @@ database:
   pool_timeout: 30
   
   # URL形式（APIサーバー用）
-  url: "postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
+  url: "postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@57.182.231.186:6543/postgres?sslmode=require"
+
+# 📧 メール設定
+email:
+  provider: "smtp"  # sendgrid | smtp
+  api_key: "SENDGRID_API_KEY_REMOVED"  # 開発モードでは実際に送信されません
+  from_email: "info@working-rate.com"  # 正式なドメイン名
+  from_name: "稼働.com"
+  # SMTP設定
+  smtp_server: "smtp.sendgrid.net"
+  smtp_port: 587
+  smtp_username: "apikey"
+  smtp_password: "SENDGRID_API_KEY_REMOVED"  # APIキーをそのまま使用
+  templates:
+    verification: "d-verification-template-id"
+    password_reset: "d-password-reset-template-id"
+    welcome: "d-welcome-template-id"
 
 # 🌐 APIサーバー設定
 api:
   host: localhost
-  port: 8000
+  port: 8080
   debug: true
   title: "稼働.com API"
   description: "風俗店稼働率管理システムのAPI"
@@ -47,15 +63,16 @@ api:
 
 # 🔐 認証設定
 auth:
-  secret_key: "dev-secret-key-change-in-production"
+  secret_key: "kado-com-secret-key-for-development"
   algorithm: "HS256"
-  access_token_expire_minutes: 30
+  access_token_expire_days: 7
+  access_token_expire_minutes: 10080  # 7日間（7*24*60）
   magic_link_expire_minutes: 15
 
 # 📱 フロントエンド設定
 frontend:
   url: "http://localhost:5173"
-  api_base_url: "http://localhost:8000"
+  api_base_url: "http://localhost:8080"
   app_name: "稼働.com"
   app_version: "1.0.0"
   node_env: "development"
@@ -131,10 +148,15 @@ production:
     debug: false
   
   auth:
-    secret_key: "${SECRET_KEY}"  # 環境変数から取得
+    secret_key: "${JWT_SECRET_KEY}"  # 環境変数から取得
   
   database:
     url: "${DATABASE_URL}"  # 環境変数から取得
+  
+  email:
+    api_key: "${SENDGRID_API_KEY}"
+    from_email: "${EMAIL_FROM}"
+    from_name: "${EMAIL_FROM_NAME}"
   
   logging:
     level: "INFO"

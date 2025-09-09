@@ -23,7 +23,7 @@
         </div>
       </div>
       <div class="bg-gray-50 p-4 rounded-lg text-center">
-        <p class="text-gray-600 mb-1">今週の稼働▶︎先週の稼働</p>
+        <p class="text-gray-600 mb-1">先週の平均稼働率</p>
         <div class="text-3xl font-bold {{ 'text-green-600' if store.working_rate > 70 else 'text-yellow-600' if store.working_rate > 40 else 'text-red-600' }}">
           {{ store.working_rate }}%
         </div>

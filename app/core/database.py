@@ -16,7 +16,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.absolute()))
 logger = logging.getLogger(__name__)
 class DatabaseManager:
     def __init__(self, connection_string=None):
-        self.connection_string = connection_string or os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/kadocom")
+        # まず環境変数を確認、次にconfigを確認、最後にフォールバック
+        from app.core.config import get_database_url
+        self.connection_string = connection_string or os.getenv("DATABASE_URL") or get_database_url() or "postgresql://postgres:postgres@localhost:5432/kadocom"
         self.connection = None
         self.cursor = None
     
@@ -297,6 +299,18 @@ class DatabaseManager:
         }
         
         return dummy_data.get(business_id)
+
+    async def get_connection_async(self):
+        """Async用のデータベース接続を取得する"""
+        try:
+            conn = psycopg2.connect(
+                self.connection_string,
+                cursor_factory=RealDictCursor
+            )
+            return conn
+        except Exception as e:
+            logger.error(f"❌ データベース接続エラー: {str(e)}")
+            raise
 
 # API用のデータベースヘルパー関数
 db_manager = None
