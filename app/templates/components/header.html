@@ -1,0 +1,152 @@
+<header class="bg-gray-800 shadow-lg rounded-t-lg">
+  <div class="px-4 py-4" style="width: 640px; max-width: 100%; margin: 0 auto;">
+    <div class="flex justify-between items-center">
+      <!-- ロゴ -->
+      <a href="/" class="flex items-center">
+        <span class="text-white font-bold text-2xl">稼働.com</span>
+      </a>
+      
+      <!-- ユーザーメニュー -->
+      <div class="relative" x-data="{ isOpen: false, isLoggedIn: false, userName: '' }" 
+           x-init="
+            fetch('/api/auth/me')
+            .then(res => res.json())
+            .then(data => {
+              console.log('認証状態確認:', data);
+              if (data.authenticated) {
+                isLoggedIn = true;
+                userName = data.user.username;
+              }
+            })
+            .catch(err => console.error('認証状態確認エラー:', err));
+            
+            // ログインイベントをリッスン
+            document.addEventListener('auth:login', (event) => {
+              isLoggedIn = true;
+              userName = event.detail.userName;
+            });
+           ">
+        <!-- 非ログイン時 -->
+        <template x-if="!isLoggedIn">
+          <button @click="isOpen = !isOpen" class="flex items-center text-gray-300 hover:text-white transition-colors focus:outline-none bg-gray-700 py-2 px-3 rounded-lg">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span class="ml-1 text-sm">メニュー</span>
+          </button>
+        </template>
+        
+        <!-- ログイン時 -->
+        <template x-if="isLoggedIn">
+          <button @click="
+            console.log('ログアウト処理開始');
+            fetch('/api/auth/logout', { 
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            })
+            .then(response => response.json())
+            .then(data => { 
+              console.log('ログアウト結果:', data);
+              isLoggedIn = false;
+              userName = '';
+              window.location.href = '/';
+            })
+            .catch(err => { 
+              console.error('ログアウトエラー:', err);
+              alert('ログアウト処理中にエラーが発生しました');
+            });" 
+            class="flex items-center text-gray-300 hover:text-white transition-colors focus:outline-none bg-gray-700 py-2 px-3 rounded-lg">
+            <span class="text-sm">ログアウト</span>
+          </button>
+        </template>
+        
+        <!-- 非ログイン時のドロップダウンメニュー -->
+        <div x-show="isOpen && !isLoggedIn" 
+             @click.away="isOpen = false"
+             class="absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg py-2 z-50">
+          <a href="#" @click="$dispatch('open-modal', {id: 'loginModal'}); isOpen = false" class="block px-4 py-2 text-gray-200 hover:bg-gray-600 hover:text-white">
+            ログイン
+          </a>
+        </div>
+              })
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ログインモーダル -->
+<div id="loginModal" 
+     class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center" 
+     style="display: none;"
+     x-data="{ show: false }"
+     x-show="show"
+     @open-modal.window="if ($event.detail.id === 'loginModal') show = true"
+     @keydown.escape.window="show = false">
+  
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 relative animate-fadeIn"
+       @click.away="show = false">
+       
+    <!-- モーダルヘッダー -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-700 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
+      <h3 class="text-xl font-medium">ログイン</h3>
+      <button class="text-white hover:text-gray-200 transition-colors" @click="show = false">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    
+    <!-- モーダルボディ -->
+    <div class="p-6">
+      <form hx-post="/api/auth/login" hx-target="#login-response">
+        <div class="mb-4">
+          <label for="username" class="block text-gray-700 text-sm font-medium mb-1">ユーザーID</label>
+          <input type="text" id="username" name="username" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500">
+        </div>
+        
+        <div class="mb-6">
+          <label for="password" class="block text-gray-700 text-sm font-medium mb-1">パスワード</label>
+          <input type="password" id="password" name="password" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500">
+          <div class="mt-1 text-right">
+            <a href="#" class="text-sm text-gray-600 hover:text-gray-800">パスワードを忘れた場合</a>
+          </div>
+        </div>
+        
+        <div id="login-response"></div>
+        
+        <div class="flex items-center justify-between">
+          <button type="submit"
+                  class="w-full bg-gray-700 text-white py-2 px-4 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+            ログイン
+          </button>
+        </div>
+      </form>
+      
+      <div class="mt-6 text-center">
+        <p class="text-sm text-gray-600">
+          IDをお持ちでない方は管理者にお問い合わせください
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<style>
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
