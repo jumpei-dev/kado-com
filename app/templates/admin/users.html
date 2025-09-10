@@ -85,8 +85,8 @@
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ユーザー名</th>
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">コンテンツ閲覧権限</th>
-                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">管理者</th>
-                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">管理者権限</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">有効化</th>
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                     </tr>
                 </thead>
@@ -116,15 +116,6 @@
                                 data-type="is_active"
                                 data-original="{{ user.is_active|lower }}"
                                 {% if user.is_active %}checked{% endif %}>
-                            {% if user.is_active %}
-                            <span class="ml-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                有効
-                            </span>
-                            {% else %}
-                            <span class="ml-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                無効
-                            </span>
-                            {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
                             <button data-user-id="{{ user.id }}" data-user-name="{{ user.name }}" class="reset-password bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">
@@ -143,7 +134,11 @@
             <div class="text-sm text-gray-600">
                 全 {{ pagination.total }} 件中 
                 {{ (pagination.page - 1) * pagination.page_size + 1 }} - 
-                {{ min(pagination.page * pagination.page_size, pagination.total) }} 件を表示
+                {% if pagination.page * pagination.page_size > pagination.total %}
+                    {{ pagination.total }}
+                {% else %}
+                    {{ pagination.page * pagination.page_size }}
+                {% endif %} 件を表示
             </div>
             
             <div class="flex">
@@ -153,7 +148,9 @@
                 前へ
                 </a>
                 
-                {% for i in range(max(1, pagination.page - 2), min(pagination.total_pages + 1, pagination.page + 3)) %}
+                {% set start_page = pagination.page - 2 if pagination.page - 2 > 0 else 1 %}
+                {% set end_page = pagination.page + 3 if pagination.page + 3 <= pagination.total_pages + 1 else pagination.total_pages + 1 %}
+                {% for i in range(start_page, end_page) %}
                 <a href="?page={{ i }}{% if search %}&search={{ search }}{% endif %}" 
                 class="px-3 py-1 border rounded mx-1 {% if i == pagination.page %}bg-gray-800 text-white{% endif %}">
                     {{ i }}
@@ -442,10 +439,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const userId = this.dataset.userId;
             const userName = this.dataset.userName;
             
-            if (!confirm(`${userName}さんのパスワードを再生成しますか？`)) {
-                return;
-            }
-            
+            // 確認ダイアログを削除し、直接処理を実行
             try {
                 const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
                     method: 'POST'

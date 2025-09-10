@@ -35,17 +35,10 @@ class UserUpdateItem(BaseModel):
 class UserBulkUpdateRequest(BaseModel):
     users: List[UserUpdateItem]
 
-def generate_password(length=10):
-    """ランダムなパスワードを生成"""
-    # 英数字をバランス良く含めるためのセット
-    alphabet = string.ascii_letters + string.digits
-    # 最低1つの数字を含めるための処理
-    password = ''.join(secrets.choice(alphabet) for i in range(length-1))
-    password += secrets.choice(string.digits)  # 最後に必ず数字を追加
-    # シャッフルして順番をランダムに
-    password_list = list(password)
-    secrets.SystemRandom().shuffle(password_list)
-    return ''.join(password_list)
+def generate_password(length=4):
+    """4桁の数字のみのパスワードを生成"""
+    # 数字のみの4桁パスワード
+    return ''.join(secrets.choice(string.digits) for i in range(length))
 
 def hash_password(password):
     """パスワードをハッシュ化"""
@@ -69,7 +62,7 @@ async def user_list_page(
     request: Request, 
     search: Optional[str] = None,
     page: int = 1,
-    page_size: int = 20,
+    page_size: int = 15,
     admin = Depends(admin_required)
 ):
     """管理者用: ユーザー一覧ページ"""
