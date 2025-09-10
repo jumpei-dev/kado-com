@@ -5,8 +5,8 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
   <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-    <!-- ヘッダーイメージ -->
-    <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-8 py-12 text-center text-white">
+    <!-- ヘッダー -->
+    <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-8 py-10 text-center text-white">
       <h1 class="text-3xl font-bold mb-2">データの見方</h1>
       <p class="text-lg opacity-90">稼働.comのデータ収集方法と活用ポイント</p>
     </div>
@@ -21,42 +21,57 @@
           これは単純に「お店にいる女性がどれだけ効率よく仕事をしているか」を表す指標です。
         </p>
         
+        <!-- 計算式 -->
         <div class="bg-blue-50 p-6 rounded-lg mb-8">
-          <div class="flex flex-col md:flex-row items-center justify-center">
-            <div class="mb-6 md:mb-0 md:mr-8">
-              <div class="flex items-center mb-4">
-                <div class="text-xl font-bold text-blue-700 mr-3">稼働率 =</div>
-                <div class="border-b-2 border-blue-700">
-                  <div class="text-center text-blue-800">仕事している時間</div>
-                  <div class="text-center text-blue-800">出勤時間</div>
-                </div>
-                <div class="ml-3 text-xl font-bold text-blue-700">× 100%</div>
+          <!-- 計算式の部分 -->
+          <div class="mb-6">
+            <div class="flex items-center justify-center mb-4">
+              <div class="text-xl font-bold text-blue-700 mr-3">稼働率 =</div>
+              <div class="border-b-2 border-blue-700">
+                <div class="text-center text-blue-800">仕事している時間</div>
+                <div class="text-center text-blue-800">出勤時間</div>
               </div>
-              <p class="text-sm text-gray-600 italic">※店舗内の全女性の平均値を算出</p>
+              <div class="ml-3 text-xl font-bold text-blue-700">× 100%</div>
             </div>
-            
-            <!-- 簡単な図の部分 -->
+            <p class="text-sm text-gray-600 italic text-center">※店舗内の全女性の平均値を算出</p>
+          </div>
+          
+          <!-- 横線グラフ -->
+          <div class="mt-8">
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <div class="w-64 h-40 relative">
-                <!-- 出勤時間の全体を表す長方形 -->
-                <div class="absolute top-0 left-0 w-full h-full border-2 border-gray-300 rounded">
-                  <div class="p-2 text-xs text-gray-500">出勤時間（例: 8時間）</div>
+              <!-- 出勤時間を表す横軸 -->
+              <div class="relative mb-2">
+                <div class="text-xs text-gray-500 absolute -top-6 left-0">0時間</div>
+                <div class="text-xs text-gray-500 absolute -top-6 right-0">8時間（例: 出勤時間）</div>
+                
+                <!-- バー全体（出勤時間） -->
+                <div class="h-10 w-full bg-gray-100 rounded-md relative overflow-hidden">
+                  <!-- 仕事時間のバー -->
+                  <div class="h-10 w-5/8 bg-blue-400 rounded-l-md flex items-center">
+                    <span class="text-white font-medium text-sm ml-4">接客時間（5時間）</span>
+                  </div>
+                  
+                  <!-- 待機時間のラベル -->
+                  <div class="absolute right-4 top-1/2 transform -translate-y-1/2">
+                    <span class="text-xs text-gray-600">待機時間（3時間）</span>
+                  </div>
                 </div>
                 
-                <!-- 仕事時間を表す塗りつぶされた部分 -->
-                <div class="absolute top-10 left-6 right-6 bottom-4 bg-blue-200 rounded flex items-center justify-center">
-                  <span class="text-sm font-medium text-blue-800">接客時間（例: 5時間）</span>
+                <!-- 稼働率の表示 -->
+                <div class="absolute -bottom-8 right-0 text-sm font-semibold text-blue-700">
+                  稼働率: <span class="text-blue-600 bg-blue-50 px-2 py-1 rounded">62.5%</span>
                 </div>
-                
-                <!-- 待機時間を示すラベル -->
-                <div class="absolute top-16 right-10 transform rotate-90 origin-right">
-                  <span class="text-xs text-gray-500">待機</span>
-                </div>
-                
-                <!-- 稼働率表示 -->
-                <div class="absolute bottom-0 right-0 bg-blue-600 text-white px-2 py-1 rounded-tl text-sm font-bold">
-                  稼働率: 62.5%
-                </div>
+              </div>
+              
+              <!-- 目盛り -->
+              <div class="relative h-2 mt-10 mb-4">
+                <div class="absolute w-full border-t border-gray-300"></div>
+                <div class="absolute left-1/4 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-2/4 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-3/4 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-1/4 -bottom-5 text-xs text-gray-500">2時間</div>
+                <div class="absolute left-2/4 -bottom-5 text-xs text-gray-500">4時間</div>
+                <div class="absolute left-3/4 -bottom-5 text-xs text-gray-500">6時間</div>
               </div>
             </div>
           </div>
