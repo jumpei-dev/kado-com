@@ -88,7 +88,7 @@
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">管理者</th>
                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">作成日</th>
-                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">パスワード</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -117,21 +117,18 @@
                                 data-type="is_active"
                                 data-original="{{ user.is_active|lower }}"
                                 {% if user.is_active %}checked{% endif %}>
-                        </td>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">{{ user.created_at.strftime('%Y-%m-%d') }}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
                             {% if user.is_active %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            <span class="ml-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                 有効
                             </span>
                             {% else %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                            <span class="ml-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
                                 無効
                             </span>
                             {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ user.created_at.strftime('%Y-%m-%d') }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-center">
                             <button data-user-id="{{ user.id }}" data-user-name="{{ user.name }}" class="reset-password bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">
@@ -477,26 +474,18 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.add('bg-blue-600');
         }, 2000);
     });
-    });
-    
-    // パスワードをコピー
-    copyPasswordButton.addEventListener('click', function() {
-        newPasswordInput.select();
-        document.execCommand('copy');
-        alert('パスワードをコピーしました');
-    });
     
     // この関数は使用しなくなりました（APIでパスワードを生成するため）
-    // function generateRandomPassword() {
-    //     const length = 12;
-    //     const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
-    //     let password = '';
-    //     for (let i = 0; i < length; i++) {
-    //         const randomIndex = Math.floor(Math.random() * charset.length);
-    //         password += charset[randomIndex];
-    //     }
-    //     return password;
-    // }
+    function generateRandomPassword() {
+        const length = 12;
+        const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
+        let password = '';
+        for (let i = 0; i < length; i++) {
+            const randomIndex = Math.floor(Math.random() * charset.length);
+            password += charset[randomIndex];
+        }
+        return password;
+    }
 });
 </script>
 {% endblock %}
