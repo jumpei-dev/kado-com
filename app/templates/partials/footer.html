@@ -1,0 +1,48 @@
+<footer class="bg-gradient-to-r from-blue-50/60 to-sky-50/60 border-t border-blue-100 mt-8">
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <!-- 運営者のXタイムライン -->
+    <div class="bg-white rounded-lg shadow border border-gray-200">
+      <div class="p-4 border-b">
+        <h3 class="text-lg font-medium">
+          <a href="https://twitter.com/example" target="_blank" class="text-blue-700 hover:text-blue-800 transition-colors">
+            運営者 なつめより
+          </a>
+        </h3>
+      </div>
+      
+      <div class="p-4 space-y-3"
+           hx-get="/api/twitter/timeline?count=3" 
+           hx-trigger="load"
+           hx-swap="innerHTML">
+        <!-- ローディング表示 -->
+        <div class="flex items-center justify-center py-4">
+          <svg class="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-gray-600">タイムラインを読み込み中...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LINE相談セクション -->
+    <div class="text-center">
+      <h3 class="text-lg mb-4">お店選びでお悩みの方へ</h3>
+      <a href="https://line.me/R/ti/p/@kadou" 
+         class="w-full bg-gradient-to-r from-blue-200 to-sky-200 hover:from-blue-300 hover:to-sky-300 text-blue-800 py-3 rounded-lg flex items-center justify-center gap-2 border-0 shadow-sm">
+        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+        </svg>
+        LINE で相談する
+      </a>
+      <p class="text-xs text-gray-500 mt-2">
+        稼働率以外の情報も含めて、最適なお店をご提案します
+      </p>
+    </div>
+
+    <!-- コピーライト -->
+    <div class="text-center text-xs text-gray-400 pt-4 border-t">
+      <p>&copy; 2025 稼働.com All Rights Reserved</p>
+    </div>
+  </div>
+</footer>

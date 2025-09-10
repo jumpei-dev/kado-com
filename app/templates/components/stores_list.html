@@ -1,0 +1,51 @@
+{% for store in stores %}
+  <a href="/stores/{{ store.id }}" class="block store-card cursor-pointer">
+    {% with store=store, rank=loop.index + ((pagination.current_page - 1) * pagination.page_size) if pagination else loop.index %}
+      {% include "components/store_card.html" %}
+    {% endwith %}
+  </a>
+{% endfor %}
+
+{% if pagination and pagination.total_pages > 1 %}
+  <!-- ページネーション -->
+  <div class="flex justify-center items-center mt-8 pb-4">
+    <nav class="inline-flex rounded-md shadow">
+      
+      <!-- 前のページへ -->
+      {% if pagination.has_prev %}
+        <a href="#" 
+           class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+           hx-get="/api/stores?page={{ pagination.current_page - 1 }}"
+           hx-target="#store-list"
+           hx-indicator="#loading">
+          前へ
+        </a>
+      {% else %}
+        <span class="relative inline-flex items-center px-4 py-2 rounded-l-md border border-gray-300 bg-gray-100 text-sm font-medium text-gray-500 cursor-not-allowed">
+          前へ
+        </span>
+      {% endif %}
+      
+      <!-- 現在のページ / 全ページ -->
+      <span class="relative inline-flex items-center px-4 py-2 border-t border-b border-gray-300 bg-white text-sm font-medium text-gray-700">
+        {{ pagination.current_page }} / {{ pagination.total_pages }}
+      </span>
+      
+      <!-- 次のページへ -->
+      {% if pagination.has_next %}
+        <a href="#" 
+           class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+           hx-get="/api/stores?page={{ pagination.current_page + 1 }}"
+           hx-target="#store-list"
+           hx-indicator="#loading">
+          次へ
+        </a>
+      {% else %}
+        <span class="relative inline-flex items-center px-4 py-2 rounded-r-md border border-gray-300 bg-gray-100 text-sm font-medium text-gray-500 cursor-not-allowed">
+          次へ
+        </span>
+      {% endif %}
+      
+    </nav>
+  </div>
+{% endif %}
