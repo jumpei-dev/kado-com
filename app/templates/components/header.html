@@ -40,7 +40,7 @@
               console.log('認証状態:', data);
               this.isLoggedIn = data.authenticated;
               if (data.authenticated && data.user) {
-                this.userName = data.user.name || 'ユーザー';
+                this.userName = data.user.username || 'ユーザー';
                 this.isAdmin = data.user.is_admin || false;
               } else {
                 this.userName = '';
