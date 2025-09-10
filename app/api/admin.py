@@ -62,7 +62,7 @@ async def user_list_page(request: Request, admin = Depends(admin_required)):
         with db.get_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    SELECT id, name, can_see_contents, is_active, created_at
+                    SELECT id, name, can_see_contents, is_active, is_admin, created_at
                     FROM users
                     ORDER BY created_at DESC
                 """)
@@ -82,6 +82,7 @@ async def create_user(
     request: Request,
     name: str = Form(...),
     can_see_contents: bool = Form(False),
+    is_admin: bool = Form(False),
     admin = Depends(admin_required)
 ):
     """管理者用: 新規ユーザー作成"""
@@ -116,14 +117,15 @@ async def create_user(
             with conn.cursor() as cursor:
                 cursor.execute("""
                     INSERT INTO users 
-                    (name, password_hash, can_see_contents, is_active, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    (name, password_hash, can_see_contents, is_active, is_admin, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """, (
                     name, 
                     password_hash, 
-                    can_see_contents, 
-                    True, 
+                    can_see_contents,
+                    True,
+                    is_admin,
                     datetime.now(), 
                     datetime.now()
                 ))
@@ -183,5 +185,45 @@ async def toggle_user_status(
         content={
             "success": True,
             "message": f"ユーザーを{'有効' if is_active else '無効'}にしました"
+        }
+    )
+
+# ユーザー管理者権限トグルAPI
+@router.post("/api/admin/users/{user_id}/toggle-admin")
+async def toggle_user_admin(
+    request: Request,
+    user_id: str,
+    is_admin: bool = Form(...),
+    admin = Depends(admin_required)
+):
+    """管理者用: ユーザーの管理者権限を切り替え"""
+    db = DatabaseManager()
+    
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    UPDATE users 
+                    SET is_admin = %s, updated_at = %s
+                    WHERE id = %s
+                """, (is_admin, datetime.now(), user_id))
+                conn.commit()
+                
+                if cursor.rowcount == 0:
+                    return JSONResponse(
+                        status_code=404,
+                        content={"success": False, "message": "ユーザーが見つかりません"}
+                    )
+    except Exception as e:
+        print(f"ユーザー管理者権限更新エラー: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"更新エラー: {str(e)}"}
+        )
+    
+    return JSONResponse(
+        content={
+            "success": True,
+            "message": f"ユーザーを{'管理者に' if is_admin else '一般ユーザーに'}設定しました"
         }
     )
