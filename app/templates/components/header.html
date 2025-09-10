@@ -7,7 +7,7 @@
       </a>
       
       <!-- ユーザーメニュー -->
-      <div class="relative" x-data="{ isOpen: false, isLoggedIn: false, userName: '', isAdmin: false }" 
+      <div class="relative" x-data="{ isOpen: false, isLoggedIn: false, userName: '' }" 
            x-init="
             fetch('/api/auth/me')
             .then(res => res.json())
@@ -16,7 +16,6 @@
               if (data.authenticated) {
                 isLoggedIn = true;
                 userName = data.user.username;
-                isAdmin = data.user.is_admin;
               }
             })
             .catch(err => console.error('認証状態確認エラー:', err));
@@ -27,66 +26,51 @@
               userName = event.detail.userName;
             });
            ">
-        <!-- 非ログイン時：ログインボタン -->
+        <!-- 非ログイン時 -->
         <template x-if="!isLoggedIn">
-          <button @click="$dispatch('open-modal', {id: 'loginModal'})" 
-                  class="flex items-center text-gray-300 hover:text-white transition-colors focus:outline-none bg-gray-700 py-2 px-3 rounded-lg">
-            <span class="text-sm">ログイン</span>
+          <button @click="isOpen = !isOpen" class="flex items-center text-gray-300 hover:text-white transition-colors focus:outline-none bg-gray-700 py-2 px-3 rounded-lg">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span class="ml-1 text-sm">メニュー</span>
           </button>
         </template>
         
-        <!-- ログイン時：ユーザー名とドロップダウン -->
+        <!-- ログイン時 -->
         <template x-if="isLoggedIn">
-          <div>
-            <!-- ユーザー名表示ボタン -->
-            <button @click="isOpen = !isOpen" 
-                    class="flex items-center text-gray-300 hover:text-white transition-colors focus:outline-none bg-gray-700 py-2 px-3 rounded-lg">
-              <span class="text-sm" x-text="userName"></span>
-              <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </button>
-            
-            <!-- ログイン時のドロップダウンメニュー -->
-            <div x-show="isOpen" 
-                 @click.away="isOpen = false"
-                 class="absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg py-2 z-50">
-              
-              <!-- 管理者向けメニュー -->
-              <template x-if="isAdmin">
-                <a href="/admin/users" class="block px-4 py-2 text-gray-200 hover:bg-gray-600 hover:text-white">
-                  ユーザー管理
-                </a>
-              </template>
-              
-              <!-- ログアウトメニュー項目 -->
-              <button @click="
-                console.log('ログアウト処理開始');
-                fetch('/api/auth/logout', { 
-                  method: 'POST',
-                  credentials: 'include',
-                  headers: {
-                    'Content-Type': 'application/json'
-                  }
-                })
-                .then(response => response.json())
-                .then(data => { 
-                  console.log('ログアウト結果:', data);
-                  isLoggedIn = false;
-                  userName = '';
-                  isOpen = false;
-                  window.location.href = '/';
-                })
-                .catch(err => { 
-                  console.error('ログアウトエラー:', err);
-                  alert('ログアウト処理中にエラーが発生しました');
-                });" 
-                class="block w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600 hover:text-white">
-                ログアウト
-              </button>
-            </div>
-          </div>
+          <button @click="
+            console.log('ログアウト処理開始');
+            fetch('/api/auth/logout', { 
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            })
+            .then(response => response.json())
+            .then(data => { 
+              console.log('ログアウト結果:', data);
+              isLoggedIn = false;
+              userName = '';
+              window.location.href = '/';
+            })
+            .catch(err => { 
+              console.error('ログアウトエラー:', err);
+              alert('ログアウト処理中にエラーが発生しました');
+            });" 
+            class="flex items-center text-gray-300 hover:text-white transition-colors focus:outline-none bg-gray-700 py-2 px-3 rounded-lg">
+            <span class="text-sm">ログアウト</span>
+          </button>
         </template>
+        
+        <!-- 非ログイン時のドロップダウンメニュー -->
+        <div x-show="isOpen && !isLoggedIn" 
+             @click.away="isOpen = false"
+             class="absolute right-0 mt-2 w-48 bg-gray-700 rounded-lg shadow-lg py-2 z-50">
+          <a href="#" @click="$dispatch('open-modal', {id: 'loginModal'}); isOpen = false" class="block px-4 py-2 text-gray-200 hover:bg-gray-600 hover:text-white">
+            ログイン
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -127,9 +111,6 @@
           <label for="password" class="block text-gray-700 text-sm font-medium mb-1">パスワード</label>
           <input type="password" id="password" name="password" required
                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500">
-          <div class="mt-1 text-right">
-            <a href="#" class="text-sm text-gray-600 hover:text-gray-800">パスワードを忘れた場合</a>
-          </div>
         </div>
         
         <div id="login-response"></div>
@@ -143,9 +124,6 @@
       </form>
       
       <div class="mt-6 text-center">
-        <p class="text-sm text-gray-600">
-          IDをお持ちでない方は管理者にお問い合わせください
-        </p>
       </div>
     </div>
   </div>
