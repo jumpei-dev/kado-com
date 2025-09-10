@@ -36,6 +36,8 @@ async def login(
 ) -> HTMLResponse:
     """ログイン処理"""
     try:
+        logger.info(f"ログイン試行: ユーザー {username}")
+        
         # ユーザー認証
         user = await auth_service.authenticate_user(username, password)
         
@@ -82,19 +84,86 @@ async def login(
         )
 
 @router.get("/logout")
-async def logout(request: Request, response: Response) -> RedirectResponse:
-    """ログアウト処理"""
+async def logout_get(request: Request, response: Response) -> RedirectResponse:
+    """GETメソッドによるログアウト処理（ブラウザからの直接アクセス用）"""
     try:
         # トークンCookieを削除
         response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
         response.delete_cookie(key="access_token")
         
-        logger.info("ログアウト成功")
+        logger.info("ログアウト成功 (GETメソッド)")
         return response
         
     except Exception as e:
-        logger.error(f"ログアウト処理エラー: {str(e)}")
+        logger.error(f"ログアウト処理エラー (GET): {str(e)}")
         return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+
+@router.post("/logout")
+async def logout_post(request: Request) -> JSONResponse:
+    """POSTメソッドによるログアウト処理（APIからのアクセス用）"""
+    try:
+        logger.info("ログアウトリクエスト受信 (POSTメソッド)")
+        
+        # JSONレスポンスを作成し、Cookieを削除
+        response = JSONResponse(
+            content={"success": True, "message": "ログアウトしました"},
+            status_code=status.HTTP_200_OK
+        )
+        response.delete_cookie(key="access_token")
+        
+        logger.info("ログアウト成功 (POSTメソッド)")
+        return response
+        
+    except Exception as e:
+        logger.error(f"ログアウト処理エラー (POST): {str(e)}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"success": False, "detail": "ログアウト処理中にエラーが発生しました"}
+        )
+
+@router.get("/me", response_class=JSONResponse)
+async def get_current_user_info(request: Request):
+    """現在のログインユーザー情報を取得するAPI
+    
+    このエンドポイントは、現在ログインしているユーザーの情報を返します。
+    クライアントサイドでユーザーの認証状態を確認するために使用されます。
+    """
+    try:
+        logger.info("ユーザー情報リクエスト受信: /api/auth/me")
+        
+        # 現在のユーザーを取得
+        current_user = await auth_service.get_current_user(request)
+        
+        # 認証されていない場合
+        if not current_user:
+            logger.warning("認証されていないユーザーからのリクエスト")
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"authenticated": False, "detail": "認証されていないか、セッションが無効です"}
+            )
+        
+        # ユーザー情報をクリーンアップ（パスワードハッシュなど機密情報を除外）
+        user_info = {
+            "authenticated": True,
+            "user": {
+                "id": current_user["id"],
+                "username": current_user["username"],
+                "is_admin": current_user.get("is_admin", False)
+            }
+        }
+        
+        logger.info(f"ユーザー情報を返却: ID={current_user['id']}, 名前={current_user['username']}")
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=user_info
+        )
+        
+    except Exception as e:
+        logger.error(f"ユーザー情報取得エラー: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"authenticated": False, "detail": "サーバー内部エラーが発生しました"}
+        )
 
 @router.get("/user")
 async def get_user(request: Request) -> JSONResponse:

@@ -7,11 +7,15 @@
 
 import bcrypt
 import jwt
+import logging
 from datetime import datetime, timedelta
 import os
 from typing import Optional, Dict, Any
 from fastapi import Request, HTTPException, status
 from app.core.database import DatabaseManager
+
+# ロガー設定
+logger = logging.getLogger(__name__)
 
 class AuthService:
     """認証サービスクラス"""
@@ -25,7 +29,12 @@ class AuthService:
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """パスワード検証"""
-        return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
+        try:
+            # パスワードを検証 (encrypted_passwordを使用)
+            return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
+        except Exception as e:
+            logger.error(f"パスワード検証エラー: {e}")
+            return False
 
     def hash_password(self, password: str) -> str:
         """パスワードのハッシュ化"""
@@ -61,25 +70,36 @@ class AuthService:
     async def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """ユーザー認証"""
         try:
+            logger.info(f"ユーザー認証処理: {username}")
+            
             # データベースからユーザーを取得
             query = """
-            SELECT id, username, password, is_admin 
+            SELECT id, name, password_hash, is_admin 
             FROM users 
-            WHERE username = %s
+            WHERE name = %s
             """
-            user = await self.db.fetch_one(query, (username,))
+            # 非同期関数ではないのでawaitを使わない
+            user = self.db.fetch_one(query, (username,))
             
             if not user:
+                logger.warning(f"ユーザーが存在しません: {username}")
                 return None
                 
+            logger.info(f"ユーザー情報取得: ID={user['id']}, 名前={user['name']}")
+            
             # パスワード検証
-            if not self.verify_password(password, user['password']):
+            hashed_password = user['password_hash']
+            logger.info(f"パスワードハッシュ確認: {type(hashed_password)} - {hashed_password[:10]}...")
+            
+            if not self.verify_password(password, hashed_password):
+                logger.warning(f"パスワード検証失敗: {username}")
                 return None
                 
             # 認証成功: ユーザー情報を返す
+            logger.info(f"認証成功: {username}")
             return {
                 "id": user['id'],
-                "username": user['username'],
+                "username": user['name'],
                 "is_admin": user['is_admin']
             }
             
@@ -104,18 +124,18 @@ class AuthService:
                 
             # データベースからユーザー情報を取得
             query = """
-            SELECT id, username, is_admin 
+            SELECT id, name, is_admin 
             FROM users 
             WHERE id = %s
             """
-            user = await self.db.fetch_one(query, (user_id,))
+            user = self.db.fetch_one(query, (user_id,))
             
             if not user:
                 return None
                 
             return {
                 "id": user['id'],
-                "username": user['username'],
+                "username": user['name'],
                 "is_admin": user['is_admin']
             }
             
@@ -127,8 +147,8 @@ class AuthService:
         """新規ユーザー作成"""
         try:
             # 既存ユーザーのチェック
-            check_query = "SELECT id FROM users WHERE username = %s"
-            existing_user = await self.db.fetch_one(check_query, (username,))
+            check_query = "SELECT id FROM users WHERE name = %s"
+            existing_user = self.db.fetch_one(check_query, (username,))
             
             if existing_user:
                 return None  # ユーザー名が既に存在
@@ -138,11 +158,11 @@ class AuthService:
             
             # ユーザーを作成
             insert_query = """
-            INSERT INTO users (username, password, is_admin) 
+            INSERT INTO users (name, password_hash, is_admin) 
             VALUES (%s, %s, %s) 
-            RETURNING id, username, is_admin
+            RETURNING id, name, is_admin
             """
-            new_user = await self.db.fetch_one(
+            new_user = self.db.fetch_one(
                 insert_query, 
                 (username, hashed_password, is_admin)
             )
@@ -152,7 +172,7 @@ class AuthService:
                 
             return {
                 "id": new_user['id'],
-                "username": new_user['username'],
+                "username": new_user['name'],
                 "is_admin": new_user['is_admin']
             }
             

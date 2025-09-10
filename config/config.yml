@@ -12,11 +12,11 @@ environment:
 # 📊 データベース設定（全モジュール共通）
 database:
   # Supabase PostgreSQL接続情報（現在使用中）
-  host: "57.182.231.186"
+  host: "${DB_HOST}"  # 環境変数から取得
   port: 6543
   database: "postgres"
-  user: "postgres.hnmbsqydlfemlmsyexrq"
-  password: "Ggzzmmb3"
+  user: "${DB_USER}"  # 環境変数から取得
+  password: "${DB_PASSWORD}"  # 環境変数から取得
   sslmode: "require"
   
   # 接続プール設定
@@ -25,23 +25,7 @@ database:
   pool_timeout: 30
   
   # URL形式（APIサーバー用）
-  url: "postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@57.182.231.186:6543/postgres?sslmode=require"
-
-# 📧 メール設定
-email:
-  provider: "smtp"  # sendgrid | smtp
-  api_key: "SENDGRID_API_KEY_REMOVED"  # 開発モードでは実際に送信されません
-  from_email: "info@working-rate.com"  # 正式なドメイン名
-  from_name: "稼働.com"
-  # SMTP設定
-  smtp_server: "smtp.sendgrid.net"
-  smtp_port: 587
-  smtp_username: "apikey"
-  smtp_password: "SENDGRID_API_KEY_REMOVED"  # APIキーをそのまま使用
-  templates:
-    verification: "d-verification-template-id"
-    password_reset: "d-password-reset-template-id"
-    welcome: "d-welcome-template-id"
+  url: "${DATABASE_URL}"  # 環境変数から取得
 
 # 🌐 APIサーバー設定
 api:
@@ -63,7 +47,7 @@ api:
 
 # 🔐 認証設定
 auth:
-  secret_key: "kado-com-secret-key-for-development"
+  secret_key: "${JWT_SECRET_KEY}"  # 環境変数から取得
   algorithm: "HS256"
   access_token_expire_days: 7
   access_token_expire_minutes: 10080  # 7日間（7*24*60）
@@ -152,11 +136,6 @@ production:
   
   database:
     url: "${DATABASE_URL}"  # 環境変数から取得
-  
-  email:
-    api_key: "${SENDGRID_API_KEY}"
-    from_email: "${EMAIL_FROM}"
-    from_name: "${EMAIL_FROM_NAME}"
   
   logging:
     level: "INFO"
