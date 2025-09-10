@@ -34,41 +34,41 @@
           <!-- 横線グラフ -->
           <div class="mt-8">
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <!-- 出勤時間を表す横軸 -->
+              <!-- 出勤時間を表す横軸（時刻表示） -->
               <div class="relative mb-2">
-                <div class="text-xs text-gray-500 absolute -top-6 left-0">0時間</div>
-                <div class="text-xs text-gray-500 absolute -top-6 right-0">8時間（例: 出勤時間）</div>
+                <div class="text-xs text-gray-500 absolute -top-6 left-0">15:00</div>
+                <div class="text-xs text-gray-500 absolute -top-6 right-0">23:00</div>
                 
                 <!-- バー全体（出勤時間） -->
                 <div class="h-10 w-full bg-gray-100 rounded-md relative overflow-hidden flex">
-                  <!-- 待機時間 (始め) -->
+                  <!-- 15:00-16:00 待機 -->
+                  <div class="h-10 w-1/8 bg-gray-100 flex items-center justify-center">
+                    <span class="text-xs text-gray-600">待機</span>
+                  </div>
+                  
+                  <!-- 16:00-17:00 仕事 -->
+                  <div class="h-10 w-1/8 bg-blue-400 flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">接客</span>
+                  </div>
+                  
+                  <!-- 17:00-18:30 待機 -->
                   <div class="h-10 w-3/16 bg-gray-100 flex items-center justify-center">
                     <span class="text-xs text-gray-600">待機</span>
                   </div>
                   
-                  <!-- 仕事時間のバー (1) -->
-                  <div class="h-10 w-2/16 bg-blue-400 flex items-center justify-center">
-                    <span class="text-white font-medium text-xs">1h</span>
+                  <!-- 18:30-20:00 仕事 -->
+                  <div class="h-10 w-3/16 bg-blue-400 flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">接客</span>
                   </div>
                   
-                  <!-- 待機時間 (中) -->
-                  <div class="h-10 w-2/16 bg-gray-100 flex items-center justify-center">
+                  <!-- 20:00-21:00 待機 -->
+                  <div class="h-10 w-1/8 bg-gray-100 flex items-center justify-center">
                     <span class="text-xs text-gray-600">待機</span>
                   </div>
                   
-                  <!-- 仕事時間のバー (2) -->
-                  <div class="h-10 w-3/16 bg-blue-400 flex items-center justify-center">
-                    <span class="text-white font-medium text-xs">1.5h</span>
-                  </div>
-                  
-                  <!-- 待機時間 (長) -->
-                  <div class="h-10 w-3/16 bg-gray-100 flex items-center justify-center">
-                    <span class="text-xs text-gray-600">待機</span>
-                  </div>
-                  
-                  <!-- 仕事時間のバー (3) -->
-                  <div class="h-10 w-3/16 bg-blue-400 flex items-center justify-center">
-                    <span class="text-white font-medium text-xs">2.5h</span>
+                  <!-- 21:00-23:00 仕事 -->
+                  <div class="h-10 w-1/4 bg-blue-400 flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">接客</span>
                   </div>
                 </div>
                 
@@ -83,9 +83,10 @@
                 </div>
               </div>
               
-              <!-- 目盛り -->
+              <!-- 目盛り（時刻表示） -->
               <div class="relative h-2 mt-10 mb-4">
                 <div class="absolute w-full border-t border-gray-300"></div>
+                <!-- 1時間ごとの目盛り -->
                 <div class="absolute left-1/8 w-px h-2 bg-gray-300"></div>
                 <div class="absolute left-2/8 w-px h-2 bg-gray-300"></div>
                 <div class="absolute left-3/8 w-px h-2 bg-gray-300"></div>
@@ -93,9 +94,13 @@
                 <div class="absolute left-5/8 w-px h-2 bg-gray-300"></div>
                 <div class="absolute left-6/8 w-px h-2 bg-gray-300"></div>
                 <div class="absolute left-7/8 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-1/4 -bottom-5 text-xs text-gray-500">2時間</div>
-                <div class="absolute left-2/4 -bottom-5 text-xs text-gray-500">4時間</div>
-                <div class="absolute left-3/4 -bottom-5 text-xs text-gray-500">6時間</div>
+                <div class="absolute left-1/8 -bottom-5 text-xs text-gray-500">16:00</div>
+                <div class="absolute left-2/8 -bottom-5 text-xs text-gray-500">17:00</div>
+                <div class="absolute left-3/8 -bottom-5 text-xs text-gray-500">18:00</div>
+                <div class="absolute left-4/8 -bottom-5 text-xs text-gray-500">19:00</div>
+                <div class="absolute left-5/8 -bottom-5 text-xs text-gray-500">20:00</div>
+                <div class="absolute left-6/8 -bottom-5 text-xs text-gray-500">21:00</div>
+                <div class="absolute left-7/8 -bottom-5 text-xs text-gray-500">22:00</div>
               </div>
             </div>
           </div>
