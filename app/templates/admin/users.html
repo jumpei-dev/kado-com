@@ -59,45 +59,65 @@
     <div class="bg-white shadow rounded-lg p-6">
         <h2 class="text-xl font-semibold mb-4">ユーザー一覧</h2>
         
+        <!-- 検索とページネーション機能を追加 -->
+        <div class="mb-6 flex justify-between items-center">
+            <div class="flex">
+                <form id="search-form" class="flex items-center" method="get" action="/admin/users">
+                    <input type="text" id="search-input" name="search" placeholder="ユーザー名で検索..." 
+                        value="{{ search or '' }}"
+                        class="border rounded px-3 py-2 mr-2">
+                    <button type="submit" class="bg-gray-800 text-white px-4 py-2 rounded">検索</button>
+                </form>
+            </div>
+            <div>
+                <button id="save-changes" class="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50" disabled>
+                変更を保存
+                </button>
+                <button id="cancel-changes" class="bg-gray-300 text-gray-800 px-4 py-2 rounded ml-2 disabled:opacity-50" disabled>
+                キャンセル
+                </button>
+            </div>
+        </div>
+        
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ユーザー名</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">コンテンツ閲覧</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">管理者</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">コンテンツ閲覧権限</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">管理者</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">作成日</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">パスワード</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for user in users %}
-                    <tr>
+                    <tr data-user-id="{{ user.id }}">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% if user.can_see_contents %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                あり
-                            </span>
-                            {% else %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                なし
-                            </span>
-                            {% endif %}
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <input type="checkbox" 
+                                class="permission-toggle h-5 w-5 text-blue-600" 
+                                data-type="can_see_contents"
+                                data-original="{{ user.can_see_contents|lower }}"
+                                {% if user.can_see_contents %}checked{% endif %}>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% if user.is_admin %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                                管理者
-                            </span>
-                            {% else %}
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                一般
-                            </span>
-                            {% endif %}
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <input type="checkbox" 
+                                class="permission-toggle h-5 w-5 text-indigo-600" 
+                                data-type="is_admin"
+                                data-original="{{ user.is_admin|lower }}"
+                                {% if user.is_admin %}checked{% endif %}>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <input type="checkbox" 
+                                class="permission-toggle h-5 w-5 text-green-600" 
+                                data-type="is_active"
+                                data-original="{{ user.is_active|lower }}"
+                                {% if user.is_active %}checked{% endif %}>
+                        </td>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">{{ user.created_at.strftime('%Y-%m-%d') }}</div>
@@ -113,22 +133,48 @@
                             </span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div class="flex space-x-2">
-                                <button data-user-id="{{ user.id }}" data-active="{{ user.is_active|lower }}" class="toggle-status text-indigo-600 hover:text-indigo-900">
-                                    {% if user.is_active %}無効化{% else %}有効化{% endif %}
-                                </button>
-                                <span class="text-gray-300">|</span>
-                                <button data-user-id="{{ user.id }}" data-admin="{{ user.is_admin|lower }}" class="toggle-admin text-indigo-600 hover:text-indigo-900">
-                                    {% if user.is_admin %}管理者解除{% else %}管理者設定{% endif %}
-                                </button>
-                            </div>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <button data-user-id="{{ user.id }}" data-user-name="{{ user.name }}" class="reset-password bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">
+                                PW再生成
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        
+        <!-- ページネーション -->
+        {% if pagination and pagination.total_pages > 1 %}
+        <div class="mt-4 flex items-center justify-between">
+            <div class="text-sm text-gray-600">
+                全 {{ pagination.total }} 件中 
+                {{ (pagination.page - 1) * pagination.page_size + 1 }} - 
+                {{ min(pagination.page * pagination.page_size, pagination.total) }} 件を表示
+            </div>
+            
+            <div class="flex">
+                <a href="?page={{ pagination.page - 1 }}{% if search %}&search={{ search }}{% endif %}" 
+                class="px-3 py-1 border rounded mr-1 {% if pagination.page == 1 %}opacity-50 cursor-not-allowed{% endif %}"
+                {% if pagination.page == 1 %}aria-disabled="true"{% endif %}>
+                前へ
+                </a>
+                
+                {% for i in range(max(1, pagination.page - 2), min(pagination.total_pages + 1, pagination.page + 3)) %}
+                <a href="?page={{ i }}{% if search %}&search={{ search }}{% endif %}" 
+                class="px-3 py-1 border rounded mx-1 {% if i == pagination.page %}bg-gray-800 text-white{% endif %}">
+                    {{ i }}
+                </a>
+                {% endfor %}
+                
+                <a href="?page={{ pagination.page + 1 }}{% if search %}&search={{ search }}{% endif %}" 
+                class="px-3 py-1 border rounded ml-1 {% if pagination.page == pagination.total_pages %}opacity-50 cursor-not-allowed{% endif %}"
+                {% if pagination.page == pagination.total_pages %}aria-disabled="true"{% endif %}>
+                次へ
+                </a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -241,6 +287,245 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+    
+    // 一括変更機能
+    let changedUsers = new Map();
+    const saveButton = document.getElementById('save-changes');
+    const cancelButton = document.getElementById('cancel-changes');
+    
+    // 権限チェックボックスの変更を監視
+    document.querySelectorAll('.permission-toggle').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const userId = this.closest('tr').dataset.userId;
+            const type = this.dataset.type;
+            const original = this.dataset.original === 'true';
+            const current = this.checked;
+            
+            // 変更があったかどうか確認
+            if (original !== current) {
+                // ユーザーの変更を記録
+                if (!changedUsers.has(userId)) {
+                    changedUsers.set(userId, {
+                        id: userId,
+                        can_see_contents: null,
+                        is_admin: null,
+                        is_active: null
+                    });
+                }
+                
+                // 変更内容を記録
+                changedUsers.get(userId)[type] = current;
+            } else {
+                // 変更が元に戻った場合、記録から削除
+                if (changedUsers.has(userId)) {
+                    changedUsers.get(userId)[type] = null;
+                    
+                    // すべての変更がnullなら、このユーザーの記録を削除
+                    if (Object.values(changedUsers.get(userId)).every(v => v === null || v === userId)) {
+                        changedUsers.delete(userId);
+                    }
+                }
+            }
+            
+            // 保存ボタンの状態を更新
+            updateSaveButtonState();
+        });
+    });
+    
+    // 保存ボタンの状態を更新
+    function updateSaveButtonState() {
+        const hasChanges = changedUsers.size > 0;
+        saveButton.disabled = !hasChanges;
+        cancelButton.disabled = !hasChanges;
+    }
+    
+    // キャンセルボタンのクリックイベント
+    cancelButton.addEventListener('click', function() {
+        // すべてのチェックボックスを元の状態に戻す
+        document.querySelectorAll('.permission-toggle').forEach(checkbox => {
+            const original = checkbox.dataset.original === 'true';
+            checkbox.checked = original;
+        });
+        
+        // 変更記録をクリア
+        changedUsers.clear();
+        updateSaveButtonState();
+    });
+    
+    // 保存ボタンのクリックイベント
+    saveButton.addEventListener('click', async function() {
+        if (changedUsers.size === 0) return;
+        
+        try {
+            // 変更データを準備
+            const usersToUpdate = Array.from(changedUsers.values()).map(user => {
+                return {
+                    id: user.id,
+                    can_see_contents: user.can_see_contents !== null ? user.can_see_contents : 
+                                document.querySelector(`tr[data-user-id="${user.id}"] input[data-type="can_see_contents"]`).checked,
+                    is_admin: user.is_admin !== null ? user.is_admin : 
+                            document.querySelector(`tr[data-user-id="${user.id}"] input[data-type="is_admin"]`).checked,
+                    is_active: user.is_active !== null ? user.is_active : 
+                                document.querySelector(`tr[data-user-id="${user.id}"] input[data-type="is_active"]`).checked
+                };
+            });
+            
+            // APIリクエスト
+            const response = await fetch('/api/admin/users/bulk-update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ users: usersToUpdate })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // 成功メッセージ
+                alert('ユーザー情報を更新しました');
+                
+                // チェックボックスのoriginal値を更新
+                usersToUpdate.forEach(user => {
+                    const row = document.querySelector(`tr[data-user-id="${user.id}"]`);
+                    if (row) {
+                        row.querySelector('input[data-type="can_see_contents"]').dataset.original = user.can_see_contents;
+                        row.querySelector('input[data-type="is_admin"]').dataset.original = user.is_admin;
+                        row.querySelector('input[data-type="is_active"]').dataset.original = user.is_active;
+                    }
+                });
+                
+                // 変更記録をクリア
+                changedUsers.clear();
+                updateSaveButtonState();
+            } else {
+                alert('更新に失敗しました: ' + (result.message || '不明なエラー'));
+            }
+        } catch (error) {
+            console.error('更新エラー:', error);
+            alert('更新処理中にエラーが発生しました');
+        }
+    });
+    
+    // パスワード再生成モーダル
+    const passwordModal = document.getElementById('password-modal');
+    const closeModalButton = document.getElementById('close-modal');
+    const confirmCloseButton = document.getElementById('confirm-close');
+    const copyPasswordButton = document.getElementById('copy-password');
+    const newPasswordInput = document.getElementById('new-password');
+    const pwUserName = document.getElementById('pw-user-name');
+    
+    document.querySelectorAll('.reset-password').forEach(button => {
+        button.addEventListener('click', async function() {
+            const userId = this.dataset.userId;
+            const userName = this.dataset.userName;
+            
+            if (!confirm(`${userName}さんのパスワードを再生成しますか？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // モーダルにデータをセット
+                    pwUserName.textContent = userName;
+                    newPasswordInput.value = data.password;
+                    
+                    // モーダルを表示
+                    passwordModal.classList.remove('hidden');
+                    
+                    // パスワードを選択状態にする（コピーしやすく）
+                    newPasswordInput.select();
+                } else {
+                    alert('エラー: ' + data.message);
+                }
+            } catch (error) {
+                alert('リクエスト処理中にエラーが発生しました');
+                console.error('パスワード再生成エラー:', error);
+            }
+        });
+    });
+    
+    // モーダルを閉じる
+    closeModalButton.addEventListener('click', function() {
+        passwordModal.classList.add('hidden');
+        newPasswordInput.value = ''; // セキュリティのため値をクリア
+    });
+    
+    confirmCloseButton.addEventListener('click', function() {
+        passwordModal.classList.add('hidden');
+        newPasswordInput.value = ''; // セキュリティのため値をクリア
+    });
+    
+    // パスワードコピー機能
+    copyPasswordButton.addEventListener('click', function() {
+        newPasswordInput.select();
+        document.execCommand('copy');
+        this.textContent = 'コピー済';
+        this.classList.remove('bg-blue-600');
+        this.classList.add('bg-green-600');
+        
+        // 2秒後に元に戻す
+        setTimeout(() => {
+            this.textContent = 'コピー';
+            this.classList.remove('bg-green-600');
+            this.classList.add('bg-blue-600');
+        }, 2000);
+    });
+    });
+    
+    // パスワードをコピー
+    copyPasswordButton.addEventListener('click', function() {
+        newPasswordInput.select();
+        document.execCommand('copy');
+        alert('パスワードをコピーしました');
+    });
+    
+    // この関数は使用しなくなりました（APIでパスワードを生成するため）
+    // function generateRandomPassword() {
+    //     const length = 12;
+    //     const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
+    //     let password = '';
+    //     for (let i = 0; i < length; i++) {
+    //         const randomIndex = Math.floor(Math.random() * charset.length);
+    //         password += charset[randomIndex];
+    //     }
+    //     return password;
+    // }
 });
 </script>
 {% endblock %}
+
+<!-- パスワード再生成モーダル -->
+<div id="password-modal" class="fixed inset-0 bg-gray-500 bg-opacity-75 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">新しいパスワード</h3>
+            <button id="close-modal" class="text-gray-400 hover:text-gray-500">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="mb-4">
+            <p class="mb-2"><span id="pw-user-name" class="font-semibold"></span>さんの新しいパスワード:</p>
+            <div class="flex items-center">
+                <input id="new-password" type="text" readonly class="flex-grow border rounded py-2 px-3 mr-2 bg-gray-100 font-mono">
+                <button id="copy-password" class="bg-blue-600 text-white px-2 py-1 rounded text-sm">
+                    コピー
+                </button>
+            </div>
+            <p class="text-red-600 text-sm mt-2">※このパスワードはこの画面を閉じると二度と表示されません。必ずメモまたはコピーしてください。</p>
+        </div>
+        <div class="flex justify-end">
+            <button id="confirm-close" class="bg-gray-800 text-white px-4 py-2 rounded">
+                閉じる
+            </button>
+        </div>
+    </div>
+</div>
