@@ -5,11 +5,6 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-4xl">
   <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-    <!-- ヘッダー -->
-    <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-8 py-10 text-center text-white">
-      <h1 class="text-3xl font-bold mb-2">データの見方</h1>
-      <p class="text-lg opacity-90">稼働.comのデータ収集方法と活用ポイント</p>
-    </div>
     
     <!-- コンテンツ -->
     <div class="p-8">
@@ -27,8 +22,8 @@
           <div class="mb-6">
             <div class="flex items-center justify-center mb-4">
               <div class="text-xl font-bold text-blue-700 mr-3">稼働率 =</div>
-              <div class="border-b-2 border-blue-700">
-                <div class="text-center text-blue-800">仕事している時間</div>
+              <div class="flex flex-col items-center">
+                <div class="text-center text-blue-800 border-b border-blue-700 pb-1 mb-1">仕事をしている時間</div>
                 <div class="text-center text-blue-800">出勤時間</div>
               </div>
               <div class="ml-3 text-xl font-bold text-blue-700">× 100%</div>
@@ -45,15 +40,35 @@
                 <div class="text-xs text-gray-500 absolute -top-6 right-0">8時間（例: 出勤時間）</div>
                 
                 <!-- バー全体（出勤時間） -->
-                <div class="h-10 w-full bg-gray-100 rounded-md relative overflow-hidden">
-                  <!-- 仕事時間のバー -->
-                  <div class="h-10 w-5/8 bg-blue-400 rounded-l-md flex items-center">
-                    <span class="text-white font-medium text-sm ml-4">接客時間（5時間）</span>
+                <div class="h-10 w-full bg-gray-100 rounded-md relative overflow-hidden flex">
+                  <!-- 待機時間 (始め) -->
+                  <div class="h-10 w-3/16 bg-gray-100 flex items-center justify-center">
+                    <span class="text-xs text-gray-600">待機</span>
                   </div>
                   
-                  <!-- 待機時間のラベル -->
-                  <div class="absolute right-4 top-1/2 transform -translate-y-1/2">
-                    <span class="text-xs text-gray-600">待機時間（3時間）</span>
+                  <!-- 仕事時間のバー (1) -->
+                  <div class="h-10 w-2/16 bg-blue-400 flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">1h</span>
+                  </div>
+                  
+                  <!-- 待機時間 (中) -->
+                  <div class="h-10 w-2/16 bg-gray-100 flex items-center justify-center">
+                    <span class="text-xs text-gray-600">待機</span>
+                  </div>
+                  
+                  <!-- 仕事時間のバー (2) -->
+                  <div class="h-10 w-3/16 bg-blue-400 flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">1.5h</span>
+                  </div>
+                  
+                  <!-- 待機時間 (長) -->
+                  <div class="h-10 w-3/16 bg-gray-100 flex items-center justify-center">
+                    <span class="text-xs text-gray-600">待機</span>
+                  </div>
+                  
+                  <!-- 仕事時間のバー (3) -->
+                  <div class="h-10 w-3/16 bg-blue-400 flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">2.5h</span>
                   </div>
                 </div>
                 
@@ -61,14 +76,23 @@
                 <div class="absolute -bottom-8 right-0 text-sm font-semibold text-blue-700">
                   稼働率: <span class="text-blue-600 bg-blue-50 px-2 py-1 rounded">62.5%</span>
                 </div>
+                
+                <!-- 合計時間の説明 -->
+                <div class="absolute -bottom-8 left-0 text-xs text-gray-600">
+                  合計: 接客5時間 / 出勤8時間
+                </div>
               </div>
               
               <!-- 目盛り -->
               <div class="relative h-2 mt-10 mb-4">
                 <div class="absolute w-full border-t border-gray-300"></div>
-                <div class="absolute left-1/4 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-2/4 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-3/4 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-1/8 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-2/8 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-3/8 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-4/8 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-5/8 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-6/8 w-px h-2 bg-gray-300"></div>
+                <div class="absolute left-7/8 w-px h-2 bg-gray-300"></div>
                 <div class="absolute left-1/4 -bottom-5 text-xs text-gray-500">2時間</div>
                 <div class="absolute left-2/4 -bottom-5 text-xs text-gray-500">4時間</div>
                 <div class="absolute left-3/4 -bottom-5 text-xs text-gray-500">6時間</div>
