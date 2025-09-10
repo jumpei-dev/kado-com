@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}データの見方 - 稼働.com{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+  <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+    <!-- ヘッダーイメージ -->
+    <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-8 py-12 text-center text-white">
+      <h1 class="text-3xl font-bold mb-2">データの見方</h1>
+      <p class="text-lg opacity-90">稼働.comのデータ収集方法と活用ポイント</p>
+    </div>
+    
+    <!-- コンテンツ -->
+    <div class="p-8">
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">稼働率の計算方法</h2>
+        
+        <p class="mb-6 text-gray-700 leading-relaxed">
+          当サイトでは、独自の方法とコネクションを活用して、各店舗の「稼働率」を算出しています。
+          これは単純に「お店にいる女性がどれだけ効率よく仕事をしているか」を表す指標です。
+        </p>
+        
+        <div class="bg-blue-50 p-6 rounded-lg mb-8">
+          <div class="flex flex-col md:flex-row items-center justify-center">
+            <div class="mb-6 md:mb-0 md:mr-8">
+              <div class="flex items-center mb-4">
+                <div class="text-xl font-bold text-blue-700 mr-3">稼働率 =</div>
+                <div class="border-b-2 border-blue-700">
+                  <div class="text-center text-blue-800">仕事している時間</div>
+                  <div class="text-center text-blue-800">出勤時間</div>
+                </div>
+                <div class="ml-3 text-xl font-bold text-blue-700">× 100%</div>
+              </div>
+              <p class="text-sm text-gray-600 italic">※店舗内の全女性の平均値を算出</p>
+            </div>
+            
+            <!-- 簡単な図の部分 -->
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+              <div class="w-64 h-40 relative">
+                <!-- 出勤時間の全体を表す長方形 -->
+                <div class="absolute top-0 left-0 w-full h-full border-2 border-gray-300 rounded">
+                  <div class="p-2 text-xs text-gray-500">出勤時間（例: 8時間）</div>
+                </div>
+                
+                <!-- 仕事時間を表す塗りつぶされた部分 -->
+                <div class="absolute top-10 left-6 right-6 bottom-4 bg-blue-200 rounded flex items-center justify-center">
+                  <span class="text-sm font-medium text-blue-800">接客時間（例: 5時間）</span>
+                </div>
+                
+                <!-- 待機時間を示すラベル -->
+                <div class="absolute top-16 right-10 transform rotate-90 origin-right">
+                  <span class="text-xs text-gray-500">待機</span>
+                </div>
+                
+                <!-- 稼働率表示 -->
+                <div class="absolute bottom-0 right-0 bg-blue-600 text-white px-2 py-1 rounded-tl text-sm font-bold">
+                  稼働率: 62.5%
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">データの特性と注意点</h2>
+        
+        <div class="space-y-6 text-gray-700 leading-relaxed">
+          <p>
+            <span class="font-semibold text-blue-800">✓ 掲載基準：</span>
+            比較的正確なデータが取れるお店のみを掲載しています。データの精度に不安がある店舗は掲載を見送っています。
+          </p>
+          
+          <p>
+            <span class="font-semibold text-blue-800">✓ データの性質：</span>
+            すべてのデータはあくまで<span class="underline">参考値</span>です。様々な要因（イベント、天候、季節変動など）により、
+            実際の状況とは異なる場合があります。
+          </p>
+          
+          <p>
+            <span class="font-semibold text-blue-800">✓ 更新頻度：</span>
+            データは定期的に更新されますが、リアルタイムではない場合があります。各店舗データの最終更新日を参考にしてください。
+          </p>
+          
+          <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-6">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm text-yellow-800">
+                  店舗同士の単純比較はあくまでも目安としてご利用ください。業種や地域による差異が大きい場合があります。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <section class="mb-8">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">データの活用方法</h2>
+        
+        <div class="space-y-6 text-gray-700 leading-relaxed">
+          <p>
+            <span class="font-semibold text-green-700">★ おすすめの使い方：</span>
+            同一店舗内での時期による比較を行うことで、その店舗の繁閑期や傾向を把握できます。
+            これは特定のお店の状況を理解するのに最も有効な方法です。
+          </p>
+          
+          <p>
+            <span class="font-semibold text-green-700">★ 地域比較：</span>
+            同じエリア内での複数店舗の稼働率を比較することで、地域全体の傾向を把握できます。
+            ただし、店舗コンセプトや規模の違いも考慮する必要があります。
+          </p>
+          
+          <p>
+            <span class="font-semibold text-green-700">★ 長期トレンド：</span>
+            定期的にデータをチェックすることで、長期的な変化や季節的な傾向を把握できます。
+            これは将来の計画を立てる上で役立つ情報となります。
+          </p>
+          
+          <div class="bg-green-50 border-l-4 border-green-400 p-4 mt-6">
+            <div class="flex">
+              <div class="ml-3">
+                <p class="text-sm text-green-800">
+                  稼働率が高い＝必ずしも稼げるというわけではありません。あくまでも「お店の忙しさ」の指標としてお考えください。
+                  様々な情報と組み合わせて、総合的に判断することをおすすめします。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- 戻るボタン -->
+      <div class="mt-12 text-center">
+        <a href="/" class="inline-flex items-center bg-gray-800 hover:bg-gray-700 text-white font-medium py-3 px-6 rounded-lg transition-colors">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+          </svg>
+          トップページに戻る
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
