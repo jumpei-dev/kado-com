@@ -9,7 +9,9 @@
   <meta name="description" content="風俗店の稼働をリアルタイムで比較・分析するサイト。エリア別・業種別で探せます。">
   <link href="/static/css/tailwind.css" rel="stylesheet">
   <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-  <script src="/static/js/htmx.min.js" defer></script>
+  <!-- HTMXはdeferなしで読み込み、確実に初期化 -->
+  <script src="/static/js/htmx.min.js"></script>
+  <script src="/static/js/htmx-debug.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script>
     document.addEventListener('alpine:init', () => {
@@ -19,12 +21,16 @@
     });
   </script>
   <style>
-    /* サイト全体の幅を640pxに強制固定 */
+    /* サイト全体のスタイル - 重複を削除し整理 */
     body {
       width: 640px;
       max-width: 100%;
       margin: 0 auto;
       overflow-x: hidden;
+      font-size: 16px;
+      touch-action: manipulation;
+      -webkit-overflow-scrolling: touch;
+      background-color: #fcf9f7; /* マシュマロ背景 */
     }
     
     /* コンテナ幅の強制制限 */
@@ -33,6 +39,7 @@
       max-width: 100% !important;
     }
     
+    /* アニメーションとインタラクション */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -51,30 +58,17 @@
       -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
     }
     
-    /* ランキング上位のアニメーション - より繊細な効果 */
+    /* ランキング上位のアニメーション */
     @keyframes subtleGlow {
       0% { box-shadow: 0 0 3px 0 rgba(255, 215, 0, 0.1); }
       50% { box-shadow: 0 0 6px 3px rgba(255, 215, 0, 0.1); }
       100% { box-shadow: 0 0 3px 0 rgba(255, 215, 0, 0.1); }
     }
-    .rank-1 {
-      animation: subtleGlow 3s ease-in-out infinite;
-    }
-    .rank-2 {
-      animation: subtleGlow 4s ease-in-out infinite;
-    }
-    .rank-3 {
-      animation: subtleGlow 5s ease-in-out infinite;
-    }
+    .rank-1 { animation: subtleGlow 3s ease-in-out infinite; }
+    .rank-2 { animation: subtleGlow 4s ease-in-out infinite; }
+    .rank-3 { animation: subtleGlow 5s ease-in-out infinite; }
     
-    /* スマホ特化のスタイル */
-    body {
-      font-size: 16px;
-      touch-action: manipulation;
-      -webkit-overflow-scrolling: touch;
-    }
-    
-    /* タップ領域の最適化 */
+    /* インタラクション最適化 */
     button, a, input, select, textarea {
       touch-action: manipulation;
     }
@@ -85,23 +79,6 @@
       user-select: none;
     }
     
-    /* スマホ特化のスタイル */
-    body {
-      font-size: 16px;
-      touch-action: manipulation;
-      -webkit-overflow-scrolling: touch;
-    }
-    
-    /* タップ領域の最適化 */
-    button, a, input, select, textarea {
-      touch-action: manipulation;
-    }
-    
-    /* スマホでのテキスト選択を防止 */
-    .no-select {
-      -webkit-user-select: none;
-      user-select: none;
-    }
     /* マシュマロ風の淡い背景色 */
     .bg-marshmallow {
       background-color: #fcf9f7; /* 淡いベージュピンク（マシュマロ風） */
@@ -112,10 +89,21 @@
       background-color: #f8f2ed; /* マシュマロカラーよりも少し濃い色 */
       transition: background-color 0.3s ease;
     }
+    
+    /* メインコンテナのスタイル */
+    .main-container {
+      background-color: white;
+      border-radius: 0.375rem;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      margin: 0.5rem auto;
+      max-width: 640px;
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 1rem);
+    }
   </style>
 </head>
-<body class="bg-marshmallow min-h-screen flex flex-col">
-  <div class="min-h-screen bg-white rounded-lg shadow-sm my-2" style="max-width: 640px; margin: 0 auto;">
+<body>
   {% include "components/header.html" %}
   
   <div class="flex-grow px-1">
