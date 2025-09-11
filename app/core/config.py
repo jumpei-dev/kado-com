@@ -163,7 +163,8 @@ class Settings(BaseSettings):
     
     # Twitter API設定
     twitter_bearer_token: Optional[str] = os.getenv('TWITTER_BEARER_TOKEN')
-    twitter_username: str = os.getenv('TWITTER_USERNAME', 'kadou_com')
+    twitter_username: str = os.getenv('TWITTER_USERNAME', 'elonmusk')
+    twitter_display_name: str = os.getenv('TWITTER_DISPLAY_NAME', 'Elon Musk')
     title: str = "稼働.com API"
     description: str = "風俗店稼働率管理システムのAPI"
     version: str = "1.0.0"
@@ -218,6 +219,11 @@ class Settings(BaseSettings):
             # フロントエンドURL
             if frontend_config:
                 self.frontend_url = frontend_config.get('url', self.frontend_url)
+                
+                # Twitter設定
+                twitter_config = frontend_config.get('twitter', {})
+                self.twitter_username = twitter_config.get('username', self.twitter_username)
+                self.twitter_display_name = twitter_config.get('display_name', self.twitter_display_name)
         else:
             # フォールバック: 環境変数から読み込み
             self.api_host = os.getenv('API_HOST', self.api_host)

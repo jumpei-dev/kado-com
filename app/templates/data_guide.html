@@ -23,84 +23,40 @@
             <div class="flex items-center justify-center mb-4">
               <div class="text-xl font-bold text-blue-700 mr-3">稼働率 =</div>
               <div class="flex flex-col items-center">
-                <div class="text-center text-blue-800 border-b border-blue-700 pb-1 mb-1">仕事をしている時間</div>
-                <div class="text-center text-blue-800">出勤時間</div>
+                <div class="text-center text-blue-800 border-b border-blue-700 pb-1 mb-1 px-4">仕事をしている時間</div>
+                <div class="text-center text-blue-800 px-4">出勤時間</div>
               </div>
               <div class="ml-3 text-xl font-bold text-blue-700">× 100%</div>
             </div>
             <p class="text-sm text-gray-600 italic text-center">※店舗内の全女性の平均値を算出</p>
           </div>
           
-          <!-- 横線グラフ -->
+          <!-- 計算例の説明 -->
           <div class="mt-8">
-            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-              <!-- 出勤時間を表す横軸（時刻表示） -->
-              <div class="relative mb-2">
-                <div class="text-xs text-gray-500 absolute -top-6 left-0">15:00</div>
-                <div class="text-xs text-gray-500 absolute -top-6 right-0">23:00</div>
-                
-                <!-- バー全体（出勤時間） -->
-                <div class="h-10 w-full bg-gray-100 rounded-md relative overflow-hidden flex">
-                  <!-- 15:00-16:00 待機 -->
-                  <div class="h-10 w-1/8 bg-gray-100 flex items-center justify-center">
-                    <span class="text-xs text-gray-600">待機</span>
-                  </div>
-                  
-                  <!-- 16:00-17:00 仕事 -->
-                  <div class="h-10 w-1/8 bg-blue-400 flex items-center justify-center">
-                    <span class="text-white font-medium text-xs">接客</span>
-                  </div>
-                  
-                  <!-- 17:00-18:30 待機 -->
-                  <div class="h-10 w-3/16 bg-gray-100 flex items-center justify-center">
-                    <span class="text-xs text-gray-600">待機</span>
-                  </div>
-                  
-                  <!-- 18:30-20:00 仕事 -->
-                  <div class="h-10 w-3/16 bg-blue-400 flex items-center justify-center">
-                    <span class="text-white font-medium text-xs">接客</span>
-                  </div>
-                  
-                  <!-- 20:00-21:00 待機 -->
-                  <div class="h-10 w-1/8 bg-gray-100 flex items-center justify-center">
-                    <span class="text-xs text-gray-600">待機</span>
-                  </div>
-                  
-                  <!-- 21:00-23:00 仕事 -->
-                  <div class="h-10 w-1/4 bg-blue-400 flex items-center justify-center">
-                    <span class="text-white font-medium text-xs">接客</span>
-                  </div>
-                </div>
-                
-                <!-- 稼働率の表示 -->
-                <div class="absolute -bottom-8 right-0 text-sm font-semibold text-blue-700">
-                  稼働率: <span class="text-blue-600 bg-blue-50 px-2 py-1 rounded">62.5%</span>
-                </div>
-                
-                <!-- 合計時間の説明 -->
-                <div class="absolute -bottom-8 left-0 text-xs text-gray-600">
-                  合計: 接客5時間 / 出勤8時間
-                </div>
-              </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <h3 class="text-lg font-semibold text-gray-800 mb-4">計算例</h3>
               
-              <!-- 目盛り（時刻表示） -->
-              <div class="relative h-2 mt-10 mb-4">
-                <div class="absolute w-full border-t border-gray-300"></div>
-                <!-- 1時間ごとの目盛り -->
-                <div class="absolute left-1/8 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-2/8 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-3/8 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-4/8 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-5/8 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-6/8 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-7/8 w-px h-2 bg-gray-300"></div>
-                <div class="absolute left-1/8 -bottom-5 text-xs text-gray-500">16:00</div>
-                <div class="absolute left-2/8 -bottom-5 text-xs text-gray-500">17:00</div>
-                <div class="absolute left-3/8 -bottom-5 text-xs text-gray-500">18:00</div>
-                <div class="absolute left-4/8 -bottom-5 text-xs text-gray-500">19:00</div>
-                <div class="absolute left-5/8 -bottom-5 text-xs text-gray-500">20:00</div>
-                <div class="absolute left-6/8 -bottom-5 text-xs text-gray-500">21:00</div>
-                <div class="absolute left-7/8 -bottom-5 text-xs text-gray-500">22:00</div>
+              <div class="space-y-4">
+                <p class="text-gray-700">
+                  例えば、女性が<span class="font-medium">8時間勤務</span>（15:00～23:00）で、その間に接客が断続的に入り、
+                  合計で<span class="font-medium">5時間の接客</span>をした場合：
+                </p>
+ 
+                
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                  <div class="bg-gray-100 p-2 rounded">15:00～15:45：待機</div>
+                  <div class="bg-blue-100 p-2 rounded">15:45～16:30：接客</div>
+                  <div class="bg-gray-100 p-2 rounded">16:30～17:00：待機</div>
+                  <div class="bg-blue-100 p-2 rounded">17:00～18:00：接客</div>
+                  <div class="bg-gray-100 p-2 rounded">18:00～18:30：待機</div>
+                  <div class="bg-blue-100 p-2 rounded">18:30～20:00：接客</div>
+                  <div class="bg-gray-100 p-2 rounded">20:00～21:00：待機</div>
+                  <div class="bg-blue-100 p-2 rounded">21:00～23:00：接客</div>
+                </div>
+                
+                <div class="bg-blue-50 p-3 rounded-lg text-center text-blue-800 font-semibold mt-4">
+                  稼働率: 62.5%（接客5時間 ÷ 勤務8時間 × 100%）
+                </div>
               </div>
             </div>
           </div>

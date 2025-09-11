@@ -81,6 +81,9 @@ try:
     if templates_dir.exists():
         print(f"✅ テンプレートディレクトリは存在します: {templates_dir}")
         templates = Jinja2Templates(directory=str(templates_dir.absolute()))
+        # デバッグモードを有効化（テンプレートの変更を自動検出）
+        templates.env.auto_reload = True
+        templates.env.cache_size = 0  # キャッシュを無効化
         print("✅ テンプレートの設定成功")
     else:
         print(f"❌ テンプレートディレクトリが見つかりません: {templates_dir}")

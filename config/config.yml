@@ -12,11 +12,11 @@ environment:
 # 📊 データベース設定（全モジュール共通）
 database:
   # Supabase PostgreSQL接続情報（現在使用中）
-  host: "${DB_HOST}"  # 環境変数から取得
+  host: "57.182.231.186"
   port: 6543
   database: "postgres"
-  user: "${DB_USER}"  # 環境変数から取得
-  password: "${DB_PASSWORD}"  # 環境変数から取得
+  user: "postgres.hnmbsqydlfemlmsyexrq"
+  password: "Ggzzmmb3"
   sslmode: "require"
   
   # 接続プール設定
@@ -25,7 +25,7 @@ database:
   pool_timeout: 30
   
   # URL形式（APIサーバー用）
-  url: "${DATABASE_URL}"  # 環境変数から取得
+  url: "postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@57.182.231.186:6543/postgres?sslmode=require"
 
 # 🌐 APIサーバー設定
 api:
@@ -47,7 +47,7 @@ api:
 
 # 🔐 認証設定
 auth:
-  secret_key: "${JWT_SECRET_KEY}"  # 環境変数から取得
+  secret_key: "kado-com-secret-key-for-development"
   algorithm: "HS256"
   access_token_expire_days: 7
   access_token_expire_minutes: 10080  # 7日間（7*24*60）
@@ -60,6 +60,11 @@ frontend:
   app_name: "稼働.com"
   app_version: "1.0.0"
   node_env: "development"
+  
+  # X (旧Twitter) 設定
+  twitter:
+    username: "elonmusk"
+    display_name: "Elon Musk"
   
 # 📝 ログ設定
 logging:
