@@ -72,9 +72,9 @@ class AuthService:
         try:
             logger.info(f"ユーザー認証処理: {username}")
             
-            # データベースからユーザーを取得
+            # データベースからユーザーを取得（can_see_contentsも含む）
             query = """
-            SELECT id, name, password_hash, is_admin 
+            SELECT id, name, password_hash, is_admin, can_see_contents 
             FROM users 
             WHERE name = %s
             """
@@ -85,7 +85,7 @@ class AuthService:
                 logger.warning(f"ユーザーが存在しません: {username}")
                 return None
                 
-            logger.info(f"ユーザー情報取得: ID={user['id']}, 名前={user['name']}")
+            logger.info(f"ユーザー情報取得: ID={user['id']}, 名前={user['name']}, can_see_contents={user['can_see_contents']}")
             
             # パスワード検証
             hashed_password = user['password_hash']
@@ -100,7 +100,8 @@ class AuthService:
             return {
                 "id": user['id'],
                 "username": user['name'],
-                "is_admin": user['is_admin']
+                "is_admin": user['is_admin'],
+                "can_see_contents": user['can_see_contents']
             }
             
         except Exception as e:
@@ -110,9 +111,12 @@ class AuthService:
     async def get_current_user(self, request: Request) -> Optional[Dict[str, Any]]:
         """現在のユーザーを取得"""
         try:
-            # Cookieからトークンを取得
-            token = request.cookies.get("access_token")
+            # 🔧 両方のキー名を試行
+            token = request.cookies.get("access_token") or request.cookies.get("auth_token")
+            print(f"🔍 トークン取得: access_token={request.cookies.get('access_token')}, auth_token={request.cookies.get('auth_token')}")
+            
             if not token:
+                print("🔍 トークンが見つかりません")
                 return None
                 
             # トークンをデコード
@@ -120,27 +124,34 @@ class AuthService:
             user_id = payload.get("sub")
             
             if not user_id:
+                print("🔍 トークンにuser_idが含まれていません")
                 return None
                 
-            # データベースからユーザー情報を取得
+            # データベースからユーザー情報を取得（can_see_contentsも含む）
             query = """
-            SELECT id, name, is_admin 
+            SELECT id, name, is_admin, can_see_contents 
             FROM users 
             WHERE id = %s
             """
             user = self.db.fetch_one(query, (user_id,))
             
             if not user:
+                print(f"🔍 ユーザーID {user_id} が見つかりません")
                 return None
                 
+            print(f"🔍 現在のユーザー取得成功: ID={user['id']}, 名前={user['name']}, can_see_contents={user['can_see_contents']}")
+            
             return {
                 "id": user['id'],
                 "username": user['name'],
-                "is_admin": user['is_admin']
+                "is_admin": user['is_admin'],
+                "can_see_contents": user['can_see_contents']
             }
             
         except Exception as e:
-            print(f"ユーザー取得エラー: {str(e)}")
+            print(f"❌ ユーザー取得エラー: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
 
     async def create_user(self, username: str, password: str, is_admin: bool = False) -> Optional[Dict[str, Any]]:

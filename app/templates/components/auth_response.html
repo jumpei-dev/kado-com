@@ -77,21 +77,23 @@
     }, 1500);
     {% endif %}
     
-    // 成功時のみモーダルを閉じる（純粋なDOMアプローチ）
+    // 成功時のみモーダルを閉じる（Alpine.js対応）
     setTimeout(() => {
-      console.log("🔒 DOM操作で認証モーダルを閉じる試行...");
-      const modal = document.getElementById('loginModal');
-      if (modal) {
-        modal.style.display = 'none';
-        console.log("🔒 DOMでモーダルを非表示に設定しました");
-      }
+      console.log("🔒 認証成功：モーダルを閉じます");
       
-      // モーダルを閉じるためのカスタムイベントもディスパッチ（二重保険）
-      console.log("🔒 modal-closeイベントをディスパッチします");
+      // Alpine.jsイベントでモーダルを閉じる
       document.dispatchEvent(new CustomEvent('modal-close', { 
         detail: { id: 'loginModal' } 
       }));
-    }, 500);
+      
+      // DOM操作のフォールバック
+      const modal = document.getElementById('loginModal');
+      if (modal && modal.__x) {
+        modal.__x.$data.show = false;
+      } else if (modal) {
+        modal.style.display = 'none';
+      }
+    }, 1000);
   })(); // 即時実行関数でスコープを分離
 </script>
 {% endif %}

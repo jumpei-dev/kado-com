@@ -112,7 +112,12 @@
   </div>
   
   {% include "components/footer.html" %}
-  {% include "components/auth_modals.html" %}
+  {% include "components/auth_modals_new.html" %}
   </div>
+  
+  <!-- JavaScript ライブラリ -->
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="/static/js/auth-helpers.js"></script>
 </body>
 </html>

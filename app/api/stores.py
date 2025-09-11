@@ -11,6 +11,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.absolute()))
 
 from app.core.database import get_database
+from app.core.auth_service import AuthService
+from app.utils.blurred_name_utils import get_store_display_info
+
+# AuthServiceのインスタンス化
+auth_service = AuthService()
 
 # テンプレートの設定
 templates_dir = Path(__file__).parent.parent / "templates"
@@ -22,6 +27,44 @@ security = HTTPBearer(auto_error=False)
 def require_auth(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
     """認証チェック (開発版は常にOK)"""
     return True
+
+async def check_user_permissions(request: Request) -> dict:
+    """リクエストからユーザー権限を確認"""
+    try:
+        # 🔧 デバッグ: 全クッキーを確認
+        print("🔍 stores.py権限チェック - 全クッキー:")
+        for key, value in request.cookies.items():
+            print(f"  {key}: {value[:30]}...")
+        
+        # auth_serviceを使用してユーザー情報を取得
+        user_info = await auth_service.get_current_user(request)
+        
+        if not user_info:
+            print("🔍 権限チェック: ユーザー情報取得失敗")
+            return {"logged_in": False, "can_see_contents": False}
+        
+        can_see_contents = user_info.get('can_see_contents', False)
+        is_admin = user_info.get('is_admin', False)
+        
+        # 🔧 開発用: adminユーザーは強制的にcan_see_contents=Trueにする
+        if is_admin:
+            can_see_contents = True
+            print("🔧 開発用: adminユーザーなのでcan_see_contents=Trueに強制設定")
+        
+        print(f"🔍 権限チェック結果: user_id={user_info['id']}, username={user_info['username']}, is_admin={is_admin}, can_see_contents={can_see_contents}")
+        
+        return {
+            "logged_in": True,
+            "can_see_contents": can_see_contents,
+            "username": user_info['username'],
+            "is_admin": is_admin
+        }
+        
+    except Exception as e:
+        print(f"❌ 権限チェックエラー: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"logged_in": False, "can_see_contents": False}
 
 @router.get("", response_class=HTMLResponse)
 async def get_stores(
@@ -37,6 +80,10 @@ async def get_stores(
     db = Depends(get_database)
 ):
     """店舗一覧取得 - HTMLレスポンス (ページネーション対応)"""
+    
+    # ユーザー権限を確認
+    user_permissions = await check_user_permissions(request)
+    print(f"🔍 店舗一覧: user_permissions={user_permissions}")
     
     try:
         # ランキング表示の開発用にDBエラーを強制発生させる
@@ -117,18 +164,58 @@ async def get_stores(
         # フォールバック用のデータ - 50店舗のダミーデータ
         import random
         
-        # 店舗名リスト
-        store_names = [
-            "チュチュバナナ", "ハニービー", "バンサー", "ウルトラグレース", "メルティキス", 
-            "ピュアハート", "シャイニーガール", "エンジェルフェザー", "プリンセスルーム", "ルビーパレス",
-            "シルクロード", "ゴールデンタイム", "ダイヤモンドクイーン", "パラダイスガーデン", "エターナルラブ",
-            "パッションフルーツ", "スターダスト", "ミルキーウェイ", "サンシャイン", "ムーンライト",
-            "フェアリーテイル", "クリスタルパレス", "サクラ", "ロイヤルハウス", "ドリームキャッスル",
-            "人妻城", "プラチナガール", "セレブリティ", "ゴージャスタイム", "ラグジュアリー",
-            "エレガントローズ", "スウィートハート", "アロマテラス", "ブロッサム", "オーシャンビュー",
-            "カルネーション", "ホワイトリリー", "ブルーローズ", "レッドチェリー", "ゴールドラッシュ",
-            "シルバームーン", "プラチナスター", "サファイアブルー", "ルビーレッド", "エメラルドグリーン",
-            "パールホワイト", "オニキスブラック", "アンバーオレンジ", "アクアマリン", "トパーズイエロー"
+        # 店舗名リスト（blurred_nameも含む）
+        store_data_list = [
+            {"name": "チュチュバナナ", "blurred_name": "〇〇〇〇ナナ"},
+            {"name": "ハニービー", "blurred_name": "〇〇〇ビー"},
+            {"name": "バンサー", "blurred_name": "〇〇サー"},
+            {"name": "ウルトラグレース", "blurred_name": "〇〇〇〇〇レース"},
+            {"name": "メルティキス", "blurred_name": "〇〇〇キス"},
+            {"name": "ピュアハート", "blurred_name": "〇〇〇ハート"},
+            {"name": "シャイニーガール", "blurred_name": "〇〇〇〇ガール"},
+            {"name": "エンジェルフェザー", "blurred_name": "〇〇〇〇〇フェザー"},
+            {"name": "プリンセスルーム", "blurred_name": "〇〇〇〇〇ルーム"},
+            {"name": "ルビーパレス", "blurred_name": "〇〇〇パレス"},
+            {"name": "シルクロード", "blurred_name": "〇〇〇ロード"},
+            {"name": "ゴールデンタイム", "blurred_name": "〇〇〇〇〇タイム"},
+            {"name": "ダイヤモンドクイーン", "blurred_name": "〇〇〇〇〇〇クイーン"},
+            {"name": "パラダイスガーデン", "blurred_name": "〇〇〇〇〇ガーデン"},
+            {"name": "エターナルラブ", "blurred_name": "〇〇〇〇ラブ"},
+            {"name": "パッションフルーツ", "blurred_name": "〇〇〇〇〇フルーツ"},
+            {"name": "スターダスト", "blurred_name": "〇〇〇ダスト"},
+            {"name": "ミルキーウェイ", "blurred_name": "〇〇〇〇ウェイ"},
+            {"name": "サンシャイン", "blurred_name": "〇〇〇シャイン"},
+            {"name": "ムーンライト", "blurred_name": "〇〇〇ライト"},
+            {"name": "フェアリーテイル", "blurred_name": "〇〇〇〇テイル"},
+            {"name": "クリスタルパレス", "blurred_name": "〇〇〇〇〇パレス"},
+            {"name": "サクラ", "blurred_name": "〇〇ラ"},
+            {"name": "ロイヤルハウス", "blurred_name": "〇〇〇〇ハウス"},
+            {"name": "ドリームキャッスル", "blurred_name": "〇〇〇〇〇キャッスル"},
+            {"name": "人妻城", "blurred_name": "〇〇城"},
+            {"name": "プラチナガール", "blurred_name": "〇〇〇〇ガール"},
+            {"name": "セレブリティ", "blurred_name": "〇〇〇リティ"},
+            {"name": "ゴージャスタイム", "blurred_name": "〇〇〇〇〇タイム"},
+            {"name": "ラグジュアリー", "blurred_name": "〇〇〇〇リー"},
+            {"name": "エレガントローズ", "blurred_name": "〇〇〇〇〇ローズ"},
+            {"name": "スウィートハート", "blurred_name": "〇〇〇〇〇ハート"},
+            {"name": "アロマテラス", "blurred_name": "〇〇〇テラス"},
+            {"name": "ブロッサム", "blurred_name": "〇〇〇サム"},
+            {"name": "オーシャンビュー", "blurred_name": "〇〇〇〇〇ビュー"},
+            {"name": "カルネーション", "blurred_name": "〇〇〇〇ション"},
+            {"name": "ホワイトリリー", "blurred_name": "〇〇〇〇リリー"},
+            {"name": "ブルーローズ", "blurred_name": "〇〇〇ローズ"},
+            {"name": "レッドチェリー", "blurred_name": "〇〇〇チェリー"},
+            {"name": "ゴールドラッシュ", "blurred_name": "〇〇〇〇ラッシュ"},
+            {"name": "シルバームーン", "blurred_name": "〇〇〇〇ムーン"},
+            {"name": "プラチナスター", "blurred_name": "〇〇〇〇スター"},
+            {"name": "サファイアブルー", "blurred_name": "〇〇〇〇〇ブルー"},
+            {"name": "ルビーレッド", "blurred_name": "〇〇〇レッド"},
+            {"name": "エメラルドグリーン", "blurred_name": "〇〇〇〇〇グリーン"},
+            {"name": "パールホワイト", "blurred_name": "〇〇〇ホワイト"},
+            {"name": "オニキスブラック", "blurred_name": "〇〇〇〇ブラック"},
+            {"name": "アンバーオレンジ", "blurred_name": "〇〇〇〇オレンジ"},
+            {"name": "アクアマリン", "blurred_name": "〇〇〇マリン"},
+            {"name": "トパーズイエロー", "blurred_name": "〇〇〇〇イエロー"}
         ]
         
         # エリア情報 (フィルターの選択肢に合わせる)
@@ -213,9 +300,22 @@ async def get_stores(
             # エリア情報をランダムに選択
             area_info = random.choice(areas)
             
+            # 店舗データを取得（店舗名とblurred_nameを含む）
+            store_info = store_data_list[i] if i < len(store_data_list) else {
+                "name": f"店舗{i + 1}", 
+                "blurred_name": f"〇〇{i + 1}"
+            }
+            
+            # 権限に応じた表示名を決定
+            name_display = get_store_display_info(store_info, user_permissions["can_see_contents"])
+            print(f"🔍 店舗名決定: store_info={store_info}, can_see_contents={user_permissions['can_see_contents']}, name_display={name_display}")
+            
             stores.append({
-                "id": str(i + 1),
-                "name": store_names[i] if i < len(store_names) else f"店舗{i + 1}",
+                "id": f"dummy_{i + 1}",  # ダミーデータ用のプレフィックスを追加
+                "name": name_display["display_name"],
+                "original_name": name_display["original_name"],
+                "blurred_name": name_display["blurred_name"],
+                "is_blurred": name_display["is_blurred"],
                 "prefecture": area_info["prefecture"],
                 "city": area_info["city"],
                 "area": area_info["area"],
@@ -273,6 +373,7 @@ async def get_stores(
             {
                 "request": request, 
                 "stores": paged_stores,
+                "user_permissions": user_permissions,
                 "pagination": {
                     "current_page": page,
                     "total_pages": total_pages,
@@ -293,19 +394,53 @@ async def get_store_detail(
 ):
     """店舗詳細取得"""
     
+    # ユーザー権限を確認
+    user_permissions = await check_user_permissions(request)
+    print(f"🔍 店舗詳細: store_id={store_id}, user_permissions={user_permissions}")
+    
     try:
         # 実際のデータベースから店舗情報取得
         businesses = db.get_businesses()
         business = None
         
-        for key, biz in businesses.items():
-            if str(biz.get('Business ID')) == store_id:
-                business = biz
-                break
+        # ダミーデータ用IDの場合はダミーデータを返す
+        if store_id.startswith("dummy_"):
+            dummy_index = int(store_id.replace("dummy_", "")) - 1
+            store_data_list = [
+                {"name": "チュチュバナナ", "blurred_name": "〇〇〇〇ナナ"},
+                {"name": "ハニービー", "blurred_name": "〇〇〇ビー"},
+                {"name": "バンサー", "blurred_name": "〇〇サー"},
+                {"name": "ウルトラグレース", "blurred_name": "〇〇〇〇〇レース"},
+                {"name": "メルティキス", "blurred_name": "〇〇〇キス"},
+                {"name": "ピュアハート", "blurred_name": "〇〇〇ハート"},
+                {"name": "シャイニーガール", "blurred_name": "〇〇〇〇ガール"},
+                {"name": "エンジェルフェザー", "blurred_name": "〇〇〇〇〇フェザー"},
+                {"name": "プリンセスルーム", "blurred_name": "〇〇〇〇〇ルーム"},
+                {"name": "ルビーパレス", "blurred_name": "〇〇〇パレス"},
+            ]
+            
+            if 0 <= dummy_index < len(store_data_list):
+                store_info = store_data_list[dummy_index]
+                business = {
+                    "name": store_info["name"],
+                    "blurred_name": store_info["blurred_name"],
+                    "area": "ダミー地区",
+                    "prefecture": "東京都",
+                    "city": "新宿区",
+                    "genre": "ソープランド"
+                }
+            else:
+                business = {"name": f"ダミー店舗{dummy_index + 1}", "blurred_name": f"〇〇店舗{dummy_index + 1}", "area": "ダミー地区"}
+        else:
+            # 実際のIDの場合はDBから検索
+            for key, biz in businesses.items():
+                if str(biz.get('Business ID')) == store_id:
+                    business = biz
+                    break
         
         if not business:
             # 店舗が見つからない場合はダミーデータ
-            business = {"name": f"店舗{store_id}", "area": "不明"}
+            business = {"name": f"店舗{store_id}", "blurred_name": f"〇〇{store_id}", "area": "不明"}
         
         # 24時間のタイムライン生成（TODO: 実際のstatus_historyから取得）
         timeline = []
@@ -323,9 +458,17 @@ async def get_store_detail(
         util_7d = 68.9
         
         # 店舗情報をまとめる
+        store_name_data = business.get('name', f"店舗{store_id}")
+        store_info = {"name": store_name_data, "blurred_name": business.get('blurred_name', store_name_data)}
+        name_display = get_store_display_info(store_info, user_permissions["can_see_contents"])
+        print(f"🔍 店舗詳細名前決定: store_info={store_info}, can_see_contents={user_permissions['can_see_contents']}, name_display={name_display}")
+        
         store_data = {
             "id": store_id,
-            "name": business.get('name', f"店舗{store_id}"),
+            "name": name_display["display_name"],
+            "original_name": name_display["original_name"],
+            "blurred_name": name_display["blurred_name"],
+            "is_blurred": name_display["is_blurred"],
             "prefecture": business.get('prefecture', '不明'),
             "city": business.get('city', '不明'),
             "area": business.get('area', '不明'),
@@ -353,7 +496,11 @@ async def get_store_detail(
         # HTMLテンプレートをレンダリング
         return templates.TemplateResponse(
             "components/store_detail.html", 
-            {"request": request, "store": store_data}
+            {
+                "request": request, 
+                "store": store_data,
+                "user_permissions": user_permissions
+            }
         )
         
     except Exception as e:
@@ -366,9 +513,17 @@ async def get_store_detail(
         util_7d = 68.9
         
         # フォールバック用の店舗データ
+        store_name_data = f"店舗{store_id}"
+        store_info = {"name": store_name_data, "blurred_name": f"〇〇{store_id}"}
+        name_display = get_store_display_info(store_info, user_permissions["can_see_contents"])
+        print(f"🔍 店舗詳細フォールバック名前決定: store_info={store_info}, can_see_contents={user_permissions['can_see_contents']}, name_display={name_display}")
+        
         store_data = {
             "id": store_id,
-            "name": f"店舗{store_id}",
+            "name": name_display["display_name"],
+            "original_name": name_display["original_name"],
+            "blurred_name": name_display["blurred_name"],
+            "is_blurred": name_display["is_blurred"],
             "prefecture": "不明",
             "city": "不明", 
             "area": "不明",
@@ -396,5 +551,9 @@ async def get_store_detail(
         # HTMLテンプレートをレンダリング
         return templates.TemplateResponse(
             "components/store_detail.html", 
-            {"request": request, "store": store_data}
+            {
+                "request": request, 
+                "store": store_data,
+                "user_permissions": user_permissions
+            }
         )

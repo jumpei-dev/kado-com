@@ -12,6 +12,7 @@
      x-transition:leave-end="opacity-0 transform scale-95"
      @open-modal.window="if ($event.detail.id === 'loginModal') show = true"
      @modal-close.window="if ($event.detail.id === 'loginModal') show = false"
+     @auth:login-success.window="show = false; console.log('🔐 認証成功: モーダルを閉じます')"
      @keydown.escape.window="show = false">
   
   <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 relative"
@@ -72,7 +73,7 @@
         </div>
         
         <!-- レスポンス表示エリア -->
-        <div id="login-response" class="mt-4 mb-4 min-h-[50px]"></div>
+        <div id="login-response" class="mt-4 mb-4 min-h-[30px]" aria-live="polite"></div>
         
         <!-- ローディングインジケーター -->
         <div id="login-loading" class="htmx-indicator flex justify-center my-3" style="display:none">
@@ -103,7 +104,25 @@
     const responseArea = document.getElementById('login-response');
     if (responseArea) {
       responseArea.innerHTML = '';
+      responseArea.style.opacity = '0';
+      setTimeout(() => {
+        responseArea.style.opacity = '1';
+      }, 50);
     }
     console.log('レスポンスエリアをクリアしました');
   }
+
+  // モーダル表示時にフォーカスを設定
+  document.addEventListener('alpine:init', () => {
+    document.addEventListener('open-modal', (event) => {
+      if (event.detail.id === 'loginModal') {
+        setTimeout(() => {
+          const usernameField = document.getElementById('login-username');
+          if (usernameField) {
+            usernameField.focus();
+          }
+        }, 200);
+      }
+    });
+  });
 </script>
