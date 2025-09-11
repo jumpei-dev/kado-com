@@ -249,16 +249,10 @@ async def register(
 async def get_current_user(request: Request) -> dict:
     """現在のユーザー情報を取得"""
     try:
-        # 🔧 デバッグ: 全クッキーを確認
-        print("🔍 /me エンドポイント - 全クッキー:")
-        for key, value in request.cookies.items():
-            print(f"  {key}: {value[:30]}...")
-        
         # auth_serviceを使用してユーザー情報を取得
         user_info = await auth_service.get_current_user(request)
         
         if not user_info:
-            print("🔍 /me エンドポイント: ユーザー情報取得失敗")
             return {"logged_in": False, "can_see_contents": False}
         
         can_see_contents = user_info.get('can_see_contents', False)
@@ -267,9 +261,6 @@ async def get_current_user(request: Request) -> dict:
         # 🔧 開発用: adminユーザーは強制的にcan_see_contents=Trueにする
         if is_admin:
             can_see_contents = True
-            print(f"🔧 開発用: adminユーザー({user_info['username']})なのでcan_see_contents=Trueに強制設定")
-        
-        print(f"🔍 /me エンドポイント結果: user_id={user_info['id']}, username={user_info['username']}, is_admin={is_admin}, can_see_contents={can_see_contents}")
         
         return {
             "logged_in": True,
@@ -280,6 +271,4 @@ async def get_current_user(request: Request) -> dict:
         
     except Exception as e:
         logger.error(f"ユーザー情報取得エラー: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return {"logged_in": False, "can_see_contents": False}

@@ -60,12 +60,9 @@ class AuthService:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
-        except jwt.PyJWTError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        except jwt.PyJWTError as e:
+            print(f"❌ [DEBUG] JWT decode error: {e}")
+            raise e
 
     async def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """ユーザー認証"""
@@ -108,26 +105,18 @@ class AuthService:
             print(f"認証エラー: {str(e)}")
             return None
 
-    async def get_current_user(self, request: Request) -> Optional[Dict[str, Any]]:
-        """現在のユーザーを取得"""
+    async def get_user_from_token(self, token: str) -> Optional[dict]:
+        """トークンからユーザー情報を取得"""
         try:
-            # 🔧 両方のキー名を試行
-            token = request.cookies.get("access_token") or request.cookies.get("auth_token")
-            print(f"🔍 トークン取得: access_token={request.cookies.get('access_token')}, auth_token={request.cookies.get('auth_token')}")
-            
-            if not token:
-                print("🔍 トークンが見つかりません")
-                return None
-                
             # トークンをデコード
             payload = self.decode_token(token)
             user_id = payload.get("sub")
             
             if not user_id:
-                print("🔍 トークンにuser_idが含まれていません")
+                print(f"🔍 [DEBUG] トークンにuser_idが含まれていません")
                 return None
                 
-            # データベースからユーザー情報を取得（can_see_contentsも含む）
+            # データベースからユーザー情報を取得
             query = """
             SELECT id, name, is_admin, can_see_contents 
             FROM users 
@@ -136,22 +125,47 @@ class AuthService:
             user = self.db.fetch_one(query, (user_id,))
             
             if not user:
-                print(f"🔍 ユーザーID {user_id} が見つかりません")
+                print(f"🔍 [DEBUG] ユーザーID {user_id} が見つかりません")
                 return None
                 
-            print(f"🔍 現在のユーザー取得成功: ID={user['id']}, 名前={user['name']}, can_see_contents={user['can_see_contents']}")
+            print(f"🔍 [DEBUG] get_user_from_token成功: ID={user['id']}, 名前={user['name']}, can_see_contents={user['can_see_contents']}")
             
             return {
                 "id": user['id'],
                 "username": user['name'],
+                "email": user.get('email', ''),
                 "is_admin": user['is_admin'],
                 "can_see_contents": user['can_see_contents']
             }
             
         except Exception as e:
-            print(f"❌ ユーザー取得エラー: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            print(f"❌ [DEBUG] get_user_from_token エラー: {str(e)}")
+            return None
+
+    async def get_current_user(self, request: Request) -> Optional[dict]:
+        """リクエストから現在のユーザー情報を取得"""
+        try:
+            # クッキーからトークンを取得（複数のトークン名に対応）
+            token = request.cookies.get("access_token") or request.cookies.get("auth_token")
+            
+            print(f"🔍 [DEBUG] auth_service.get_current_user: token={'あり' if token else 'なし'}")
+            
+            if not token:
+                return None
+            
+            # トークンからユーザー情報を取得
+            user = await self.get_user_from_token(token)
+            
+            if not user:
+                print("🔍 [DEBUG] auth_service: ユーザー情報取得失敗")
+                return None
+            
+            print(f"🔍 [DEBUG] auth_service: user_id={user['id']}, is_admin={user['is_admin']}, can_see_contents={user['can_see_contents']}")
+            
+            return user
+            
+        except Exception as e:
+            print(f"❌ [DEBUG] auth_service.get_current_user エラー: {e}")
             return None
 
     async def create_user(self, username: str, password: str, is_admin: bool = False) -> Optional[Dict[str, Any]]:

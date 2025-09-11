@@ -31,16 +31,13 @@ def require_auth(credentials: Optional[HTTPAuthorizationCredentials] = Depends(s
 async def check_user_permissions(request: Request) -> dict:
     """リクエストからユーザー権限を確認"""
     try:
-        # 🔧 デバッグ: 全クッキーを確認
-        print("🔍 stores.py権限チェック - 全クッキー:")
-        for key, value in request.cookies.items():
-            print(f"  {key}: {value[:30]}...")
-        
         # auth_serviceを使用してユーザー情報を取得
         user_info = await auth_service.get_current_user(request)
         
+        print(f"🔍 [DEBUG] check_user_permissions: user_info={'あり' if user_info else 'なし'}")
+        
         if not user_info:
-            print("🔍 権限チェック: ユーザー情報取得失敗")
+            print("🔍 [DEBUG] check_user_permissions: ユーザー情報なし - ログアウト状態")
             return {"logged_in": False, "can_see_contents": False}
         
         can_see_contents = user_info.get('can_see_contents', False)
@@ -49,21 +46,21 @@ async def check_user_permissions(request: Request) -> dict:
         # 🔧 開発用: adminユーザーは強制的にcan_see_contents=Trueにする
         if is_admin:
             can_see_contents = True
-            print("🔧 開発用: adminユーザーなのでcan_see_contents=Trueに強制設定")
+            print(f"🔧 [DEBUG] admin強制設定: {user_info['username']} -> can_see_contents=True")
         
-        print(f"🔍 権限チェック結果: user_id={user_info['id']}, username={user_info['username']}, is_admin={is_admin}, can_see_contents={can_see_contents}")
-        
-        return {
+        result = {
             "logged_in": True,
             "can_see_contents": can_see_contents,
             "username": user_info['username'],
             "is_admin": is_admin
         }
         
+        print(f"🔍 [DEBUG] check_user_permissions結果: {result}")
+        
+        return result
+        
     except Exception as e:
-        print(f"❌ 権限チェックエラー: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ [DEBUG] check_user_permissions エラー: {e}")
         return {"logged_in": False, "can_see_contents": False}
 
 @router.get("", response_class=HTMLResponse)
@@ -83,7 +80,9 @@ async def get_stores(
     
     # ユーザー権限を確認
     user_permissions = await check_user_permissions(request)
-    print(f"🔍 店舗一覧: user_permissions={user_permissions}")
+    print(f"🔍 [DEBUG] 店舗一覧リクエスト: page={page}, user_permissions={user_permissions}")
+    print(f"🔍 [DEBUG] リクエストヘッダー: {dict(request.headers)}")
+    print(f"🔍 [DEBUG] クッキー: {dict(request.cookies)}")
     
     try:
         # ランキング表示の開発用にDBエラーを強制発生させる
@@ -308,7 +307,7 @@ async def get_stores(
             
             # 権限に応じた表示名を決定
             name_display = get_store_display_info(store_info, user_permissions["can_see_contents"])
-            print(f"🔍 店舗名決定: store_info={store_info}, can_see_contents={user_permissions['can_see_contents']}, name_display={name_display}")
+            print(f"🔍 [DEBUG] 店舗名決定: {store_info['name']} -> {name_display['display_name']} (can_see_contents={user_permissions['can_see_contents']})")
             
             stores.append({
                 "id": f"dummy_{i + 1}",  # ダミーデータ用のプレフィックスを追加
@@ -374,6 +373,7 @@ async def get_stores(
                 "request": request, 
                 "stores": paged_stores,
                 "user_permissions": user_permissions,
+                "can_see_contents": user_permissions["can_see_contents"],  # 直接アクセス用
                 "pagination": {
                     "current_page": page,
                     "total_pages": total_pages,
@@ -396,7 +396,6 @@ async def get_store_detail(
     
     # ユーザー権限を確認
     user_permissions = await check_user_permissions(request)
-    print(f"🔍 店舗詳細: store_id={store_id}, user_permissions={user_permissions}")
     
     try:
         # 実際のデータベースから店舗情報取得
@@ -461,7 +460,6 @@ async def get_store_detail(
         store_name_data = business.get('name', f"店舗{store_id}")
         store_info = {"name": store_name_data, "blurred_name": business.get('blurred_name', store_name_data)}
         name_display = get_store_display_info(store_info, user_permissions["can_see_contents"])
-        print(f"🔍 店舗詳細名前決定: store_info={store_info}, can_see_contents={user_permissions['can_see_contents']}, name_display={name_display}")
         
         store_data = {
             "id": store_id,
@@ -516,7 +514,6 @@ async def get_store_detail(
         store_name_data = f"店舗{store_id}"
         store_info = {"name": store_name_data, "blurred_name": f"〇〇{store_id}"}
         name_display = get_store_display_info(store_info, user_permissions["can_see_contents"])
-        print(f"🔍 店舗詳細フォールバック名前決定: store_info={store_info}, can_see_contents={user_permissions['can_see_contents']}, name_display={name_display}")
         
         store_data = {
             "id": store_id,
