@@ -1,17 +1,21 @@
-from fastapi import FastAPI, Request, Depends, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, RedirectResponse
-from pathlib import Path
-import logging
-import time
-import os
-import json
-import traceback
-
 import sys
 import os
+import time
+import traceback
+from fastapi import FastAPI, Request, Depends
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+import logging
+
+from app.api import stores
+from app.core.database import get_database
+from app.core.auth_utils import check_user_permissions
+from app.utils.blurred_name_utils import get_store_display_info
+
+from app.api import auth, stores, twitter, pages
+from app.api.admin import router as admin_router
 
 # デバッグ情報出力
 print("\n" + "=" * 60)
@@ -162,17 +166,40 @@ async def get_store_detail(request: Request, store_id: str):
     """店舗詳細ページを表示"""
     
     try:
+        # ユーザー権限を確認
+        user_permissions = await check_user_permissions(request)
+        
         # 実際のデータベースでは店舗IDを使って詳細情報を取得
         # ここではデモ用のダミーデータを返す
         store = generate_dummy_store(store_id)
         related_stores = generate_dummy_related_stores(store_id, store["area"], store["genre"])
+        
+        # 店舗名表示制御
+        store_info = {"name": store["name"], "blurred_name": store.get("blurred_name", f"〇〇{store_id}")}
+        name_display = get_store_display_info(store_info, user_permissions["can_see_contents"])
+        
+        store["original_name"] = name_display["original_name"]
+        store["blurred_name"] = name_display["blurred_name"]
+        store["is_blurred"] = name_display["is_blurred"]
+        
+        # 関連店舗の名前も同様に処理
+        for related_store in related_stores:
+            related_info = {
+                "name": related_store["name"],
+                "blurred_name": related_store.get("blurred_name", f"〇〇{related_store['id']}")
+            }
+            related_display = get_store_display_info(related_info, user_permissions["can_see_contents"])
+            related_store["original_name"] = related_display["original_name"]
+            related_store["blurred_name"] = related_display["blurred_name"]
+            related_store["is_blurred"] = related_display["is_blurred"]
         
         return templates.TemplateResponse(
             "store_detail.html",
             {
                 "request": request,
                 "store": store,
-                "related_stores": related_stores
+                "related_stores": related_stores,
+                "user_permissions": user_permissions
             }
         )
     except Exception as e:

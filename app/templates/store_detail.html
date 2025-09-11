@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}{{ store.name }} | 稼働詳細{% endblock %}
+{% block title %}
+  {% if user_permissions.can_see_contents %}
+    {{ store.original_name }} | 稼働詳細
+  {% else %}
+    {{ store.blurred_name }} | 稼働詳細
+  {% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="px-4 py-6" style="width: 640px; max-width: 100%; margin: 0 auto;">
@@ -16,7 +22,13 @@
   <div class="bg-white rounded-lg shadow-md p-6 mb-6">
     <div class="flex flex-col mb-4">
       <div class="mb-4">
-        <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ store.name }}</h1>
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">
+          {% if user_permissions.can_see_contents %}
+            {{ store.original_name }}
+          {% else %}
+            {{ store.blurred_name }}
+          {% endif %}
+        </h1>
         <div class="flex items-center">
           <span class="px-2 py-1 bg-gray-200 text-gray-800 rounded-full text-sm font-medium mr-2">{{ store.genre }}</span>
           <p class="text-gray-600">{{ store.area }}</p>
@@ -114,7 +126,13 @@
       {% for related_store in related_stores %}
         <a href="/stores/{{ related_store.id }}" class="block bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
           <div class="flex justify-between items-start">
-            <h3 class="font-medium text-gray-900">{{ related_store.name }}</h3>
+            <h3 class="font-medium text-gray-900">
+              {% if user_permissions.can_see_contents %}
+                {{ related_store.original_name }}
+              {% else %}
+                {{ related_store.blurred_name }}
+              {% endif %}
+            </h3>
             <span class="px-2 py-0.5 bg-gray-200 text-gray-800 rounded-full text-xs">{{ related_store.genre }}</span>
           </div>
           <p class="text-gray-600 text-sm mt-1">{{ related_store.area }}</p>
