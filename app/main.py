@@ -14,7 +14,7 @@ from app.core.database import get_database
 from app.core.auth_utils import check_user_permissions
 from app.utils.blurred_name_utils import get_store_display_info
 
-from app.api import auth, stores, twitter, pages
+from app.api import auth, stores, twitter, pages, config
 from app.api.admin import router as admin_router
 
 # デバッグ情報出力
@@ -103,6 +103,7 @@ app.include_router(stores.router)
 app.include_router(twitter.router)
 app.include_router(admin_router)
 app.include_router(pages.router)
+app.include_router(config.router)
 
 # ロガー設定
 logging.basicConfig(

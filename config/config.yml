@@ -53,6 +53,12 @@ auth:
   access_token_expire_minutes: 10080  # 7日間（7*24*60）
   magic_link_expire_minutes: 15
 
+# 📱 LINE プロンプト設定
+line:
+  url: "https://line.me/ti/p/fDpRYZH7C2"
+  initial_delay_seconds: 30
+  reoccurrence_interval_minutes: 30
+
 # 📱 フロントエンド設定
 frontend:
   url: "http://localhost:5173"
