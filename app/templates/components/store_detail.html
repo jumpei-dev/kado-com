@@ -34,6 +34,16 @@
     </div>
   </div>
 
+  <!-- 稼働推移グラフセクション -->
+  <div class="mb-8">
+    <h3 class="text-lg font-semibold mb-4">曜日別稼働推移</h3>
+    <div class="bg-white border rounded-lg p-4">
+      <div class="relative h-64">
+        <canvas id="workingTrendChart"></canvas>
+      </div>
+    </div>
+  </div>
+
   <div class="flex justify-between">
     <button 
       class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded"
@@ -44,3 +54,170 @@
     </button>
   </div>
 </div>
+
+<!-- Chart.js読み込み -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- 稼働推移グラフの初期化 -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initWorkingTrendChart('{{ store.id }}');
+});
+
+async function initWorkingTrendChart(storeId) {
+    console.log('🔍 稼働推移グラフ初期化開始:', storeId);
+    
+    try {
+        // 稼働推移データを取得
+        const response = await fetch(`/api/stores/${storeId}/working-trend`);
+        const result = await response.json();
+        
+        console.log('📊 稼働推移データ:', result);
+        
+        if (!result.success) {
+            console.warn('⚠️ データ取得に問題がありました:', result.error);
+        }
+        
+        const ctx = document.getElementById('workingTrendChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: result.labels,  // ['日', '月', '火', '水', '木', '金', '土']
+                datasets: [{
+                    label: '稼働率(%)',
+                    data: result.data,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: 'rgb(59, 130, 246)',
+                    pointBorderColor: 'white',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `曜日別稼働推移 (データソース: ${result.data_source})`,
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        },
+                        color: '#374151'
+                    },
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return `稼働率: ${context.parsed.y}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: '稼働率(%)',
+                            color: '#6B7280',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#6B7280',
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '曜日',
+                            color: '#6B7280',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#6B7280'
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+        
+        console.log('✅ 稼働推移グラフ初期化完了');
+        
+    } catch (error) {
+        console.error('❌ 稼働推移グラフの初期化に失敗:', error);
+        
+        // エラー時はダミーデータで表示
+        const ctx = document.getElementById('workingTrendChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['日', '月', '火', '水', '木', '金', '土'],
+                datasets: [{
+                    label: '稼働率(%)',
+                    data: [45, 65, 70, 75, 85, 95, 90],
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '曜日別稼働推移（エラー時ダミーデータ）',
+                        color: '#DC2626'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100
+                    }
+                }
+            }
+        });
+    }
+}
+</script>

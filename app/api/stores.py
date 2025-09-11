@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from typing import List, Dict, Any, Optional
 import sys
 import os
+import random
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # プロジェクトルートをパスに追加
@@ -554,3 +556,174 @@ async def get_store_detail(
                 "user_permissions": user_permissions
             }
         )
+
+def generate_dummy_working_trend_data(store_id: str):
+    """ダミーの稼働推移データを生成"""
+    weekday_names = ['日', '月', '火', '水', '木', '金', '土']
+    # 曜日別の稼働率（リアルなパターン）
+    base_rates = [45, 65, 70, 75, 85, 95, 90]  # 日〜土
+    
+    # ランダムな変動を追加
+    working_rates = [
+        max(0, min(100, rate + random.randint(-10, 10)))
+        for rate in base_rates
+    ]
+    
+    return {
+        "labels": weekday_names,
+        "data": working_rates,
+        "store_id": store_id
+    }
+
+@router.get("/{store_id}/working_trend", response_class=JSONResponse)
+async def get_working_trend(
+    request: Request,
+    store_id: str,
+    auth: bool = Depends(require_auth)
+):
+    """店舗の稼働推移データ取得"""
+    
+    # ユーザー権限を確認
+    user_permissions = await check_user_permissions(request)
+    
+    try:
+        # 実際のデータベースから店舗情報取得
+        businesses = db.get_businesses()
+        business = None
+        
+        # ダミーデータ用IDの場合はダミーデータを返す
+        if store_id.startswith("dummy_"):
+            dummy_index = int(store_id.replace("dummy_", "")) - 1
+            store_data_list = [
+                {"name": "チュチュバナナ", "blurred_name": "〇〇〇〇ナナ"},
+                {"name": "ハニービー", "blurred_name": "〇〇〇ビー"},
+                {"name": "バンサー", "blurred_name": "〇〇サー"},
+                {"name": "ウルトラグレース", "blurred_name": "〇〇〇〇〇レース"},
+                {"name": "メルティキス", "blurred_name": "〇〇〇キス"},
+                {"name": "ピュアハート", "blurred_name": "〇〇〇ハート"},
+                {"name": "シャイニーガール", "blurred_name": "〇〇〇〇ガール"},
+                {"name": "エンジェルフェザー", "blurred_name": "〇〇〇〇〇フェザー"},
+                {"name": "プリンセスルーム", "blurred_name": "〇〇〇〇〇ルーム"},
+                {"name": "ルビーパレス", "blurred_name": "〇〇〇パレス"},
+            ]
+            
+            if 0 <= dummy_index < len(store_data_list):
+                store_info = store_data_list[dummy_index]
+                business = {
+                    "name": store_info["name"],
+                    "blurred_name": store_info["blurred_name"],
+                    "area": "ダミー地区",
+                    "prefecture": "東京都",
+                    "city": "新宿区",
+                    "genre": "ソープランド"
+                }
+            else:
+                business = {"name": f"ダミー店舗{dummy_index + 1}", "blurred_name": f"〇〇店舗{dummy_index + 1}", "area": "ダミー地区"}
+        else:
+            # 実際のIDの場合はDBから検索
+            for key, biz in businesses.items():
+                if str(biz.get('Business ID')) == store_id:
+                    business = biz
+                    break
+        
+        if not business:
+            # 店舗が見つからない場合はダミーデータ
+            business = {"name": f"店舗{store_id}", "blurred_name": f"〇〇{store_id}", "area": "不明"}
+        
+        # ダミーの稼働推移データを生成
+        trend_data = generate_dummy_working_trend_data(store_id)
+        
+        # レスポンスデータ
+        response_data = {
+            "store_id": store_id,
+            "store_name": business.get("name", "不明"),
+            "trend_data": trend_data
+        }
+        
+        return response_data
+    
+    except Exception as e:
+        print(f"⚠️ 稼働推移データ取得エラー: {e}")
+        # エラー時は空のデータを返す
+        return {
+            "store_id": store_id,
+            "store_name": f"店舗{store_id}",
+            "trend_data": {
+                "labels": [],
+                "data": []
+            }
+        }
+
+@router.get("/{store_id}/working-trend", response_class=JSONResponse)
+async def get_store_working_trend(
+    request: Request,
+    store_id: str,
+    auth: bool = Depends(require_auth),
+    db = Depends(get_database)
+):
+    """店舗の稼働推移データを取得"""
+    try:
+        print(f"🔍 稼働推移データ取得: store_id={store_id}")
+        
+        # 実際のstatus_historyテーブルからデータ取得を試行
+        if not store_id.startswith("dummy_"):
+            # 実際のDBからデータ取得
+            query = """
+            SELECT 
+                biz_date,
+                working_rate,
+                EXTRACT(DOW FROM biz_date) as day_of_week
+            FROM status_history 
+            WHERE business_id = %s
+            AND biz_date >= CURRENT_DATE - INTERVAL '7 days'
+            ORDER BY biz_date ASC
+            """
+            
+            try:
+                results = db.fetch_all(query, (int(store_id),))
+                
+                if results:
+                    # 曜日別データに変換
+                    weekday_data = [0] * 7  # 日曜〜土曜
+                    weekday_names = ['日', '月', '火', '水', '木', '金', '土']
+                    
+                    for row in results:
+                        day_of_week = int(row['day_of_week'])  # 0=日曜, 6=土曜
+                        weekday_data[day_of_week] = float(row['working_rate'])
+                    
+                    print(f"✅ 実際のDBデータを使用: {weekday_data}")
+                    return JSONResponse(content={
+                        "success": True,
+                        "labels": weekday_names,
+                        "data": weekday_data,
+                        "store_id": store_id,
+                        "data_source": "database"
+                    })
+            except Exception as db_error:
+                print(f"⚠️ DBエラー、ダミーデータにフォールバック: {db_error}")
+        
+        # ダミーデータを生成
+        dummy_data = generate_dummy_working_trend_data(store_id)
+        print(f"🔧 ダミーデータを使用: {dummy_data['data']}")
+        
+        return JSONResponse(content={
+            "success": True,
+            "labels": dummy_data["labels"],
+            "data": dummy_data["data"],
+            "store_id": store_id,
+            "data_source": "dummy"
+        })
+        
+    except Exception as e:
+        print(f"❌ 稼働推移データ取得エラー: {e}")
+        
+        # エラー時もダミーデータを返す
+        dummy_data = generate_dummy_working_trend_data(store_id)
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+            "labels": dummy_data["labels"],
+            "data": dummy_data["data"],
+            "store_id": store_id,
+            "data_source": "error_fallback"
+        })
