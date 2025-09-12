@@ -13,7 +13,7 @@ on:
         type: choice
         options:
           - status-collection
-          - working-rate-calculation
+          - working-rate
           - debug-html
 
 jobs:
