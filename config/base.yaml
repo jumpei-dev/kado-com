@@ -1,23 +1,23 @@
-# 開発環境設定
-database:
-  host: "localhost"
-  port: 5432
-  database: "kado_dev"
-  user: "dev_user"
-  password: "dev_password"
-  
+# 基本設定テンプレート（全環境共通）
+# 環境固有の値は各環境の設定ファイルでオーバーライド
+
 logging:
-  level: "DEBUG"
-  log_dir: "./logs"
-  max_file_size: 10485760  # 10MB
+  level: "INFO"          # 環境別でオーバーライド
+  log_dir: "./logs"      # 環境別でオーバーライド
+  max_file_size: 10485760  # 10MB（環境別調整可）
   backup_count: 5
-  
+
 scheduling:
+  # 🕐 スケジュール設定（全環境統一）
   status_collection_interval: 30  # 分
   history_calculation_hour: 12     # 稼働率計算実行時刻（12時）
   history_calculation_minute: 0    # 稼働率計算実行分
+  
+  # 📊 並行処理設定（環境別調整）
   max_concurrent_businesses: 3     # 稼働状況取得の店舗並行処理数
   max_concurrent_working_rate: 5   # 稼働率計算の並行処理数
+  
+  # 🔧 運用設定（全環境統一）
   health_check_interval: 15        # 分
   cleanup_time_hour: 2             # 午前2時
   cleanup_time_minute: 0
@@ -26,8 +26,9 @@ scheduling:
     status_history: 600     # 10分
   max_log_retention_days: 30       # ログ保持日数
   business_hours_buffer: 0         # 営業時間バッファ（分）
-  
+
 scraping:
+  # 🌐 基本スクレイピング設定（全環境統一）
   timeout: 30
   retry_attempts: 3
   delay_between_requests: 1

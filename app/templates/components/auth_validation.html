@@ -1,0 +1,17 @@
+<!-- 共通の認証レスポンス検証スクリプト -->
+<script>
+  (function() {
+    // このスクリプトはレスポンス（エラーまたは成功）後に実行される
+    console.log('認証レスポンス検証完了');
+    
+    // レスポンス要素の可視性を確認
+    const validationResponseElement = document.getElementById('login-response');
+    if (validationResponseElement) {
+      console.log('レスポンス要素を検出:', validationResponseElement);
+      
+      // レスポンス要素を確実に表示
+      validationResponseElement.style.display = 'block';
+      validationResponseElement.style.opacity = '1';
+    }
+  })();
+</script>

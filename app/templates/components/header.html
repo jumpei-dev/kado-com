@@ -1,0 +1,127 @@
+<header class="bg-gray-800 shadow-lg rounded-t-lg">
+  <div class="px-4 py-4" style="width: 640px; max-width: 100%; margin: 0 auto;">
+    <div class="flex justify-between items-center">
+      <!-- サイトロゴ -->
+      <a href="/" class="text-white text-xl font-bold flex items-center">
+        <span class="mr-1">稼働.com</span>
+      </a>
+      
+      <!-- 認証コンポーネント -->
+      <div x-data="{ 
+        isOpen: false,
+        isLoggedIn: false,
+        userName: '',
+        isAdmin: false,
+        
+        init() {
+          // ページ読み込み時に認証状態を確認
+          this.checkAuth();
+          
+          // 認証イベントのリスナー登録
+          document.addEventListener('auth:login', () => {
+            console.log('認証ステータス変更を検知: ログイン');
+            this.checkAuth();
+          });
+          
+          document.addEventListener('auth:logout', () => {
+            console.log('認証ステータス変更を検知: ログアウト');
+            this.isLoggedIn = false;
+            this.userName = '';
+            this.isAdmin = false;
+          });
+        },
+        
+        checkAuth() {
+          // 認証状態の確認（簡易版）
+          fetch('/api/auth/me')
+            .then(response => response.json())
+            .then(data => {
+              console.log('認証状態:', data);
+              this.isLoggedIn = data.authenticated;
+              if (data.authenticated && data.user) {
+                this.userName = data.user.username || 'ユーザー';
+                this.isAdmin = data.user.is_admin || false;
+              } else {
+                this.userName = '';
+                this.isAdmin = false;
+              }
+            })
+            .catch(err => {
+              console.error('認証確認エラー:', err);
+              this.isLoggedIn = false;
+              this.isAdmin = false;
+            });
+        }
+      }">
+        <!-- 未ログイン時 -->
+        <template x-if="!isLoggedIn">
+          <button 
+            @click="$dispatch('open-modal', {id: 'loginModal'})"
+            class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+            ログイン
+          </button>
+        </template>
+        
+        <!-- ログイン時 -->
+        <template x-if="isLoggedIn">
+          <div class="relative" x-data="{ isOpen: false }">
+            <button 
+              @click="isOpen = !isOpen" 
+              class="flex items-center space-x-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors duration-200">
+              <span class="font-medium" x-text="userName"></span>
+              <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            
+            <!-- ドロップダウンメニュー -->
+            <div 
+              x-show="isOpen" 
+              @click.away="isOpen = false"
+              x-transition:enter="transition ease-out duration-100"
+              x-transition:enter-start="transform opacity-0 scale-95"
+              x-transition:enter-end="transform opacity-100 scale-100"
+              x-transition:leave="transition ease-in duration-75"
+              x-transition:leave-start="transform opacity-100 scale-100"
+              x-transition:leave-end="transform opacity-0 scale-95"
+              class="absolute right-0 mt-2 w-48 bg-gray-800 rounded-md shadow-lg py-1 z-10">
+              
+              <!-- 管理者のみ表示 -->
+              <template x-if="isAdmin">
+                <a href="/admin/users" class="block px-4 py-2 text-gray-200 hover:bg-gray-600 hover:text-white">
+                  ユーザー管理
+                </a>
+              </template>
+              
+              <!-- ログアウトボタン -->
+              <button 
+                @click="
+                fetch('/api/auth/logout', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  }
+                })
+                .then(response => response.json())
+                .then(data => { 
+                  console.log('ログアウト結果:', data);
+                  isLoggedIn = false;
+                  userName = '';
+                  isAdmin = false;
+                  isOpen = false;
+                  window.location.href = '/';
+                })
+                .catch(err => { 
+                  console.error('ログアウトエラー:', err);
+                  alert('ログアウト処理中にエラーが発生しました');
+                });" 
+                class="block w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600 hover:text-white">
+                ログアウト
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</header>

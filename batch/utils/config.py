@@ -29,6 +29,46 @@ class DatabaseConfig:
             max_overflow=int(os.getenv('DB_MAX_OVERFLOW', 10)),
             pool_timeout=int(os.getenv('DB_POOL_TIMEOUT', 30))
         )
+    
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> 'DatabaseConfig':
+        """設定辞書から設定を作成する"""
+        db_config = config_dict.get('database', {})
+        
+        # secret.ymlから機密情報を読み込み
+        project_root = Path(__file__).parent.parent.parent
+        secret_file = project_root / 'config' / 'secret.yml'
+        
+        secret_config = {}
+        if secret_file.exists():
+            try:
+                with open(secret_file, 'r', encoding='utf-8') as f:
+                    secret_data = yaml.safe_load(f)
+                    secret_config = secret_data.get('database', {})
+            except Exception as e:
+                print(f"secret.yml読み込みエラー: {e}")
+        
+        # secret.ymlの値を優先し、なければconfig.ymlの値を使用
+        if 'url' in secret_config:
+            # secret.ymlに直接URLが記載されている場合
+            connection_string = secret_config['url']
+        else:
+            # YAML設定から接続文字列を構築
+            host = db_config.get('host', 'localhost')
+            port = db_config.get('port', 5432)
+            database = db_config.get('database', 'postgres')
+            user = db_config.get('user', 'postgres')
+            password = secret_config.get('password', db_config.get('password', ''))
+            sslmode = db_config.get('sslmode', 'disable')
+            
+            connection_string = f"postgresql://{user}:{password}@{host}:{port}/{database}?sslmode={sslmode}"
+        
+        return cls(
+            connection_string=connection_string,
+            pool_size=db_config.get('pool_size', 5),
+            max_overflow=db_config.get('max_overflow', 10),
+            pool_timeout=db_config.get('pool_timeout', 30)
+        )
 
 @dataclass
 class ScrapingConfig:
@@ -236,7 +276,7 @@ def get_config() -> BatchConfig:
     """グローバル設定インスタンスを取得"""
     global _config
     if _config is None:
-        _config = BatchConfig.from_env()
+        _config = load_config_for_environment()
     return _config
 
 def set_config(config: BatchConfig):
@@ -250,13 +290,10 @@ def load_config_from_file(config_path: str):
     _config = BatchConfig.from_file(config_path)
 
 def load_config_for_environment(environment: str = None) -> BatchConfig:
-    """環境に応じた設定ファイルを読み込む"""
-    if environment is None:
-        environment = os.getenv('BATCH_ENVIRONMENT', 'development')
-    
-    # プロジェクトルートの設定ディレクトリを検索
+    """統合設定ファイルから設定を読み込む"""
+    # プロジェクトルートの設定ディレクトリから config.yml を読み込み
     project_root = Path(__file__).parent.parent.parent
-    config_file = project_root / 'config' / f'{environment}.yaml'
+    config_file = project_root / 'config' / 'config.yml'
     
     if config_file.exists():
         return BatchConfig.from_yaml(str(config_file))
@@ -266,3 +303,101 @@ def load_config_for_environment(environment: str = None) -> BatchConfig:
 
 # レガシー互換性のためのエイリアス
 Config = BatchConfig
+
+def get_scheduling_config():
+    """既存のget_config()を活用してスケジューリング設定を取得"""
+    config = get_config()
+    config_dict = config.to_dict()
+    scheduling = config_dict.get('scheduling', {})
+    
+    return {
+        'status_cron': f"*/{scheduling.get('status_collection_interval', 30)} * * * *",
+        'working_rate_cron': f"{scheduling.get('history_calculation_minute', 0)} {scheduling.get('history_calculation_hour', 12)} * * *",
+        'timezone': 'Asia/Tokyo'
+    }
+
+def get_database_config():
+    """設定ファイルからデータベース設定を取得"""
+    try:
+        # 直接YAMLファイルを読み込み
+        project_root = Path(__file__).parent.parent.parent
+        config_file = project_root / 'config' / 'config.yml'
+        
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config_dict = yaml.safe_load(f)
+            return DatabaseConfig.from_dict(config_dict)
+        else:
+            # フォールバック: 環境変数
+            return DatabaseConfig.from_env()
+    except Exception as e:
+        print(f"設定ファイル読み込みエラー: {e}")
+        # フォールバック: 環境変数
+        return DatabaseConfig.from_env()
+
+def get_scraping_config():
+    """スクレイピング設定を取得"""
+    try:
+        project_root = Path(__file__).parent.parent.parent
+        config_file = project_root / 'config' / 'config.yml'
+        
+        if config_file.exists():
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config_dict = yaml.safe_load(f)
+            
+            scraping_config = config_dict.get('scraping', {})
+            
+            # デフォルト値を設定
+            return {
+                'timeout': scraping_config.get('timeout', 30),
+                'retry_attempts': scraping_config.get('retry_attempts', 3),
+                'user_agents': scraping_config.get('user_agents', [
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ]),
+                'max_parallel_businesses': scraping_config.get('max_parallel_businesses', 3),
+                'min_delay': scraping_config.get('min_delay', 0.5),
+                'max_delay': scraping_config.get('max_delay', 2.0),
+                'request_interval': scraping_config.get('request_interval', 1.0),
+                'retry_delay': scraping_config.get('retry_delay', 3.0),
+                'use_aiohttp': scraping_config.get('use_aiohttp', True),
+                'connection_pooling': scraping_config.get('connection_pooling', True),
+                'keep_alive': scraping_config.get('keep_alive', True),
+                'compress': scraping_config.get('compress', True)
+            }
+        else:
+            # フォールバック: デフォルト設定
+            return {
+                'timeout': 30,
+                'retry_attempts': 3,
+                'user_agents': [
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ],
+                'max_parallel_businesses': 3,
+                'min_delay': 0.5,
+                'max_delay': 2.0,
+                'request_interval': 1.0,
+                'retry_delay': 3.0,
+                'use_aiohttp': True,
+                'connection_pooling': True,
+                'keep_alive': True,
+                'compress': True
+            }
+    except Exception as e:
+        print(f"スクレイピング設定読み込みエラー: {e}")
+        # エラー時のフォールバック
+        return {
+            'timeout': 30,
+            'retry_attempts': 3,
+            'user_agents': [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ],
+            'max_parallel_businesses': 1,  # 安全のため並行処理を無効
+            'min_delay': 1.0,
+            'max_delay': 3.0,
+            'request_interval': 2.0,
+            'retry_delay': 5.0,
+            'use_aiohttp': False,  # 安全のためaiohttp無効
+            'connection_pooling': False,
+            'keep_alive': False,
+            'compress': False
+        }

@@ -1,0 +1,25 @@
+<div class="bg-gray-50 p-6 rounded-lg text-center">
+  <svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+  </svg>
+  
+  <h3 class="text-lg font-semibold text-gray-700 mb-2">
+    {% if type == 'activity_chart' %}
+    稼働率グラフを閲覧するには特別なアクセス権限が必要です
+    {% elif type == 'store_detail' %}
+    店舗詳細情報を閲覧するには特別なアクセス権限が必要です
+    {% else %}
+    詳細情報を閲覧するには特別なアクセス権限が必要です
+    {% endif %}
+  </h3>
+  
+  <p class="text-gray-600 mb-6">
+    LINEで問い合わせると、より詳細な情報が閲覧できるようになります
+  </p>
+  
+  <button onclick="showLinePrompt('premium_content')" 
+          class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md font-medium transition-colors">
+    詳しく知る
+  </button>
+</div>

@@ -1,0 +1,99 @@
+<div class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center" id="store-details-modal"></div>
+  <div class="bg-white rounded-lg shadow-xl max-w-xl w-full mx-4 relative animate-fadeIn">
+    <!-- モーダルヘッダー -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-700 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
+      <h3 class="text-xl font-medium">{{ store.name }} 詳細情報</h3>
+      <button class="text-white hover:text-gray-200 transition-colors"
+              onclick="document.getElementById('store-details-modal').remove()">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    
+    <!-- モーダルボディ -->
+    <div class="p-6">
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <div>
+          <p class="text-sm text-gray-600">エリア</p>
+          <p class="font-medium">{{ store.area }}</p>
+        </div>
+        <div>
+          <p class="text-sm text-gray-600">業種</p>
+          <p class="font-medium">{{ store.genre }}</p>
+        </div>
+        <div>
+          <p class="text-sm text-gray-600">キャスト数</p>
+          <p class="font-medium">{{ store.cast_count }}人</p>
+        </div>
+        <div>
+          <p class="text-sm text-gray-600">現在の稼働</p>
+          <p class="font-bold text-xl {{ 'text-green-600' if store.working_rate > 70 else 'text-yellow-600' if store.working_rate > 40 else 'text-red-600' }}">
+            {{ store.working_rate }}%
+          </p>
+        </div>
+      </div>
+      
+      <!-- 稼働率履歴グラフ -->
+      <div class="mb-6">
+        <h4 class="font-medium mb-3">稼働推移</h4>
+        <div class="h-48 bg-gradient-to-r from-gray-100 to-white p-4 rounded-lg border border-gray-200 flex items-end justify-between space-x-2">
+          {% for period in store.history %}
+            <div class="flex flex-col items-center flex-1">
+              <div class="w-full bg-gradient-to-t 
+                          {{ 'from-green-400 to-green-300' if period.rate > 70 else 
+                             'from-yellow-400 to-yellow-300' if period.rate > 40 else 
+                             'from-red-400 to-red-300' }} 
+                           rounded-t-sm relative" 
+                   style="height: {{ period.rate }}%">
+                <div class="absolute bottom-0 left-0 right-0 top-0 flex items-center justify-center text-xs font-medium text-white">
+                  {{ period.rate }}%
+                </div>
+              </div>
+              <div class="text-xs text-gray-600 mt-1">{{ period.label }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      
+      <!-- 推奨コメント -->
+      <div class="bg-gradient-to-r 
+                  {{ 'from-green-50 to-green-100/30' if store.working_rate > 70 else 
+                     'from-yellow-50 to-yellow-100/30' if store.working_rate > 40 else 
+                     'from-red-50 to-red-100/30' }} 
+                  p-4 rounded-lg border 
+                  {{ 'border-green-200' if store.working_rate > 70 else 
+                     'border-yellow-200' if store.working_rate > 40 else 
+                     'border-red-200' }}">
+        <p class="text-{{ 'green-800' if store.working_rate > 70 else 'yellow-800' if store.working_rate > 40 else 'red-800' }} text-sm">
+          {% if store.working_rate > 70 %}
+            現在の稼働が高いため、高収入が見込めます。早めの出勤がおすすめです。
+          {% elif store.working_rate > 40 %}
+            平均的な稼働です。時間帯によって忙しさが変わる可能性があります。
+          {% else %}
+            現在は稼働が低めです。他の店舗も検討するか、稼働が上がる時期を待つと良いでしょう。
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    
+    <!-- モーダルフッター -->
+    <div class="bg-gray-50 px-6 py-4 rounded-b-lg flex justify-end">
+      <button class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded transition-colors"
+              onclick="document.getElementById('store-details-modal').remove()">
+        閉じる
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>

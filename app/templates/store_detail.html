@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if user_permissions.can_see_contents %}
+    {{ store.original_name }} | 稼働詳細
+  {% else %}
+    {{ store.blurred_name }} | 稼働詳細
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6" style="width: 640px; max-width: 100%; margin: 0 auto;">
+  <!-- 戻るボタン -->
+  <a href="/" class="inline-flex items-center text-gray-600 hover:text-gray-800 mb-6 transition-colors">
+    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+    </svg>
+    店舗一覧に戻る
+  </a>
+
+  <!-- 店舗情報ヘッダー -->
+  <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="flex flex-col mb-4">
+      <div class="mb-4">
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">
+          {% if user_permissions.can_see_contents %}
+            {{ store.original_name }}
+          {% else %}
+            {{ store.blurred_name }}
+          {% endif %}
+        </h1>
+        <div class="flex items-center">
+          <span class="px-2 py-1 bg-gray-200 text-gray-800 rounded-full text-sm font-medium mr-2">{{ store.genre }}</span>
+          <p class="text-gray-600">{{ store.area }}</p>
+        </div>
+      </div>
+      <div class="bg-gray-50 p-4 rounded-lg text-center">
+        <p class="text-gray-600 mb-1">先週の平均稼働率</p>
+        <div class="text-3xl font-bold {{ 'text-green-600' if store.working_rate > 70 else 'text-yellow-600' if store.working_rate > 40 else 'text-red-600' }}">
+          {{ store.working_rate }}%
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col space-y-4">
+      <div class="bg-gray-50 p-4 rounded-lg">
+        <div class="space-y-3">
+          <div>
+            <p class="text-sm text-gray-600">エリア</p>
+            <p class="font-medium">{{ store.area }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">業種</p>
+            <p class="font-medium">{{ store.genre }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-gray-50 p-4 rounded-lg">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-medium text-gray-900">稼働推移</h3>
+          <div class="flex bg-gray-200 rounded-lg p-1">
+            <button id="period-7days" class="px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-900 shadow-sm transition-colors">7日間</button>
+            <button id="period-2months" class="px-3 py-1 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-colors">2ヶ月</button>
+          </div>
+        </div>
+        <div class="h-64 bg-white p-4 rounded-lg border border-gray-200">
+          <canvas id="workingRateChart" width="100%" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 比較情報 -->
+  <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <div class="bg-gray-50 p-5 rounded-lg border border-gray-200">
+      <h3 class="font-medium text-gray-900 mb-2">同エリア・業種との比較</h3>
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-sm text-gray-600">同エリア平均</span>
+            <span class="text-sm font-medium">72%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div class="bg-gray-600 h-2.5 rounded-full" style="width: 72%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-sm text-gray-600">同業種平均</span>
+            <span class="text-sm font-medium">68%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div class="bg-gray-600 h-2.5 rounded-full" style="width: 68%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- おすすめ店舗 -->
+  {% if related_stores %}
+  <div class="bg-white rounded-lg shadow-md p-6">
+    <h2 class="text-xl font-bold text-gray-900 mb-4">同エリア・業種のおすすめ店舗</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for related_store in related_stores %}
+        <a href="/stores/{{ related_store.id }}" class="block bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+          <div class="flex justify-between items-start">
+            <h3 class="font-medium text-gray-900">
+              {% if user_permissions.can_see_contents %}
+                {{ related_store.original_name }}
+              {% else %}
+                {{ related_store.blurred_name }}
+              {% endif %}
+            </h3>
+            <span class="px-2 py-0.5 bg-gray-200 text-gray-800 rounded-full text-xs">{{ related_store.genre }}</span>
+          </div>
+          <p class="text-gray-600 text-sm mt-1">{{ related_store.area }}</p>
+          <div class="mt-2">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-xs text-gray-600">稼働率</span>
+              <span class="text-xs font-medium">{{ related_store.working_rate }}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-1.5">
+              <div class="bg-{{ 'green-600' if related_store.working_rate > 70 else 'yellow-600' if related_store.working_rate > 40 else 'red-600' }} h-1.5 rounded-full" 
+                   {% if related_store.working_rate %}style="width: {{ related_store.working_rate }}%"{% endif %}></div>
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script id="chart-data" type="application/json">{{ store.history|tojson }}</script>
+<script src="/static/js/store_detail_chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartDataElement = document.getElementById('chart-data');
+    const data = JSON.parse(chartDataElement.textContent);
+    
+    initWorkingRateChart(data);
+});
+</script>
+{% endblock %}

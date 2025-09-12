@@ -150,7 +150,6 @@ class BatchJobResult:
 @dataclass
 class CastStatus:
     """キャスト状況データモデル（スクレイピング結果用）"""
-    name: str
     is_working: bool
     business_id: str
     cast_id: str = ""
@@ -160,4 +159,4 @@ class CastStatus:
     
     def __str__(self):
         working_status = "working" if self.is_working else "not working"
-        return f"CastStatus({self.name}, {working_status})"
+        return f"CastStatus(cast_id:{self.cast_id}, {working_status})"

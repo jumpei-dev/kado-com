@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}稼働.com | 風俗店の稼働比較サイト{% endblock %}
+
+{% block content %}
+<main class="py-6 px-4" style="width: 640px; max-width: 100%; margin: 0 auto;">
+  
+  <!-- フィルタードロワー -->
+  <div x-data="{ open: false, periodText: '先週の' }" x-init="
+    $watch('$store.periodFilter.value', (val) => {
+      if (val === 'week') periodText = '先週の';
+      else if (val === 'month') periodText = '過去一ヶ月の';
+      else if (val === 'three_months') periodText = '過去三ヶ月の';
+      else if (val === 'six_months') periodText = '過去半年の';
+      else periodText = '';
+    })
+  ">
+    <!-- フィルターボタン -->
+    <div class="flex justify-between items-center mb-2 mt-4">
+      <h2 class="text-2xl font-extrabold text-gray-900">
+        <span x-text="periodText"></span>稼働率ランキング
+      </h2>
+      <div class="flex flex-col items-end">
+        <button @click="open = true" type="button" class="flex items-center bg-gray-700 text-white py-1 px-3 rounded-full text-sm mb-2">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+          </svg>
+          絞り込む
+        </button>
+        <a href="/data-guide" class="flex items-center bg-blue-50 hover:bg-blue-100 text-blue-800 font-medium py-1 px-3 rounded-full text-sm transition-colors">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          稼働率について
+        </a>
+      </div>
+    </div>
+    
+    <!-- オーバーレイとパネル -->
+    <div x-show="open" class="fixed inset-0 z-50 flex items-center justify-center" x-cloak>
+      <!-- オーバーレイ背景 -->
+      <div class="fixed inset-0 bg-gray-500 bg-opacity-75" @click="open = false"></div>
+      
+      <!-- モーダルパネル -->
+      <div class="relative max-w-[640px] w-full mx-auto bg-white rounded-xl shadow-lg" style="max-height: 80vh; overflow-y: auto; margin-top: -10vh;">
+        <div class="px-4 py-5">
+            <!-- ハンドル -->
+            <div class="flex justify-center mb-4">
+              <div class="w-12 h-1 rounded-full bg-gray-300"></div>
+            </div>
+            
+            <h3 class="text-lg font-medium text-gray-900 mb-4">条件で絞り込む</h3>
+            
+            <div class="space-y-4 mb-6">
+              <!-- エリア -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">エリア</label>
+                <select name="area" class="w-full rounded-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        hx-get="/api/stores" 
+                        hx-target="#store-list"
+                        hx-trigger="change"
+                        hx-indicator="#loading"
+                        hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
+                        hx-params="area,genre,rank,period,page=1,page_size=30"
+                        hx-swap="innerHTML"
+                        >
+                  <option value="all">すべて</option>
+                  <option value="関東">関東</option>
+                  <option value="関西">関西</option>
+                  <option value="中部">中部</option>
+                  <option value="北海道・東北">北海道・東北</option>
+                  <option value="中国・四国">中国・四国</option>
+                  <option value="九州・沖縄">九州・沖縄</option>
+                </select>
+              </div>
+              
+              <!-- 業種 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">業種</label>
+                <select name="genre" class="w-full rounded-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        hx-get="/api/stores" 
+                        hx-target="#store-list"
+                        hx-trigger="change"
+                        hx-indicator="#loading"
+                        hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
+                        hx-params="area,genre,rank,period,page=1,page_size=30"
+                        hx-swap="innerHTML"
+                        >
+                  <option value="all">すべて</option>
+                  <option value="ソープランド">ソープランド</option>
+                  <option value="ヘルス">ヘルス</option>
+                  <option value="デリヘル">デリヘル</option>
+                  <option value="キャバクラ">キャバクラ</option>
+                  <option value="ピンサロ">ピンサロ</option>
+                </select>
+              </div>
+              
+              <!-- ランク -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">ランク</label>
+                <select name="rank" class="w-full rounded-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        hx-get="/api/stores" 
+                        hx-target="#store-list"
+                        hx-trigger="change"
+                        hx-indicator="#loading"
+                        hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
+                        hx-params="area,genre,rank,period,page=1,page_size=30"
+                        hx-swap="innerHTML"
+                        >
+                  <option value="all">すべて</option>
+                  <option value="under100">スペ～99</option>
+                  <option value="over100">それ以上</option>
+                </select>
+              </div>
+              
+              <!-- 期間 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">期間</label>
+                <select name="period" id="period-filter" class="w-full rounded-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
+                        hx-get="/api/stores" 
+                        hx-target="#store-list"
+                        hx-trigger="change"
+                        hx-indicator="#loading"
+                        hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
+                        hx-params="area,genre,rank,period,page=1,page_size=30"
+                        hx-swap="innerHTML"
+                        @change="$store.periodFilter.value = $event.target.value">
+                  <option value="week" selected>先週</option>
+                  <option value="month">過去一ヶ月</option>
+                  <option value="three_months">過去三ヶ月</option>
+                  <option value="six_months">過去半年</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="flex gap-3">
+              <button @click="open = false" class="flex-1 py-3 px-4 border border-gray-300 rounded-md text-gray-700 font-medium">
+                キャンセル
+              </button>
+              <button class="flex-1 py-3 px-4 bg-gray-700 text-white rounded-md font-medium hover:bg-gray-800 transition-colors"
+                      hx-get="/api/stores" 
+                      hx-target="#store-list"
+                      hx-trigger="click"
+                      hx-indicator="#loading"
+                      hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
+                      hx-params="area,genre,rank,period,page=1,page_size=30"
+                      hx-swap="innerHTML"
+                      @click="open = false; $store.periodFilter.value = document.getElementById('period-filter').value">
+                適用
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+    <!-- メインコンテンツ（ストアリスト） -->
+    <div id="store-list" class="grid grid-cols-1 gap-3 mb-8 p-2 bg-gray-50 rounded-lg border border-gray-100"
+         hx-get="/api/stores" 
+         hx-trigger="load"
+         hx-params="area=all,genre=all,rank=all,period=week,page=1,page_size=30"
+         hx-swap="innerHTML">
+      <!-- ここにHTMXがAPIから店舗一覧を読み込みます -->
+    </div>
+    
+    <!-- Twitter タイムライン（PC・モバイル共通） - 遅延読み込み -->
+    <div id="twitter-timeline" class="mb-8"
+         hx-get="/api/twitter" 
+         hx-trigger="load delay:2s"
+         hx-swap="innerHTML">
+      <!-- 初期ローディング表示 -->
+      <div class="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200 max-w-sm mx-auto">
+        <div class="bg-white border-b border-gray-200 p-3 flex items-center">
+          <h3 class="font-bold text-gray-900">運営者 なつめより</h3>
+        </div>
+        <div class="text-center py-8">
+          <div class="flex items-center justify-center mb-3">
+            <svg class="animate-spin h-6 w-6 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+          <p class="text-gray-600 text-sm">Xポスト読み込み中...</p>
+          <p class="text-gray-400 text-xs mt-1">しばらくお待ちください</p>
+        </div>
+        <div class="p-3 border-t border-gray-200">
+          <a href="https://x.com/{{ config.frontend.twitter.username or 'kado_admin' }}" target="_blank" rel="noopener noreferrer" class="block text-center text-sm text-blue-500 hover:underline">
+            Xで表示
+          </a>
+        </div>
+      </div>
+    </div>    <!-- LINE相談バナー -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg shadow-md p-6 mb-8">
+      <div class="flex flex-col items-center">
+        <h2 class="text-xl font-bold text-white mb-2">お店選びでお悩みの方へ</h2>
+        <p class="text-white text-sm text-center mb-4">店舗対応、系統も考慮してベストなお店をご紹介します👍</p>
+           <p class="text-white text-sm text-center mb-4">データ掲載店舗のリクエストもこちら👇(対応できないお店もございます)</p>
+        <button class="bg-green-500 text-white px-6 py-2 rounded-full flex items-center hover:bg-green-600 transition-colors">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19.365 9.89c.50 0 .866.37.866.877 0 .524-.338.903-.866.903H17.71v1.342h1.655c.53 0 .866.38.866.903 0 .508-.337.878-.866.878H16.82c-.53 0-.866-.37-.866-.878V8.967c0-.507.336-.877.866-.877h3.456c.53 0 .866.37.866.877 0 .508-.337.903-.866.903H17.71v1.342h1.655zm-4.262.903h-1.655v1.342h1.655c.53 0 .866.38.866.903 0 .508-.337.878-.866.878H9.495c-.53 0-.866-.37-.866-.878V8.967c0-.507.336-.877.866-.877h3.456c.53 0 .866.37.866.877 0 .508-.337.903-.866.903zM8.941 14.69c-.506 0-.878-.37-.878-.878V8.967c0-.507.335-.877.865-.877.506 0 .878.37.878.877v4.846c0 .507-.335.877-.865.877zm-3.877 0c-.507 0-.877-.37-.877-.878V8.967c0-.507.37-.877.877-.877s.878.37.878.877v4.846c0 .507-.37.877-.878.877zM24 10.88c0-5.118-5.14-9.28-11.472-9.28C6.194 1.6 1.055 5.763 1.055 10.88c0 4.58 4.063 8.42 9.552 9.143.372.08.877.238 1.006.547.114.278.075.71.037 1.006-.11.63-.53 2.476.837 1.344 1.37-1.13 7.32-4.34 10-7.34 1.84-2.030 2.83-4.090 2.83-6.30V12.3z"/>
+          </svg>
+          <span>LINE相談する</span>
+        </button>
+      </div>
+    </div>
+</main>
+{% endblock %}

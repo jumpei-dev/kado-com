@@ -93,11 +93,11 @@ class DataRetriever:
             # 営業時間が未設定の場合は全データを取得
             if open_time is None or close_time is None:
                 query = """
-                    SELECT business_id, datetime as recorded_at, cast_id, is_working, is_on_shift
+                    SELECT business_id, recorded_at, cast_id, is_working, is_on_shift
                     FROM status 
                     WHERE business_id = %s 
-                    AND DATE(datetime) = %s
-                    ORDER BY datetime
+                    AND DATE(recorded_at) = %s
+                    ORDER BY recorded_at
                 """
                 params = (business_id, target_date)
                 logger.debug(f"店舗{business_id}: 営業時間未設定、全データを取得")

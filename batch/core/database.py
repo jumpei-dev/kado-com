@@ -13,7 +13,18 @@ logger = logging.getLogger(__name__)
 
 class DatabaseManager:
     def __init__(self):
-        self.connection_string = "postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
+        try:
+            # 設定ファイルからデータベース接続情報を取得
+            from utils.config import get_database_config
+            db_config = get_database_config()
+            self.connection_string = db_config.connection_string
+        except ImportError:
+            # フォールバック: 環境変数またはデフォルト値
+            import os
+            self.connection_string = os.getenv(
+                'DATABASE_URL', 
+                'postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require'
+            )
     
     @contextmanager
     def get_connection(self):
@@ -42,6 +53,22 @@ class DatabaseManager:
                 cursor.execute(query, params)
                 return cursor.fetchall()
     
+    def fetch_all(self, query: str, params: tuple = None) -> List[Dict[str, Any]]:
+        """SELECTクエリを実行して全結果を返す（execute_queryのエイリアス）"""
+        return self.execute_query(query, params)
+    
+    def fetch_one(self, query: str, params: tuple = None) -> Optional[Dict[str, Any]]:
+        """SELECTクエリを実行して最初の結果を返す"""
+        with self.get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, params)
+                result = cursor.fetchone()
+                return dict(result) if result else None
+    
+    def execute(self, command: str, params: tuple = None) -> int:
+        """INSERT/UPDATE/DELETEコマンドを実行（execute_commandのエイリアス）"""
+        return self.execute_command(command, params)
+    
     def execute_command(self, command: str, params: tuple = None) -> int:
         """INSERT/UPDATE/DELETEコマンドを実行して影響を受けた行数を返す"""
         with self.get_connection() as conn:
@@ -53,7 +80,7 @@ class DatabaseManager:
         """すべてのアクティブな店舗を取得する"""
         query = """
         SELECT business_id, name, area, prefecture, type, capacity, 
-               open_hour, close_hour, schedule_url1, in_scope,
+               open_hour, close_hour, schedule_url, in_scope,
                working_type, cast_type, shift_type, media
         FROM business 
         WHERE in_scope = true
@@ -73,7 +100,7 @@ class DatabaseManager:
                 "capacity": row["capacity"],
                 "open_hour": row["open_hour"],
                 "close_hour": row["close_hour"], 
-                "URL": row["schedule_url1"],  # schedule_url1をURLとして使用
+                "URL": row["schedule_url"],  # schedule_urlをURLとして使用
                 "in_scope": row["in_scope"],
                 "working_type": row["working_type"],
                 "cast_type": row["cast_type"],
@@ -86,10 +113,10 @@ class DatabaseManager:
     def get_casts_by_business(self, business_id: int) -> List[Dict[str, Any]]:
         """指定した店舗のすべてのキャストを取得する"""
         query = """
-        SELECT cast_id, business_id, name, profile_url
+        SELECT cast_id, business_id, profile_url
         FROM cast 
         WHERE business_id = %s AND is_active = true
-        ORDER BY name
+        ORDER BY cast_id
         """
         return self.execute_query(query, (business_id,))
     

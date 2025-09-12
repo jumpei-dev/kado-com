@@ -1,0 +1,191 @@
+# =============================================================================
+# 稼働.com 統合設定ファイル
+# バッチ処理システム + APIサーバー + フロントエンド
+# =============================================================================
+
+# 🌍 環境設定
+environment:
+  mode: development  # development | production | test
+  debug: true
+  log_level: DEBUG
+
+# 📊 データベース設定（全モジュール共通）
+database:
+  # Supabase PostgreSQL接続情報（現在使用中）
+  host: "57.182.231.186"
+  port: 6543
+  database: "postgres"
+  user: "postgres.hnmbsqydlfemlmsyexrq"
+  password: "${SECRET_DB_PASSWORD}"  # secret.ymlから取得
+  sslmode: "require"
+  
+  # 接続プール設定
+  pool_size: 5
+  max_overflow: 10
+  pool_timeout: 30
+  
+  # URL形式（APIサーバー用）
+  url: "${SECRET_DB_URL}"  # secret.ymlから取得
+
+# 🌐 APIサーバー設定
+api:
+  host: localhost
+  port: 8080
+  debug: true
+  title: "稼働.com API"
+  description: "風俗店稼働率管理システムのAPI"
+  version: "1.0.0"
+  
+  # CORS設定
+  cors:
+    origins:
+      - "http://localhost:5173"
+      - "http://localhost:3000"
+    allow_credentials: true
+    allow_methods: ["*"]
+    allow_headers: ["*"]
+
+# 🔐 認証設定
+auth:
+  secret_key: "${SECRET_AUTH_KEY}"  # secret.ymlから取得
+  algorithm: "HS256"
+  access_token_expire_days: 7
+  access_token_expire_minutes: 10080  # 7日間（7*24*60）
+  magic_link_expire_minutes: 15
+
+# 📱 LINE プロンプト設定
+line:
+  url: "https://line.me/ti/p/fDpRYZH7C2"
+  initial_delay_seconds: 30
+  reoccurrence_interval_minutes: 30
+
+# 📱 フロントエンド設定
+frontend:
+  url: "http://localhost:5173"
+  api_base_url: "http://localhost:8080"
+  app_name: "稼働.com"
+  app_version: "1.0.0"
+  node_env: "development"
+  
+  # X (旧Twitter) 設定
+  twitter:
+    username: "AkariRikaRika"
+    display_name: "Elon Musk"
+
+# 🐦 X API設定
+x_api:
+  # API認証情報（secret.ymlから取得）
+  bearer_token: "${SECRET_X_BEARER_TOKEN}"     # Bearer Token
+  api_key: "${SECRET_X_API_KEY}"               # API Key
+  api_secret: "${SECRET_X_API_SECRET}"         # API Secret
+  access_token: "${SECRET_X_ACCESS_TOKEN}"     # Access Token
+  access_token_secret: "${SECRET_X_ACCESS_TOKEN_SECRET}"  # Access Token Secret
+  
+  # タイムライン設定
+  timeline:
+    username: "AkariRikaRika"              # 取得対象ユーザー
+    max_results: 10                   # 最大取得ツイート数
+    exclude_replies: true             # リプライを除外
+    exclude_retweets: false           # リツイートを含める
+    
+  # API制限・エラーハンドリング
+  rate_limit:
+    requests_per_15min: 75           # 15分間のリクエスト制限
+    retry_attempts: 3                # リトライ回数
+    retry_delay: 60                  # リトライ間隔（秒）
+    
+  # キャッシュ設定
+  cache:
+    enabled: true                    # キャッシュ有効
+    ttl_seconds: 300                 # キャッシュ有効期間（5分）
+    
+  # フォールバック設定
+  fallback:
+    use_dummy_data: false             # API失敗時にダミーデータを使用（開発時推奨）
+    dummy_tweet_count: 5             # ダミーツイート数
+  
+# 📝 ログ設定
+logging:
+  level: "DEBUG"
+  log_dir: "./logs"
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# ⏰ スケジュール設定
+scheduling:
+  # 🕐 基本スケジュール設定
+  status_collection_interval: 30  # 稼働状況取得間隔（分）
+  history_calculation_hour: 12     # 稼働率計算実行時刻（12時）
+  history_calculation_minute: 0    # 稼働率計算実行分
+  
+  # 📊 並行処理設定
+  max_concurrent_businesses: 3     # 稼働状況取得の店舗並行処理数
+  max_concurrent_working_rate: 5   # 稼働率計算の並行処理数
+  
+  # 🔧 運用設定
+  health_check_interval: 15        # ヘルスチェック間隔（分）
+  cleanup_time_hour: 2             # クリーンアップ実行時刻（午前2時）
+  cleanup_time_minute: 0
+  misfire_grace_time:
+    status_collection: 300         # 5分
+    status_history: 600            # 10分
+  max_log_retention_days: 30       # ログ保持日数
+  business_hours_buffer: 0         # 営業時間バッファ（分）
+
+# 🏪 業種マッピング設定
+business_types:
+  delivery_health: "デリヘル"
+  fashion_health: "箱ヘル"
+  dc: "DC"
+  soapland: "ソープ"
+
+# 🌐 スクレイピング設定
+scraping:
+  timeout: 30
+  retry_attempts: 3
+  delay_between_requests: 1
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  
+  # 🛡️ ブロック対策設定
+  user_agents:
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15"
+    - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  
+  # 🚀 並行処理・ブロック対策
+  max_parallel_businesses: 3    # 店舗並行処理数
+  max_concurrent: 3             # 同時接続数
+  min_delay: 0.5               # 最小待機時間（秒）
+  max_delay: 2.0               # 最大待機時間（秒）
+  request_interval: 1.0        # リクエスト間隔基本値（秒）
+  retry_delay: 3.0             # リトライ時の待機時間（秒）
+  
+  # 🔧 高速化設定
+  use_aiohttp: true            # aiohttp使用フラグ
+  connection_pooling: true     # 接続プール使用
+  keep_alive: true             # Keep-Alive有効
+  compress: true               # 圧縮有効
+
+# 🚀 本番環境設定（環境変数でオーバーライド可能）
+production:
+  environment:
+    mode: production
+    debug: false
+    log_level: INFO
+  
+  api:
+    host: "0.0.0.0"
+    port: 8000
+    debug: false
+  
+  auth:
+    secret_key: "${JWT_SECRET_KEY}"  # 環境変数から取得
+  
+  database:
+    url: "${DATABASE_URL}"  # 環境変数から取得
+  
+  logging:
+    level: "INFO"

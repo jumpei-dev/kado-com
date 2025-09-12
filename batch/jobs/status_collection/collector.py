@@ -9,6 +9,8 @@ import aiohttp
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
+import random
+import logging
 
 # Strategy imports
 try:
@@ -44,6 +46,21 @@ except ImportError:
             import logging
             return logging.getLogger(name)
 
+# 設定読み込み
+try:
+    from ..utils.config import get_scraping_config
+except ImportError:
+    try:
+        from utils.config import get_scraping_config
+    except ImportError:
+        def get_scraping_config():
+            return {
+                'max_parallel_businesses': 3,
+                'min_delay': 0.5,
+                'max_delay': 2.0,
+                'use_aiohttp': True
+            }
+
 logger = get_logger(__name__)
 
 
@@ -72,7 +89,7 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
         media_type = business.get("media", "cityhaven")  # デフォルトはcityhaven
         business_name = business.get("name", "")
         business_id = business.get("Business ID", "")
-        base_url = business.get("schedule_url", "")
+        base_url = business.get("URL", business.get("schedule_url", ""))
         
         if not business_name:
             logger.warning(f"店舗名が指定されていません: {business}")
@@ -87,19 +104,35 @@ async def collect_status_for_business(session: aiohttp.ClientSession, business: 
             dom_check_mode=dom_check_mode  # DOM確認モードを戦略に渡す
         )
         
-        # CastStatusオブジェクトを辞書形式に変換
+        # CastStatusオブジェクトを辞書形式に変換（statusテーブル構造に合わせて）
         cast_list = []
         for cast_status in cast_statuses:
-            cast_dict = {
-                "name": cast_status.name,
-                "is_working": cast_status.is_working,
-                "business_id": cast_status.business_id,
-                "cast_id": cast_status.cast_id,
-                "on_shift": cast_status.on_shift,
-                "shift_times": cast_status.shift_times,
-                "working_times": cast_status.working_times
-            }
-            cast_list.append(cast_dict)
+            try:
+                # 収集時刻を取得
+                collected_at = get_current_jst_datetime()
+                
+                # cast_statusが既に辞書の場合とオブジェクトの場合を両方処理
+                if isinstance(cast_status, dict):
+                    cast_dict = {
+                        "cast_id": cast_status.get("cast_id", ""),
+                        "business_id": cast_status.get("business_id", business_id),
+                        "is_working": cast_status.get("is_working", False),
+                        "is_on_shift": cast_status.get("is_on_shift", False),  # パーサーのキー名に合わせて修正
+                        "collected_at": collected_at
+                    }
+                else:
+                    # オブジェクトの場合（従来の方式）
+                    cast_dict = {
+                        "cast_id": cast_status.cast_id,
+                        "business_id": cast_status.business_id,
+                        "is_working": cast_status.is_working,
+                        "is_on_shift": cast_status.on_shift,  # キー名を統一
+                        "collected_at": collected_at
+                    }
+                cast_list.append(cast_dict)
+            except Exception as e:
+                logger.error(f"CastStatus変換エラー: {e}, データ: {cast_status}")
+                continue
         
         return cast_list
         
@@ -141,6 +174,82 @@ async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]], use_
     
     async def collect_with_semaphore(session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
         async with semaphore:
+            return await collect_status_for_business(session, business, use_local_html, dom_check_mode, specific_file)
+    
+    try:
+        # HTTPセッションを作成
+        connector = aiohttp.TCPConnector(limit=50, limit_per_host=10)
+        timeout = aiohttp.ClientTimeout(total=30)
+        
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            # 全店舗の処理を並行実行
+            tasks = [
+                collect_with_semaphore(session, business)
+                for business in businesses.values()
+            ]
+            
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # 結果をまとめる
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error(f"並行処理でエラーが発生: {str(result)}")
+                elif isinstance(result, list):
+                    all_cast_data.extend(result)
+    
+    except Exception as e:
+        logger.error(f"ステータス収集処理でエラーが発生: {str(e)}")
+    finally:
+        # WebDriverのクリーンアップ
+        await cleanup_webdrivers()
+    
+    logger.info(f"全店舗のキャスト稼働ステータス収集完了: 合計 {len(all_cast_data)} 件")
+    
+    # 🔍 結果のJSONをコンソールに出力
+    _output_collection_results_json(all_cast_data)
+    
+    return all_cast_data
+
+
+async def collect_all_working_status_parallel(businesses: Dict[int, Dict[str, Any]], use_local_html: bool = False, dom_check_mode: bool = False, specific_file: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    全店舗のキャスト稼働ステータスを並行収集（パラレル処理版）
+    
+    Args:
+        businesses: 店舗データ
+        use_local_html: ローカルHTML使用フラグ
+        dom_check_mode: 追加店舗DOM確認モード（HTML詳細出力）
+        specific_file: 指定するローカルHTMLファイル名
+    """
+    if dom_check_mode:
+        mode_text = "追加店舗DOM確認モード"
+        logger.info(f"🔍 {mode_text} - HTML詳細出力が有効です")
+    else:
+        mode_text = "ローカルHTML" if use_local_html else "ライブスクレイピング"
+    
+    logger.info(f"全店舗のキャスト稼働ステータス収集を開始 ({mode_text}モード)")
+    
+    # DOM確認モードでは1店舗のみ処理
+    if dom_check_mode:
+        businesses = dict(list(businesses.items())[:1])
+        logger.info(f"DOM確認モード: {len(businesses)}店舗のみ処理")
+    
+    # 設定から最大並行数を取得
+    config = get_scraping_config()
+    max_concurrent = config.get('max_parallel_businesses', 3)
+    min_delay = config.get('min_delay', 0.5)
+    max_delay = config.get('max_delay', 2.0)
+    
+    # セマフォで並行数を制御
+    semaphore = asyncio.Semaphore(max_concurrent)
+    all_cast_data = []
+    
+    async def collect_with_semaphore(session: aiohttp.ClientSession, business: Dict[str, Any]) -> List[Dict[str, Any]]:
+        async with semaphore:
+            # ランダムな遅延を追加
+            delay = random.uniform(min_delay, max_delay)
+            await asyncio.sleep(delay)
+            
             return await collect_status_for_business(session, business, use_local_html, dom_check_mode, specific_file)
     
     try:
