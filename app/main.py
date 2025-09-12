@@ -141,7 +141,12 @@ async def index(request: Request):
     config_data = config_manager.config
     return templates.TemplateResponse(
         "index.html", 
-        {"request": request, "title": "稼働.com", "config": config_data}
+        {
+            "request": request, 
+            "title": "稼働.com", 
+            "config": config_data,
+            "page_type": "index"
+        }
     )
 
 # 店舗一覧ページ
@@ -154,7 +159,11 @@ async def stores_page(request: Request, db = Depends(get_database)):
         
         return templates.TemplateResponse(
             "components/stores_list.html", 
-            {"request": request, "stores": store_data["items"]}
+            {
+                "request": request, 
+                "stores": store_data["items"],
+                "page_type": "stores"
+            }
         )
     except Exception as e:
         logger.error(f"店舗一覧取得エラー: {e}")
@@ -165,49 +174,73 @@ async def stores_page(request: Request, db = Depends(get_database)):
 
 # 店舗詳細ページ
 @app.get("/stores/{store_id}", response_class=HTMLResponse)
-async def get_store_detail(request: Request, store_id: str):
+async def get_store_detail(request: Request, store_id: str, db = Depends(get_database)):
     """店舗詳細ページを表示"""
+    
+    # デバッグログを追加
+    logger.info(f"🔍 [STORE_DETAIL] Received store_id: {store_id} (type: {type(store_id)})")
+    logger.info(f"🔍 [STORE_DETAIL] Request URL: {request.url}")
     
     try:
         # ユーザー権限を確認
         user_permissions = await check_user_permissions(request)
         
-        # 実際のデータベースでは店舗IDを使って詳細情報を取得
-        # ここではデモ用のダミーデータを返す
-        store = generate_dummy_store(store_id)
-        related_stores = generate_dummy_related_stores(store_id, store["area"], store["genre"])
+        # データベースから店舗情報を取得
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT business_id, name, area, type, blurred_name
+                FROM business 
+                WHERE business_id = %s
+            """, (store_id,))
+            
+            logger.info(f"🔍 [STORE_DETAIL] SQL executed with store_id: {store_id}")
+            
+            store_data = cursor.fetchone()
+            logger.info(f"🔍 [STORE_DETAIL] Query result: {store_data}")
         
-        # 店舗名表示制御
-        store_info = {"name": store["name"], "blurred_name": store.get("blurred_name", f"〇〇{store_id}")}
-        name_display = get_store_display_info(store_info, user_permissions["can_see_contents"])
+        if not store_data:
+            logger.warning(f"❌ 店舗が見つかりません: store_id={store_id}")
+            return templates.TemplateResponse(
+                "error.html", 
+                {"request": request, "message": "指定された店舗が見つかりません"}
+            )
         
-        store["original_name"] = name_display["original_name"]
-        store["blurred_name"] = name_display["blurred_name"]
-        store["is_blurred"] = name_display["is_blurred"]
+        # 店舗情報を辞書形式に変換
+        store = {
+            "id": store_data["business_id"],  # business_id
+            "name": store_data["name"],
+            "area": store_data["area"],
+            "genre": store_data["type"],  # type
+            "blurred_name": store_data["blurred_name"],
+            "working_rate": 65,  # 仮の稼働率データ
+            "history": [
+                {"label": "月", "rate": 60, "date": "2024-01-15"},
+                {"label": "火", "rate": 70, "date": "2024-01-16"},
+                {"label": "水", "rate": 55, "date": "2024-01-17"},
+                {"label": "木", "rate": 80, "date": "2024-01-18"},
+                {"label": "金", "rate": 85, "date": "2024-01-19"},
+                {"label": "土", "rate": 90, "date": "2024-01-20"},
+                {"label": "日", "rate": 75, "date": "2024-01-21"}
+            ]
+        }
         
-        # 関連店舗の名前も同様に処理
-        for related_store in related_stores:
-            related_info = {
-                "name": related_store["name"],
-                "blurred_name": related_store.get("blurred_name", f"〇〇{related_store['id']}")
-            }
-            related_display = get_store_display_info(related_info, user_permissions["can_see_contents"])
-            related_store["original_name"] = related_display["original_name"]
-            related_store["blurred_name"] = related_display["blurred_name"]
-            related_store["is_blurred"] = related_display["is_blurred"]
+        # 表示名を取得
+        display_info = get_store_display_info(store, user_permissions)
         
-        config_data = config_manager.config
+        logger.info(f"店舗詳細取得成功: store_id={store_id}, name={store['name']}")
         
         return templates.TemplateResponse(
-            "store_detail.html",
+            "store_detail.html", 
             {
-                "request": request,
+                "request": request, 
                 "store": store,
-                "related_stores": related_stores,
+                "display_name": display_info["display_name"],
                 "user_permissions": user_permissions,
-                "config": config_data
+                "page_type": "store_detail"
             }
         )
+        
     except Exception as e:
         logger.error(f"店舗詳細表示エラー: {e}")
         return templates.TemplateResponse(
@@ -215,82 +248,7 @@ async def get_store_detail(request: Request, store_id: str):
             {"request": request, "message": "店舗情報の取得に失敗しました"}
         )
 
-def generate_dummy_store(store_id: str) -> dict:
-    """指定されたIDの店舗の詳細情報（ダミー）を生成"""
-    import random
-    from datetime import datetime, timedelta
-    
-    # 店舗名は ID によって決定（安定したデモ用）
-    names = ["エンジェルハート", "エレガンス", "クラブ美人館", "ベストパートナー", "ブルーハート", "ドレス倶楽部",
-             "ウルトラグレース", "プレミアムクラブ", "ロイヤルVIP", "人妻城", "セレブクイーン"]
-    
-    areas = ["新宿", "池袋", "渋谷", "銀座", "六本木", "上野", "横浜", "大阪", "名古屋", "福岡"]
-    genres = ["ソープランド", "ヘルス", "デリヘル", "キャバクラ", "ピンサロ"]
-    
-    # IDに基づいて安定したデータを生成
-    id_num = int(store_id) if store_id.isdigit() else hash(store_id) % 100
-    name_index = id_num % len(names)
-    area_index = (id_num // 10) % len(areas)
-    genre_index = (id_num // 3) % len(genres)
-    
-    # 稼働率データの生成
-    working_rate = 30 + (id_num % 70)  # 30-99%の範囲
-    previous_rate = max(20, working_rate - 10 + (id_num % 20))
-    weekly_rate = max(25, working_rate - 5 + (id_num % 15))
-    
-    # エリア平均と業種平均
-    area_avg_rate = working_rate - 15 + random.randint(-10, 10)
-    area_avg_rate = max(20, min(95, area_avg_rate))
-    
-    genre_avg_rate = working_rate - 10 + random.randint(-10, 10)
-    genre_avg_rate = max(20, min(95, genre_avg_rate))
-    
-    # 履歴データの生成
-    history = []
-    for i in range(7):
-        day = datetime.now() - timedelta(days=6-i)
-        day_of_week = ["月", "火", "水", "木", "金", "土", "日"][day.weekday()]
-        rate = max(20, min(95, working_rate - 15 + random.randint(-20, 20)))
-        
-        history.append({
-            "date": day.strftime("%Y/%m/%d"),
-            "label": day_of_week,
-            "rate": rate
-        })
-    
-    return {
-        "id": store_id,
-        "name": names[name_index],
-        "area": areas[area_index],
-        "genre": genres[genre_index],
-        "working_rate": working_rate,
-        "previous_rate": previous_rate,
-        "weekly_rate": weekly_rate,
-        "area_avg_rate": area_avg_rate,
-        "genre_avg_rate": genre_avg_rate,
-        "cast_count": 15 + (id_num % 30),
-        "website": f"https://example.com/shop/{store_id}",
-        "history": history
-    }
 
-def generate_dummy_related_stores(current_id: str, area: str, genre: str) -> list:
-    """関連店舗（同エリア・同業種）のダミーデータを生成"""
-    related_stores = []
-    
-    # 同エリア・同業種の店舗をIDベースで生成（現在の店舗を除く）
-    for i in range(1, 11):
-        store_id = str(i)
-        if store_id == current_id:
-            continue
-            
-        store = generate_dummy_store(store_id)
-        
-        # 一部の店舗だけを関連店舗として選択（同エリアまたは同業種）
-        if store["area"] == area or store["genre"] == genre:
-            related_stores.append(store)
-    
-    # 最大3件まで
-    return related_stores[:3]
 
 # エラーハンドラー
 @app.exception_handler(404)

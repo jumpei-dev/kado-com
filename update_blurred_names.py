@@ -88,31 +88,47 @@ def load_blurred_names_from_csv(csv_file_path: str) -> dict:
 
 
 def get_stores_data():
-    """データベースから店舗データを取得（実際のDB構造に応じて調整が必要）"""
-    # TODO: 実際のデータベース構造に合わせて修正
-    # 現在はダミーデータを返す
-    dummy_stores = [
-        {"id": 1, "name": "チュチュバナナ", "blurred_name": None},
-        {"id": 2, "name": "ハニービー", "blurred_name": None},
-        {"id": 3, "name": "バンサー", "blurred_name": None},
-        {"id": 4, "name": "ウルトラグレース", "blurred_name": None},
-        {"id": 5, "name": "メルティキス", "blurred_name": None},
-        {"id": 6, "name": "ピュアハート", "blurred_name": None},
-        {"id": 7, "name": "シャイニーガール", "blurred_name": None},
-        {"id": 8, "name": "エンジェルフェザー", "blurred_name": None},
-        {"id": 9, "name": "プリンセスルーム", "blurred_name": None},
-        {"id": 10, "name": "ルビーパレス", "blurred_name": None},
-        {"id": 11, "name": "人妻城", "blurred_name": None},
-    ]
-    
-    return dummy_stores
+    """データベースから店舗データを取得"""
+    try:
+        db = get_database()
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT id, name, blurred_name 
+            FROM stores 
+            ORDER BY id
+        """)
+        
+        stores = []
+        for row in cursor.fetchall():
+            stores.append({
+                "id": row[0],
+                "name": row[1],
+                "blurred_name": row[2]
+            })
+        
+        return stores
+        
+    except Exception as e:
+        print(f"❌ データベースエラー: {e}")
+        return []
 
 
 def update_store_blurred_name(store_id: int, blurred_name: str):
-    """店舗のblurred_nameを更新（実際のDB更新処理）"""
-    # TODO: 実際のデータベース更新処理を実装
-    # 現在はログ出力のみ
-    print(f"  📝 店舗ID {store_id} のblurred_nameを更新: {blurred_name}")
+    """店舗のblurred_nameを更新"""
+    try:
+        db = get_database()
+        cursor = db.cursor()
+        cursor.execute("""
+            UPDATE stores 
+            SET blurred_name = %s 
+            WHERE id = %s
+        """, (blurred_name, store_id))
+        
+        db.commit()
+        print(f"  📝 店舗ID {store_id} のblurred_nameを更新: {blurred_name}")
+        
+    except Exception as e:
+        print(f"❌ 更新エラー (店舗ID {store_id}): {e}")
 
 
 def preview_updates(stores_data, csv_mapping=None, force_update=False):

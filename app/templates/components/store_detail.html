@@ -184,40 +184,9 @@ async function initWorkingTrendChart(storeId) {
     } catch (error) {
         console.error('❌ 稼働推移グラフの初期化に失敗:', error);
         
-        // エラー時はダミーデータで表示
-        const ctx = document.getElementById('workingTrendChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['日', '月', '火', '水', '木', '金', '土'],
-                datasets: [{
-                    label: '稼働率(%)',
-                    data: [45, 65, 70, 75, 85, 95, 90],
-                    borderColor: 'rgb(239, 68, 68)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderWidth: 3,
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: '曜日別稼働推移（エラー時ダミーデータ）',
-                        color: '#DC2626'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100
-                    }
-                }
-            }
-        });
+        // エラー時はエラーメッセージを表示
+        const chartContainer = document.getElementById('workingTrendChart').parentElement;
+        chartContainer.innerHTML = '<div class="text-center text-red-600 py-8">稼働推移データの読み込みに失敗しました</div>';
     }
 }
 </script>

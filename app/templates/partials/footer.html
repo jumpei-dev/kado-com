@@ -11,9 +11,9 @@
       </div>
       
       <div class="p-4 space-y-3"
-           hx-get="/api/twitter/timeline?count=3" 
+           {% if page_type != 'store_detail' %}hx-get="/api/twitter/timeline?count=3" 
            hx-trigger="load"
-           hx-swap="innerHTML">
+           hx-swap="innerHTML"{% endif %}>
         <!-- ローディング表示 -->
         <div class="flex items-center justify-center py-4">
           <svg class="animate-spin h-5 w-5 text-blue-500 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
