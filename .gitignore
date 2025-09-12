@@ -1,3 +1,6 @@
+# 機密情報ファイル
+config/secret.yml
+
 # Python
 __pycache__/
 *.py[cod]

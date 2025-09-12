@@ -13,6 +13,7 @@ import os
 from typing import Optional, Dict, Any
 from fastapi import Request, HTTPException, status
 from app.core.database import DatabaseManager
+from app.core.config import get_config
 
 # ロガー設定
 logger = logging.getLogger(__name__)
@@ -22,7 +23,9 @@ class AuthService:
     
     def __init__(self):
         """初期化"""
-        self.secret_key = os.getenv("JWT_SECRET_KEY", "kado-com-very-secret-key-for-development")
+        config = get_config()
+        auth_config = config.get('auth', {})
+        self.secret_key = auth_config.get('secret_key', 'fallback-secret-key')
         self.algorithm = "HS256"
         self.token_expire_days = 7
         self.db = DatabaseManager()
