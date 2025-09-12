@@ -61,7 +61,7 @@ jobs:
             python main.py status-collection
             ;;
           "working-rate-calculation")
-            python main.py working-rate-calculation
+            python main.py working-rate
             ;;
           "debug-html")
             python main.py debug-html --local-file "sample.html"
