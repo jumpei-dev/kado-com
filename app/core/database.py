@@ -226,7 +226,7 @@ class DatabaseManager:
                 businesses[i] = {
                     "Business ID": row["business_id"],
                     "name": row["name"],
-                    "blurred_name": row.get("blurred_name", self._generate_blurred_name(row["name"])),
+                    "blurred_name": row.get("blurred_name") or row["name"],
                     "area": row["area"], 
                     "prefecture": row["prefecture"],
                     "type": row["type"],
@@ -255,14 +255,7 @@ class DatabaseManager:
                 2: {"Business ID": 3, "name": "レモネード", "blurred_name": "レ○○○ド", "prefecture": "名古屋市", "area": "中部", "type": "ピンサロ", "in_scope": True, "last_updated": "2025-09-07"}
             }
     
-    def _generate_blurred_name(self, name):
-        """店舗名からぼかし名を生成する"""
-        if not name or len(name) < 2:
-            return name
-        
-        # 簡単なぼかし処理：2文字目以降を○に置換
-        return name[0] + "○" * (len(name) - 1)
-        
+
     def get_store_ranking(self, area="all", business_type="all", spec="all", period="week", limit=20, offset=0):
         """店舗のランキングを取得する"""
         try:
