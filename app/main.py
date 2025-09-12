@@ -149,6 +149,11 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Process-Time"] = str(process_time)
     return response
 
+@app.get("/healthz")
+async def health_check():
+    """ヘルスチェック用エンドポイント"""
+    return {"status": "healthy", "message": "Application is running"}
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """メインページを表示"""
