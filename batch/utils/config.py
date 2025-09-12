@@ -47,7 +47,7 @@ class DatabaseConfig:
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'DatabaseConfig':
         """設定辞書から設定を作成する"""
-        db_config = config_dict.get('database', {})
+        db_config = config_dict
         
         # secret.ymlから機密情報を読み込み
         project_root = Path(__file__).parent.parent.parent
@@ -81,7 +81,14 @@ class DatabaseConfig:
             connection_string=connection_string,
             pool_size=db_config.get('pool_size', 5),
             max_overflow=db_config.get('max_overflow', 10),
-            pool_timeout=db_config.get('pool_timeout', 30)
+            pool_timeout=db_config.get('pool_timeout', 30),
+            host=db_config.get('host', 'localhost'),
+            port=db_config.get('port', 5432),
+            database=db_config.get('database', 'postgres'),
+            user=db_config.get('user', 'postgres'),
+            password=secret_config.get('password', db_config.get('password', '')),
+            sslmode=db_config.get('sslmode', 'prefer'),
+            url=secret_config.get('url', db_config.get('url', ''))
         )
 
 @dataclass
@@ -222,7 +229,7 @@ class BatchConfig:
             del scheduling_data['misfire_grace_time']
         
         return cls(
-            database=DatabaseConfig.from_dict(data),
+            database=DatabaseConfig.from_dict(data.get('database', {})),
             scraping=ScrapingConfig(**data.get('scraping', {})),
             scheduling=SchedulingConfig(**scheduling_data),
             logging=LoggingConfig(**data.get('logging', {})),
