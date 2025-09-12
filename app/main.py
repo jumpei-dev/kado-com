@@ -60,6 +60,19 @@ app = FastAPI(
     description="店舗管理システム",
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://kado-com.pages.dev",   # Pages のデフォルトドメイン
+        "http://localhost:5173",        # 開発中 (Vite などローカルフロント)
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # 静的ファイルの設定
 try:
     print("🔄 静的ファイルを設定中...")
