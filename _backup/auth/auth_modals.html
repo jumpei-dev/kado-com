@@ -1,0 +1,292 @@
+<!-- ログインモーダル -->
+<div id="loginModal" 
+     class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center" 
+     style="display: none;"
+     x-data="{ show: false }"
+     x-show="show"
+     @open-modal.window="if ($event.detail.id === 'loginModal') show = true"
+     @modal-close.window="if ($event.detail.id === 'loginModal') show = false"
+     @keydown.escape.window="show = false">
+  
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 relative animate-fadeIn"
+       @click.away="show = false">
+       
+    <!-- モーダルヘッダー -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-700 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
+      <h3 class="text-xl font-medium">ログイン</h3>
+      <button class="text-white hover:text-gray-200 transition-colors" @click="show = false">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    
+    <!-- モーダルボディ -->
+    <div class="p-6">
+      <form id="login-form" onsubmit="submitLoginForm(event)" 
+            hx-post="/api/auth/login" 
+            hx-target="#login-response"
+            hx-swap="innerHTML"
+            hx-indicator="#login-loading"
+            hx-on:after-request="console.log('HTMX アフターリクエスト', event.detail)"
+            hx-on:after-swap="console.log('HTMX スワップ完了', event.detail); handleLoginSuccess(event.detail.xhr);"
+            hx-on:error="console.error('HTMX エラー', event.detail)">
+        <div class="mb-4">
+          <label for="login-username" class="block text-gray-700 text-sm font-medium mb-1">ユーザーID</label>
+          <input type="text" id="login-username" name="username" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500">
+        </div>
+        
+        <div class="mb-4">
+          <label for="login-password" class="block text-gray-700 text-sm font-medium mb-1">パスワード</label>
+          <input type="password" id="login-password" name="password" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500">
+          <div class="mt-1 text-right">
+            <a href="#" @click="show = false; $dispatch('open-modal', {id: 'forgotPasswordModal'})" class="text-sm text-gray-600 hover:text-gray-800">パスワードを忘れた場合</a>
+          </div>
+        </div>
+        
+        <div id="login-response" class="mt-4 mb-4 p-2 rounded min-h-[40px]"></div>
+        
+        <div id="login-loading" class="htmx-indicator flex justify-center my-2" style="display:none">
+          <svg class="animate-spin h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        
+        <div class="flex items-center justify-between mt-6">
+          <button type="submit"
+                  class="w-full bg-gray-700 text-white py-2 px-4 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+            ログイン
+          </button>
+        </div>
+      </form>
+      
+      <div class="mt-6 text-center">
+        <p class="text-sm text-gray-600">
+          アカウントをお持ちでない場合は
+          <a href="#" @click="show = false; $dispatch('open-modal', {id: 'registerModal'})" class="text-gray-600 hover:text-gray-800">新規登録</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ログイン処理のためのJavaScript -->
+<script>
+  // フォームの送信を処理する関数
+  function submitLoginForm(event) {
+    // デフォルトのフォーム送信を防止
+    if (typeof event !== 'undefined' && event) {
+      event.preventDefault();
+    }
+    
+    console.log('ログインフォームを送信します...');
+    
+    // レスポンスエリアをクリア
+    const responseArea = document.getElementById('login-response');
+    if (responseArea) {
+      responseArea.innerHTML = '';
+    }
+    
+    // フォームデータを取得
+    const form = document.getElementById('login-form');
+    const username = form.querySelector('#login-username').value;
+    const password = form.querySelector('#login-password').value;
+    
+    // FormDataオブジェクトを作成
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('password', password);
+    
+    // ローディングインジケーターを表示
+    const loadingIndicator = document.getElementById('login-loading');
+    if (loadingIndicator) {
+      loadingIndicator.style.display = 'flex';
+    }
+    
+    // APIにリクエストを送信
+    fetch('/api/auth/login', {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin'
+    })
+    .then(response => {
+      console.log('レスポンスステータス:', response.status);
+      return response.text();
+    })
+    .then(html => {
+      console.log('レスポンステキスト:', html);
+      
+      // レスポンスをログイン応答領域に挿入
+      const responseArea = document.getElementById('login-response');
+      if (responseArea) {
+        responseArea.innerHTML = html;
+        
+        // レスポンスエリアまでスクロール
+        responseArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      
+      // 成功メッセージが含まれているか確認
+      if (html.includes('ログインしました') || html.includes('success')) {
+        console.log('ログイン成功を検出しました！');
+        // 少し遅延してからページをリロード
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
+      
+      // ローディングインジケーターを非表示
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+      }
+    })
+    .catch(error => {
+      console.error('ログインエラー:', error);
+      
+      // ローディングインジケーターを非表示
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+      }
+      
+      // エラーメッセージを表示
+      const responseArea = document.getElementById('login-response');
+      if (responseArea) {
+        responseArea.innerHTML = '<div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4"><div class="ml-3"><p class="text-sm text-red-700">ログイン処理中にエラーが発生しました。</p></div></div>';
+        
+        // エラーメッセージまでスクロール
+        responseArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  }
+  
+  // HTMX成功レスポンスのハンドラ
+  function handleLoginSuccess(xhr) {
+    console.log('XHRレスポンス:', xhr);
+    if (xhr && xhr.responseText) {
+      if (xhr.responseText.includes('ログインしました') || xhr.responseText.includes('success')) {
+        console.log('ログイン成功メッセージを検出しました！');
+        // 少し遅延してからページをリロード
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
+    }
+  }
+</script>
+
+<!-- パスワードを忘れた場合のモーダル -->
+<div id="forgotPasswordModal" 
+     class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center" 
+     style="display: none;"
+     x-data="{ show: false }"
+     x-show="show"
+     @open-modal.window="if ($event.detail.id === 'forgotPasswordModal') show = true"
+     @keydown.escape.window="show = false">
+  
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 relative animate-fadeIn"
+       @click.away="show = false">
+       
+    <!-- モーダルヘッダー -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-700 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
+      <h3 class="text-xl font-medium">パスワードをリセット</h3>
+      <button class="text-white hover:text-gray-200 transition-colors" @click="show = false">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    
+    <!-- モーダルボディ -->
+    <div class="p-6">
+      <form hx-post="/api/auth/forgot-password" hx-target="#forgot-password-response">
+        <div class="mb-4">
+          <label for="forgot-email" class="block text-gray-700 text-sm font-medium mb-1">登録したメールアドレス</label>
+          <input type="email" id="forgot-email" name="email" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500">
+          <p class="mt-1 text-sm text-gray-500">パスワードリセットのリンクをメールで送信します</p>
+        </div>
+        
+        <div id="forgot-password-response"></div>
+        
+        <div class="flex items-center justify-between">
+          <button type="submit"
+                  class="w-full bg-gray-700 text-white py-2 px-4 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+            リセットリンクを送信
+          </button>
+        </div>
+      </form>
+      
+      <div class="mt-6 text-center">
+        <p class="text-sm text-gray-600">
+          <a href="#" @click="show = false; $dispatch('open-modal', {id: 'loginModal'})" class="text-gray-600 hover:text-gray-800">ログイン画面に戻る</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 新規登録モーダル -->
+<div id="registerModal" 
+     class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center" 
+     style="display: none;"
+     x-data="{ show: false }"
+     x-show="show"
+     @open-modal.window="if ($event.detail.id === 'registerModal') show = true"
+     @keydown.escape.window="show = false">
+  
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 relative animate-fadeIn"
+       @click.away="show = false">
+       
+    <!-- モーダルヘッダー -->
+    <div class="bg-gradient-to-r from-gray-800 to-gray-700 text-white px-6 py-4 flex justify-between items-center rounded-t-lg">
+      <h3 class="text-xl font-medium">新規アカウント登録</h3>
+      <button class="text-white hover:text-gray-200 transition-colors" @click="show = false">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    
+    <!-- モーダルボディ -->
+    <div class="p-6">
+      <form hx-post="/api/auth/register" hx-target="#register-response">
+        <div class="mb-4">
+          <label for="register-name" class="block text-gray-700 text-sm font-medium mb-1">ユーザー名</label>
+          <input type="text" id="register-name" name="name" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500">
+        </div>
+        
+        <div class="mb-4">
+          <label for="register-email" class="block text-gray-700 text-sm font-medium mb-1">メールアドレス</label>
+          <input type="email" id="register-email" name="email" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500">
+        </div>
+        
+        <div class="mb-4">
+          <label for="register-password" class="block text-gray-700 text-sm font-medium mb-1">パスワード</label>
+          <input type="password" id="register-password" name="password" required
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-gray-500 focus:border-gray-500">
+          <p class="mt-1 text-sm text-gray-500">8文字以上で設定してください</p>
+        </div>
+        
+        <div id="register-response"></div>
+        
+        <div class="flex items-center justify-between mt-6">
+          <button type="submit"
+                  class="w-full bg-gray-700 text-white py-2 px-4 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+            アカウント登録
+          </button>
+        </div>
+      </form>
+      
+      <div class="mt-6 text-center">
+        <p class="text-sm text-gray-600">
+          すでにアカウントをお持ちの場合は
+          <a href="#" @click="show = false; $dispatch('open-modal', {id: 'loginModal'})" class="text-gray-600 hover:text-gray-800">ログイン</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

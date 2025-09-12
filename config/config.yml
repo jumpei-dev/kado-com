@@ -12,11 +12,11 @@ environment:
 # 📊 データベース設定（全モジュール共通）
 database:
   # Supabase PostgreSQL接続情報（現在使用中）
-  host: "${DB_HOST}"  # 環境変数から取得
+  host: "57.182.231.186"
   port: 6543
   database: "postgres"
-  user: "${DB_USER}"  # 環境変数から取得
-  password: "${DB_PASSWORD}"  # 環境変数から取得
+  user: "postgres.hnmbsqydlfemlmsyexrq"
+  password: "${SECRET_DB_PASSWORD}"  # secret.ymlから取得
   sslmode: "require"
   
   # 接続プール設定
@@ -25,7 +25,7 @@ database:
   pool_timeout: 30
   
   # URL形式（APIサーバー用）
-  url: "${DATABASE_URL}"  # 環境変数から取得
+  url: "${SECRET_DB_URL}"  # secret.ymlから取得
 
 # 🌐 APIサーバー設定
 api:
@@ -47,11 +47,17 @@ api:
 
 # 🔐 認証設定
 auth:
-  secret_key: "${JWT_SECRET_KEY}"  # 環境変数から取得
+  secret_key: "${SECRET_AUTH_KEY}"  # secret.ymlから取得
   algorithm: "HS256"
   access_token_expire_days: 7
   access_token_expire_minutes: 10080  # 7日間（7*24*60）
   magic_link_expire_minutes: 15
+
+# 📱 LINE プロンプト設定
+line:
+  url: "https://line.me/ti/p/fDpRYZH7C2"
+  initial_delay_seconds: 30
+  reoccurrence_interval_minutes: 30
 
 # 📱 フロントエンド設定
 frontend:
@@ -60,6 +66,43 @@ frontend:
   app_name: "稼働.com"
   app_version: "1.0.0"
   node_env: "development"
+  
+  # X (旧Twitter) 設定
+  twitter:
+    username: "AkariRikaRika"
+    display_name: "Elon Musk"
+
+# 🐦 X API設定
+x_api:
+  # API認証情報（secret.ymlから取得）
+  bearer_token: "${SECRET_X_BEARER_TOKEN}"     # Bearer Token
+  api_key: "${SECRET_X_API_KEY}"               # API Key
+  api_secret: "${SECRET_X_API_SECRET}"         # API Secret
+  access_token: "${SECRET_X_ACCESS_TOKEN}"     # Access Token
+  access_token_secret: "${SECRET_X_ACCESS_TOKEN_SECRET}"  # Access Token Secret
+  
+  # タイムライン設定
+  timeline:
+    username: "AkariRikaRika"              # 取得対象ユーザー
+    max_results: 10                   # 最大取得ツイート数
+    exclude_replies: true             # リプライを除外
+    exclude_retweets: false           # リツイートを含める
+    
+  # API制限・エラーハンドリング
+  rate_limit:
+    requests_per_15min: 75           # 15分間のリクエスト制限
+    retry_attempts: 3                # リトライ回数
+    retry_delay: 60                  # リトライ間隔（秒）
+    
+  # キャッシュ設定
+  cache:
+    enabled: true                    # キャッシュ有効
+    ttl_seconds: 300                 # キャッシュ有効期間（5分）
+    
+  # フォールバック設定
+  fallback:
+    use_dummy_data: false             # API失敗時にダミーデータを使用（開発時推奨）
+    dummy_tweet_count: 5             # ダミーツイート数
   
 # 📝 ログ設定
 logging:
@@ -89,6 +132,13 @@ scheduling:
     status_history: 600            # 10分
   max_log_retention_days: 30       # ログ保持日数
   business_hours_buffer: 0         # 営業時間バッファ（分）
+
+# 🏪 業種マッピング設定
+business_types:
+  delivery_health: "デリヘル"
+  fashion_health: "箱ヘル"
+  dc: "DC"
+  soapland: "ソープ"
 
 # 🌐 スクレイピング設定
 scraping:

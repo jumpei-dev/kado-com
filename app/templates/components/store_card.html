@@ -35,13 +35,37 @@
     <!-- 店舗名 -->
     <div class="col-span-2">
       {% if rank == 1 or store.rank == 1 %}
-        <h3 class="font-bold text-gray-900 truncate text-lg">{{ store.name }}</h3>
+        <h3 class="font-bold text-gray-900 truncate text-lg">
+          {% if user_permissions.can_see_contents %}
+            {{ store.original_name or store.name }}
+          {% else %}
+            {{ store.blurred_name or store.name }}
+          {% endif %}
+        </h3>
       {% elif rank == 2 or store.rank == 2 %}
-        <h3 class="font-bold text-gray-900 truncate text-base">{{ store.name }}</h3>
+        <h3 class="font-bold text-gray-900 truncate text-base">
+          {% if user_permissions.can_see_contents %}
+            {{ store.original_name or store.name }}
+          {% else %}
+            {{ store.blurred_name or store.name }}
+          {% endif %}
+        </h3>
       {% elif rank == 3 or store.rank == 3 %}
-        <h3 class="font-bold text-gray-900 truncate text-base">{{ store.name }}</h3>
+        <h3 class="font-bold text-gray-900 truncate text-base">
+          {% if user_permissions.can_see_contents %}
+            {{ store.original_name or store.name }}
+          {% else %}
+            {{ store.blurred_name or store.name }}
+          {% endif %}
+        </h3>
       {% else %}
-        <h3 class="font-bold text-gray-900 truncate">{{ store.name }}</h3>
+        <h3 class="font-bold text-gray-900 truncate">
+          {% if user_permissions.can_see_contents %}
+            {{ store.original_name or store.name }}
+          {% else %}
+            {{ store.blurred_name or store.name }}
+          {% endif %}
+        </h3>
       {% endif %}
     </div>
     

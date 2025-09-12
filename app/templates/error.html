@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}エラー | 稼働.com{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-16">
+  <div class="max-w-xl mx-auto bg-white rounded-lg shadow-md p-8 text-center">
+    <svg class="w-20 h-20 text-red-500 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+    </svg>
+    
+    <h1 class="text-2xl font-bold text-gray-800 mb-4">エラーが発生しました</h1>
+    
+    <p class="text-gray-600 mb-6">{{ message|default('ページを表示できません。時間をおいて再度お試しください。') }}</p>
+    
+    <div class="flex justify-center">
+      <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition-colors">
+        トップページに戻る
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,17 +1,23 @@
-from fastapi import FastAPI, Request, Depends, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, RedirectResponse
-from pathlib import Path
-import logging
-import time
-import os
-import json
-import traceback
-
 import sys
 import os
+import time
+import traceback
+from fastapi import FastAPI, Request, Depends
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+import logging
+
+from app.api import stores
+from app.core.database import get_database
+from app.core.auth_utils import check_user_permissions
+from app.utils.blurred_name_utils import get_store_display_info
+from app.utils.business_type_utils import convert_business_type_to_japanese
+
+from app.api import auth, stores, twitter, pages, config
+from app.api.admin import router as admin_router
+from app.core.config import config_manager
 
 # デバッグ情報出力
 print("\n" + "=" * 60)
@@ -34,7 +40,7 @@ print("=" * 60)
 # インポート試行
 try:
     print("🔄 APIモジュールをインポート中...")
-    from app.api import auth, stores, twitter
+    from app.api import auth, stores, twitter, pages
     from app.api.admin import router as admin_router
     print("✅ APIモジュールのインポート成功")
     
@@ -81,6 +87,9 @@ try:
     if templates_dir.exists():
         print(f"✅ テンプレートディレクトリは存在します: {templates_dir}")
         templates = Jinja2Templates(directory=str(templates_dir.absolute()))
+        # デバッグモードを有効化（テンプレートの変更を自動検出）
+        templates.env.auto_reload = True
+        templates.env.cache_size = 0  # キャッシュを無効化
         print("✅ テンプレートの設定成功")
     else:
         print(f"❌ テンプレートディレクトリが見つかりません: {templates_dir}")
@@ -95,6 +104,8 @@ app.include_router(auth.router)
 app.include_router(stores.router)
 app.include_router(twitter.router)
 app.include_router(admin_router)
+app.include_router(pages.router)
+app.include_router(config.router)
 
 # ロガー設定
 logging.basicConfig(
@@ -128,9 +139,15 @@ async def add_process_time_header(request: Request, call_next):
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """メインページを表示"""
+    config_data = config_manager.config
     return templates.TemplateResponse(
         "index.html", 
-        {"request": request, "title": "稼働.com"}
+        {
+            "request": request, 
+            "title": "稼働.com", 
+            "config": config_data,
+            "page_type": "index"
+        }
     )
 
 # 店舗一覧ページ
@@ -138,12 +155,20 @@ async def index(request: Request):
 async def stores_page(request: Request, db = Depends(get_database)):
     """店舗一覧ページ表示"""
     try:
+        # ユーザー権限を確認
+        user_permissions = await check_user_permissions(request)
+        
         # APIから店舗一覧を取得
         store_data = await stores.get_stores(db=db)
         
         return templates.TemplateResponse(
             "components/stores_list.html", 
-            {"request": request, "stores": store_data["items"]}
+            {
+                "request": request, 
+                "stores": store_data["items"],
+                "user_permissions": user_permissions,
+                "page_type": "stores"
+            }
         )
     except Exception as e:
         logger.error(f"店舗一覧取得エラー: {e}")
@@ -154,23 +179,96 @@ async def stores_page(request: Request, db = Depends(get_database)):
 
 # 店舗詳細ページ
 @app.get("/stores/{store_id}", response_class=HTMLResponse)
-async def get_store_detail(request: Request, store_id: str):
+async def get_store_detail(request: Request, store_id: str, db = Depends(get_database)):
     """店舗詳細ページを表示"""
     
+    # デバッグログを追加
+    logger.info(f"🔍 [STORE_DETAIL] Received store_id: {store_id} (type: {type(store_id)})")
+    logger.info(f"🔍 [STORE_DETAIL] Request URL: {request.url}")
+    
     try:
-        # 実際のデータベースでは店舗IDを使って詳細情報を取得
-        # ここではデモ用のダミーデータを返す
-        store = generate_dummy_store(store_id)
-        related_stores = generate_dummy_related_stores(store_id, store["area"], store["genre"])
+        # ユーザー権限を確認
+        user_permissions = await check_user_permissions(request)
+        
+        # データベースから店舗情報を取得
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT business_id, name, area, type, blurred_name
+                FROM business 
+                WHERE business_id = %s
+            """, (store_id,))
+            
+            logger.info(f"🔍 [STORE_DETAIL] SQL executed with store_id: {store_id}")
+            
+            store_data = cursor.fetchone()
+            logger.info(f"🔍 [STORE_DETAIL] Query result: {store_data}")
+        
+        if not store_data:
+            logger.warning(f"❌ 店舗が見つかりません: store_id={store_id}")
+            return templates.TemplateResponse(
+                "error.html", 
+                {"request": request, "message": "指定された店舗が見つかりません"}
+            )
+        
+        # 7日間と2ヶ月のダミーデータを生成
+        from datetime import datetime, timedelta
+        
+        today = datetime.now()
+        
+        # 7日間のデータ（日付ベース）
+        daily_data = []
+        for i in range(7):
+            date = today - timedelta(days=6-i)
+            rate = 60 + (i * 5) + (i % 3) * 10  # バリエーションのあるダミーデータ
+            daily_data.append({
+                "date": date.strftime("%Y-%m-%d"),
+                "rate": min(rate, 95)  # 最大95%に制限
+            })
+        
+        # 2ヶ月のデータ（週単位）
+        weekly_data = []
+        for i in range(8):  # 8週間分
+            week_start = today - timedelta(weeks=7-i, days=today.weekday())
+            week_end = week_start + timedelta(days=6)
+            rate = 55 + (i * 4) + (i % 2) * 8  # バリエーションのあるダミーデータ
+            weekly_data.append({
+                "week_start": week_start.strftime("%Y-%m-%d"),
+                "week_end": week_end.strftime("%Y-%m-%d"),
+                "rate": min(rate, 90)  # 最大90%に制限
+            })
+        
+        # 店舗情報を辞書形式に変換
+        store = {
+            "id": store_data["business_id"],  # business_id
+            "name": store_data["name"],
+            "area": store_data["area"],
+            "genre": convert_business_type_to_japanese(store_data["type"]),  # type
+            "blurred_name": store_data["blurred_name"],
+            "original_name": store_data["name"],  # 元の店舗名
+            "working_rate": 65,  # 仮の稼働率データ
+            "history": {
+                "daily": daily_data,
+                "weekly": weekly_data
+            }
+        }
+        
+        # 表示名を取得
+        display_info = get_store_display_info(store, user_permissions)
+        
+        logger.info(f"店舗詳細取得成功: store_id={store_id}, name={store['name']}")
         
         return templates.TemplateResponse(
-            "store_detail.html",
+            "store_detail.html", 
             {
-                "request": request,
+                "request": request, 
                 "store": store,
-                "related_stores": related_stores
+                "display_name": display_info["display_name"],
+                "user_permissions": user_permissions,
+                "page_type": "store_detail"
             }
         )
+        
     except Exception as e:
         logger.error(f"店舗詳細表示エラー: {e}")
         return templates.TemplateResponse(
@@ -178,82 +276,7 @@ async def get_store_detail(request: Request, store_id: str):
             {"request": request, "message": "店舗情報の取得に失敗しました"}
         )
 
-def generate_dummy_store(store_id: str) -> dict:
-    """指定されたIDの店舗の詳細情報（ダミー）を生成"""
-    import random
-    from datetime import datetime, timedelta
-    
-    # 店舗名は ID によって決定（安定したデモ用）
-    names = ["エンジェルハート", "エレガンス", "クラブ美人館", "ベストパートナー", "ブルーハート", "ドレス倶楽部",
-             "ウルトラグレース", "プレミアムクラブ", "ロイヤルVIP", "人妻城", "セレブクイーン"]
-    
-    areas = ["新宿", "池袋", "渋谷", "銀座", "六本木", "上野", "横浜", "大阪", "名古屋", "福岡"]
-    genres = ["ソープランド", "ヘルス", "デリヘル", "キャバクラ", "ピンサロ"]
-    
-    # IDに基づいて安定したデータを生成
-    id_num = int(store_id) if store_id.isdigit() else hash(store_id) % 100
-    name_index = id_num % len(names)
-    area_index = (id_num // 10) % len(areas)
-    genre_index = (id_num // 3) % len(genres)
-    
-    # 稼働率データの生成
-    working_rate = 30 + (id_num % 70)  # 30-99%の範囲
-    previous_rate = max(20, working_rate - 10 + (id_num % 20))
-    weekly_rate = max(25, working_rate - 5 + (id_num % 15))
-    
-    # エリア平均と業種平均
-    area_avg_rate = working_rate - 15 + random.randint(-10, 10)
-    area_avg_rate = max(20, min(95, area_avg_rate))
-    
-    genre_avg_rate = working_rate - 10 + random.randint(-10, 10)
-    genre_avg_rate = max(20, min(95, genre_avg_rate))
-    
-    # 履歴データの生成
-    history = []
-    for i in range(7):
-        day = datetime.now() - timedelta(days=6-i)
-        day_of_week = ["月", "火", "水", "木", "金", "土", "日"][day.weekday()]
-        rate = max(20, min(95, working_rate - 15 + random.randint(-20, 20)))
-        
-        history.append({
-            "date": day.strftime("%Y/%m/%d"),
-            "label": day_of_week,
-            "rate": rate
-        })
-    
-    return {
-        "id": store_id,
-        "name": names[name_index],
-        "area": areas[area_index],
-        "genre": genres[genre_index],
-        "working_rate": working_rate,
-        "previous_rate": previous_rate,
-        "weekly_rate": weekly_rate,
-        "area_avg_rate": area_avg_rate,
-        "genre_avg_rate": genre_avg_rate,
-        "cast_count": 15 + (id_num % 30),
-        "website": f"https://example.com/shop/{store_id}",
-        "history": history
-    }
 
-def generate_dummy_related_stores(current_id: str, area: str, genre: str) -> list:
-    """関連店舗（同エリア・同業種）のダミーデータを生成"""
-    related_stores = []
-    
-    # 同エリア・同業種の店舗をIDベースで生成（現在の店舗を除く）
-    for i in range(1, 11):
-        store_id = str(i)
-        if store_id == current_id:
-            continue
-            
-        store = generate_dummy_store(store_id)
-        
-        # 一部の店舗だけを関連店舗として選択（同エリアまたは同業種）
-        if store["area"] == area or store["genre"] == genre:
-            related_stores.append(store)
-    
-    # 最大3件まで
-    return related_stores[:3]
 
 # エラーハンドラー
 @app.exception_handler(404)
@@ -277,4 +300,4 @@ async def server_error_handler(request: Request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

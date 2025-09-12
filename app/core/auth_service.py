@@ -13,6 +13,7 @@ import os
 from typing import Optional, Dict, Any
 from fastapi import Request, HTTPException, status
 from app.core.database import DatabaseManager
+from app.core.config import get_config
 
 # ロガー設定
 logger = logging.getLogger(__name__)
@@ -22,7 +23,9 @@ class AuthService:
     
     def __init__(self):
         """初期化"""
-        self.secret_key = os.getenv("JWT_SECRET_KEY", "kado-com-very-secret-key-for-development")
+        config = get_config()
+        auth_config = config.get('auth', {})
+        self.secret_key = auth_config.get('secret_key', 'fallback-secret-key')
         self.algorithm = "HS256"
         self.token_expire_days = 7
         self.db = DatabaseManager()
@@ -60,21 +63,18 @@ class AuthService:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
-        except jwt.PyJWTError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        except jwt.PyJWTError as e:
+            print(f"❌ [DEBUG] JWT decode error: {e}")
+            raise e
 
     async def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """ユーザー認証"""
         try:
             logger.info(f"ユーザー認証処理: {username}")
             
-            # データベースからユーザーを取得
+            # データベースからユーザーを取得（can_see_contentsも含む）
             query = """
-            SELECT id, name, password_hash, is_admin 
+            SELECT id, name, password_hash, is_admin, can_see_contents 
             FROM users 
             WHERE name = %s
             """
@@ -85,7 +85,7 @@ class AuthService:
                 logger.warning(f"ユーザーが存在しません: {username}")
                 return None
                 
-            logger.info(f"ユーザー情報取得: ID={user['id']}, 名前={user['name']}")
+            logger.info(f"ユーザー情報取得: ID={user['id']}, 名前={user['name']}, can_see_contents={user['can_see_contents']}")
             
             # パスワード検証
             hashed_password = user['password_hash']
@@ -100,47 +100,75 @@ class AuthService:
             return {
                 "id": user['id'],
                 "username": user['name'],
-                "is_admin": user['is_admin']
+                "is_admin": user['is_admin'],
+                "can_see_contents": user['can_see_contents']
             }
             
         except Exception as e:
             print(f"認証エラー: {str(e)}")
             return None
 
-    async def get_current_user(self, request: Request) -> Optional[Dict[str, Any]]:
-        """現在のユーザーを取得"""
+    async def get_user_from_token(self, token: str) -> Optional[dict]:
+        """トークンからユーザー情報を取得"""
         try:
-            # Cookieからトークンを取得
-            token = request.cookies.get("access_token")
-            if not token:
-                return None
-                
             # トークンをデコード
             payload = self.decode_token(token)
             user_id = payload.get("sub")
             
             if not user_id:
+                print(f"🔍 [DEBUG] トークンにuser_idが含まれていません")
                 return None
                 
             # データベースからユーザー情報を取得
             query = """
-            SELECT id, name, is_admin 
+            SELECT id, name, is_admin, can_see_contents 
             FROM users 
             WHERE id = %s
             """
             user = self.db.fetch_one(query, (user_id,))
             
             if not user:
+                print(f"🔍 [DEBUG] ユーザーID {user_id} が見つかりません")
                 return None
                 
+            print(f"🔍 [DEBUG] get_user_from_token成功: ID={user['id']}, 名前={user['name']}, can_see_contents={user['can_see_contents']}")
+            
             return {
                 "id": user['id'],
                 "username": user['name'],
-                "is_admin": user['is_admin']
+                "email": user.get('email', ''),
+                "is_admin": user['is_admin'],
+                "can_see_contents": user['can_see_contents']
             }
             
         except Exception as e:
-            print(f"ユーザー取得エラー: {str(e)}")
+            print(f"❌ [DEBUG] get_user_from_token エラー: {str(e)}")
+            return None
+
+    async def get_current_user(self, request: Request) -> Optional[dict]:
+        """リクエストから現在のユーザー情報を取得"""
+        try:
+            # クッキーからトークンを取得（複数のトークン名に対応）
+            token = request.cookies.get("access_token") or request.cookies.get("auth_token")
+            
+            print(f"🔍 [DEBUG] auth_service.get_current_user: token={'あり' if token else 'なし'}")
+            
+            if not token:
+                return None
+            
+            # トークンからユーザー情報を取得
+            user = await self.get_user_from_token(token)
+            
+            if not user:
+                print("🔍 [DEBUG] auth_service: ユーザー情報取得失敗")
+                return None
+            
+            print(f"🔍 [DEBUG] auth_service: user_id={user['id']}, is_admin={user['is_admin']}, can_see_contents={user['can_see_contents']}")
+            
+            return user
+            
+        except Exception as e:
+            print(f"❌ [DEBUG] auth_service.get_current_user エラー: {e}")
             return None
 
     async def create_user(self, username: str, password: str, is_admin: bool = False) -> Optional[Dict[str, Any]]:

@@ -40,8 +40,11 @@ class ConfigManager:
             print(f"設定ファイル読み込みエラー: {str(e)}")
             config = {}
         
+        # secret.ymlを読み込み
+        secret_config = self._load_secret_config()
+        
         # 環境変数での上書き処理
-        config = self._expand_env_vars(config)
+        config = self._expand_env_vars(config, secret_config)
         
         # 環境別設定の適用
         env_mode = os.getenv('ENVIRONMENT', config.get('environment', {}).get('mode', 'development'))
@@ -51,14 +54,48 @@ class ConfigManager:
         
         return config
     
-    def _expand_env_vars(self, config: Any) -> Any:
-        """${VAR_NAME}形式の環境変数を展開"""
+    def _load_secret_config(self) -> Dict[str, Any]:
+        """secret.ymlファイルを読み込み"""
+        secret_path = self.project_root / "config" / "secret.yml"
+        try:
+            if secret_path.exists():
+                with open(secret_path, 'r', encoding='utf-8') as f:
+                    secret_config = yaml.safe_load(f)
+                print(f"機密設定ファイル読み込み成功: {secret_path}")
+                return secret_config or {}
+            else:
+                print(f"機密設定ファイルが見つかりません: {secret_path}")
+                return {}
+        except Exception as e:
+            print(f"機密設定ファイル読み込みエラー: {str(e)}")
+            return {}
+    
+    def _expand_env_vars(self, config: Any, secret_config: Dict[str, Any] = None) -> Any:
+        """環境変数とsecret.ymlの値を展開"""
+        if secret_config is None:
+            secret_config = {}
+            
         if isinstance(config, dict):
-            return {key: self._expand_env_vars(value) for key, value in config.items()}
+            return {k: self._expand_env_vars(v, secret_config) for k, v in config.items()}
         elif isinstance(config, list):
-            return [self._expand_env_vars(item) for item in config]
+            return [self._expand_env_vars(item, secret_config) for item in config]
         elif isinstance(config, str) and config.startswith('${') and config.endswith('}'):
             var_name = config[2:-1]
+            
+            # secret.ymlから値を取得
+            if var_name.startswith('SECRET_'):
+                secret_key = var_name.replace('SECRET_', '').lower()
+                if secret_key == 'db_password':
+                    return secret_config.get('database', {}).get('password', config)
+                elif secret_key == 'db_url':
+                    return secret_config.get('database', {}).get('url', config)
+                elif secret_key == 'auth_key':
+                    return secret_config.get('auth', {}).get('secret_key', config)
+                elif secret_key.startswith('x_'):
+                    x_key = secret_key.replace('x_', '')
+                    return secret_config.get('x_api', {}).get(x_key, config)
+            
+            # 環境変数から取得
             return os.getenv(var_name, config)
         else:
             return config
@@ -163,7 +200,8 @@ class Settings(BaseSettings):
     
     # Twitter API設定
     twitter_bearer_token: Optional[str] = os.getenv('TWITTER_BEARER_TOKEN')
-    twitter_username: str = os.getenv('TWITTER_USERNAME', 'kadou_com')
+    twitter_username: str = os.getenv('TWITTER_USERNAME', 'elonmusk')
+    twitter_display_name: str = os.getenv('TWITTER_DISPLAY_NAME', 'Elon Musk')
     title: str = "稼働.com API"
     description: str = "風俗店稼働率管理システムのAPI"
     version: str = "1.0.0"
@@ -218,6 +256,11 @@ class Settings(BaseSettings):
             # フロントエンドURL
             if frontend_config:
                 self.frontend_url = frontend_config.get('url', self.frontend_url)
+                
+                # Twitter設定
+                twitter_config = frontend_config.get('twitter', {})
+                self.twitter_username = twitter_config.get('username', self.twitter_username)
+                self.twitter_display_name = twitter_config.get('display_name', self.twitter_display_name)
         else:
             # フォールバック: 環境変数から読み込み
             self.api_host = os.getenv('API_HOST', self.api_host)

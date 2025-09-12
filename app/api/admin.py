@@ -12,6 +12,8 @@ import secrets
 import string
 from datetime import datetime
 import sys
+from typing import List, Optional
+from pydantic import BaseModel
 
 # プロジェクトルートへのパス設定
 project_root = Path(__file__).parent.parent.parent
@@ -23,17 +25,20 @@ from app.core.auth_service import auth_service
 router = APIRouter(tags=["admin"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
-def generate_password(length=10):
-    """ランダムなパスワードを生成"""
-    # 英数字をバランス良く含めるためのセット
-    alphabet = string.ascii_letters + string.digits
-    # 最低1つの数字を含めるための処理
-    password = ''.join(secrets.choice(alphabet) for i in range(length-1))
-    password += secrets.choice(string.digits)  # 最後に必ず数字を追加
-    # シャッフルして順番をランダムに
-    password_list = list(password)
-    secrets.SystemRandom().shuffle(password_list)
-    return ''.join(password_list)
+# ユーザー一括更新のモデル
+class UserUpdateItem(BaseModel):
+    id: str
+    can_see_contents: bool
+    is_admin: bool
+    is_active: bool
+
+class UserBulkUpdateRequest(BaseModel):
+    users: List[UserUpdateItem]
+
+def generate_password(length=4):
+    """4桁の数字のみのパスワードを生成"""
+    # 数字のみの4桁パスワード
+    return ''.join(secrets.choice(string.digits) for i in range(length))
 
 def hash_password(password):
     """パスワードをハッシュ化"""
@@ -53,7 +58,13 @@ async def admin_required(request: Request):
 
 # ユーザー管理ページ
 @router.get("/admin/users", response_class=HTMLResponse)
-async def user_list_page(request: Request, admin = Depends(admin_required)):
+async def user_list_page(
+    request: Request, 
+    search: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 15,
+    admin = Depends(admin_required)
+):
     """管理者用: ユーザー一覧ページ"""
     db = DatabaseManager()
     
@@ -61,20 +72,60 @@ async def user_list_page(request: Request, admin = Depends(admin_required)):
     try:
         with db.get_connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute("""
+                # 検索条件の構築
+                search_condition = ""
+                params = []
+                
+                if search:
+                    search_condition = "WHERE name LIKE %s"
+                    search_term = f"%{search}%"
+                    params = [search_term]
+                
+                # 総件数を取得
+                count_sql = f"SELECT COUNT(*) as total FROM users {search_condition}"
+                cursor.execute(count_sql, params)
+                total_count = cursor.fetchone()["total"]
+                
+                # ページネーションの計算
+                offset = (page - 1) * page_size
+                
+                # ユーザー一覧を取得
+                sql = f"""
                     SELECT id, name, can_see_contents, is_active, is_admin, created_at
                     FROM users
+                    {search_condition}
                     ORDER BY created_at DESC
-                """)
+                    LIMIT %s OFFSET %s
+                """
+                
+                # パラメータにページネーション情報を追加
+                params.extend([page_size, offset])
+                cursor.execute(sql, params)
                 users = cursor.fetchall()
+                
+                # ページネーション情報
+                pagination = {
+                    "total": total_count,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": (total_count + page_size - 1) // page_size
+                }
     except Exception as e:
         print(f"ユーザー一覧取得エラー: {e}")
         users = []
+        pagination = {"total": 0, "page": 1, "page_size": page_size, "total_pages": 1}
     
     return templates.TemplateResponse(
         "admin/users.html",
-        {"request": request, "users": users, "admin": admin}
+        {
+            "request": request, 
+            "users": users, 
+            "admin": admin,
+            "pagination": pagination,
+            "search": search
+        }
     )
+
 
 # 新規ユーザー作成API
 @router.post("/api/admin/users/create")
@@ -227,3 +278,100 @@ async def toggle_user_admin(
             "message": f"ユーザーを{'管理者に' if is_admin else '一般ユーザーに'}設定しました"
         }
     )
+
+# ユーザー一括更新API
+@router.post("/api/admin/users/bulk-update")
+async def bulk_update_users(
+    request: Request, 
+    update_data: UserBulkUpdateRequest,
+    admin = Depends(admin_required)
+):
+    """管理者用: ユーザー情報を一括更新する"""
+    db = DatabaseManager()
+    
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                for user_item in update_data.users:
+                    cursor.execute(
+                        """
+                        UPDATE users 
+                        SET can_see_contents = %s, is_admin = %s, is_active = %s, updated_at = %s
+                        WHERE id = %s
+                        """,
+                        (
+                            user_item.can_see_contents, 
+                            user_item.is_admin, 
+                            user_item.is_active,
+                            datetime.now(),
+                            user_item.id
+                        )
+                    )
+            conn.commit()
+        
+        return JSONResponse(
+            content={
+                "success": True, 
+                "message": "ユーザー情報を一括更新しました"
+            }
+        )
+    except Exception as e:
+        print(f"ユーザー一括更新エラー: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"更新エラー: {str(e)}"}
+        )
+
+# パスワード再生成API
+@router.post("/api/admin/users/{user_id}/reset-password")
+async def reset_user_password(
+    request: Request,
+    user_id: str,
+    admin = Depends(admin_required)
+):
+    """管理者用: ユーザーのパスワードをリセットする"""
+    db = DatabaseManager()
+    
+    try:
+        # ランダムなパスワードを生成
+        password = generate_password()
+        password_hash = hash_password(password)
+        
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # ユーザー存在確認
+                cursor.execute("SELECT name FROM users WHERE id = %s", (user_id,))
+                user = cursor.fetchone()
+                
+                if not user:
+                    return JSONResponse(
+                        status_code=404,
+                        content={"success": False, "message": "ユーザーが見つかりません"}
+                    )
+                
+                # パスワードハッシュを更新
+                cursor.execute(
+                    """
+                    UPDATE users 
+                    SET password_hash = %s, updated_at = %s
+                    WHERE id = %s
+                    """,
+                    (password_hash, datetime.now(), user_id)
+                )
+                conn.commit()
+        
+        # 成功レスポンス（平文パスワードを含む - 一度だけ表示）
+        return JSONResponse(
+            content={
+                "success": True, 
+                "message": "パスワードを再設定しました", 
+                "password": password,
+                "user_name": user["name"]
+            }
+        )
+    except Exception as e:
+        print(f"パスワードリセットエラー: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"パスワード再設定エラー: {str(e)}"}
+        )

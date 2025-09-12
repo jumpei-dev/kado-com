@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if error %}
+    確認エラー | 稼働.com
+  {% else %}
+    確認完了 | 稼働.com
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow">
+    <div>
+      <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        {% if error %}確認エラー{% else %}確認完了{% endif %}
+      </h2>
+    </div>
+    
+    {% if error %}
+    <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-red-700">{{ error }}</p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    
+    {% if success %}
+    <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-green-700">{{ success }}</p>
+        </div>
+      </div>
+    </div>
+
+    {% if auto_login %}
+    <div class="text-center my-4">
+      <div class="animate-pulse inline-block bg-blue-100 text-blue-800 text-sm font-semibold px-4 py-2 rounded-full">
+        <span class="mr-2">●</span>自動ログイン中...
+      </div>
+      <p class="text-sm text-gray-600 mt-2">ログイン完了後、自動的にホームページへ移動します</p>
+    </div>
+    
+    <script>
+      // ログイン状態を更新するイベントを発火
+      document.dispatchEvent(new CustomEvent('auth:login', {
+        detail: { userName: '{{ user_name }}' }
+      }));
+      
+      // リダイレクト
+      setTimeout(function() {
+        window.location.href = "{{ redirect_url }}";
+      }, 2000);
+    </script>
+    {% elif redirect_url %}
+    <div class="text-center my-4">
+      <p class="text-sm text-gray-600">間もなくホームページへ移動します...</p>
+    </div>
+    <script>
+      setTimeout(function() {
+        window.location.href = "{{ redirect_url }}";
+      }, 3000);
+    </script>
+    {% endif %}
+    {% endif %}
+    
+    <div class="text-center mt-6">
+      {% if redirect_url %}
+        <a href="{{ redirect_url }}" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-700 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+          {{ redirect_text|default('ホームに戻る') }}
+        </a>
+      {% else %}
+        <a href="/" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-700 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+          ホームに戻る
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

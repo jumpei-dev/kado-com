@@ -1,0 +1,192 @@
+<div id="store-detail" class="bg-white rounded-lg shadow-lg p-8">
+  <div class="flex justify-between items-start mb-6">
+    <h2 class="text-2xl font-bold text-gray-800">
+      {% if user_permissions.can_see_contents %}
+        {{ store.original_name or store.name }}
+      {% else %}
+        {{ store.blurred_name or store.name }}
+      {% endif %}
+    </h2>
+    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">{{ store.genre }}</span>
+  </div>
+
+  <div class="mb-6">
+    <p class="text-gray-600">{{ store.area }}</p>
+  </div>
+
+  <div class="mb-8">
+    <h3 class="text-lg font-semibold mb-3">稼働状況</h3>
+    <div class="bg-gray-100 p-4 rounded-lg">
+      <div class="grid grid-cols-3 gap-4">
+        <div class="text-center">
+          <p class="text-gray-500 text-sm">本日</p>
+          <p class="text-2xl font-bold text-blue-600">{{ store.working_rate }}%</p>
+        </div>
+        <div class="text-center">
+          <p class="text-gray-500 text-sm">昨日</p>
+          <p class="text-2xl font-bold">{{ store.previous_rate }}%</p>
+        </div>
+        <div class="text-center">
+          <p class="text-gray-500 text-sm">週間平均</p>
+          <p class="text-2xl font-bold">{{ store.weekly_rate }}%</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 稼働推移グラフセクション -->
+  <div class="mb-8">
+    <h3 class="text-lg font-semibold mb-4">曜日別稼働推移</h3>
+    <div class="bg-white border rounded-lg p-4">
+      <div class="relative h-64">
+        <canvas id="workingTrendChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex justify-between">
+    <button 
+      class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded"
+      hx-get="/api/stores"
+      hx-target="#store-detail"
+      hx-swap="outerHTML">
+      一覧に戻る
+    </button>
+  </div>
+</div>
+
+<!-- Chart.js読み込み -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- 稼働推移グラフの初期化 -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initWorkingTrendChart('{{ store.id }}');
+});
+
+async function initWorkingTrendChart(storeId) {
+    console.log('🔍 稼働推移グラフ初期化開始:', storeId);
+    
+    try {
+        // 稼働推移データを取得
+        const response = await fetch(`/api/stores/${storeId}/working-trend`);
+        const result = await response.json();
+        
+        console.log('📊 稼働推移データ:', result);
+        
+        if (!result.success) {
+            console.warn('⚠️ データ取得に問題がありました:', result.error);
+        }
+        
+        const ctx = document.getElementById('workingTrendChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: result.labels,  // ['日', '月', '火', '水', '木', '金', '土']
+                datasets: [{
+                    label: '稼働率(%)',
+                    data: result.data,
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    pointBackgroundColor: 'rgb(59, 130, 246)',
+                    pointBorderColor: 'white',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `曜日別稼働推移 (データソース: ${result.data_source})`,
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        },
+                        color: '#374151'
+                    },
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return `稼働率: ${context.parsed.y}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: '稼働率(%)',
+                            color: '#6B7280',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#6B7280',
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '曜日',
+                            color: '#6B7280',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#6B7280'
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+        
+        console.log('✅ 稼働推移グラフ初期化完了');
+        
+    } catch (error) {
+        console.error('❌ 稼働推移グラフの初期化に失敗:', error);
+        
+        // エラー時はエラーメッセージを表示
+        const chartContainer = document.getElementById('workingTrendChart').parentElement;
+        chartContainer.innerHTML = '<div class="text-center text-red-600 py-8">稼働推移データの読み込みに失敗しました</div>';
+    }
+}
+</script>

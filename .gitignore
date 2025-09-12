@@ -1,3 +1,6 @@
+# 機密情報ファイル
+config/secret.yml
+
 # Python
 __pycache__/
 *.py[cod]
@@ -172,5 +175,6 @@ config/secrets.yaml
 data/raw_html/
 data/parsed_data/
 data/test_samples/
-*.html
-*.htm
+# 以下を削除してテンプレートファイルがコミットされるようにする
+# *.html
+# *.htm
