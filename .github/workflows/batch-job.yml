@@ -1,4 +1,4 @@
-name: Batch Job Execution
+name: "Batch Job - ${{ github.event.inputs.job_type || 'status-collection' }}"
 
 on:
   schedule:
@@ -35,23 +35,11 @@ jobs:
     - name: Install dependencies
       run: pip3 install -r requirements.txt
     
-    - name: Create secret.yml from secrets
+    - name: Create config from secrets
       working-directory: batch
       run: |
         mkdir -p config
-        cat > config/secret.yml << EOF
-        database:
-          url: "${{ secrets.DATABASE_URL }}"
-          password: "${{ secrets.DB_PASSWORD }}"
-        auth:
-          secret_key: "${{ secrets.AUTH_SECRET_KEY }}"
-        x_api:
-          bearer_token: "${{ secrets.X_BEARER_TOKEN }}"
-          api_key: "${{ secrets.X_API_KEY }}"
-          api_secret: "${{ secrets.X_API_SECRET }}"
-          access_token: "${{ secrets.X_ACCESS_TOKEN }}"
-          access_token_secret: "${{ secrets.X_ACCESS_TOKEN_SECRET }}"
-        EOF
+        echo '${{ secrets.BATCH_CONFIG }}' > config/secret.yml
     
     - name: Run batch job
       working-directory: batch
