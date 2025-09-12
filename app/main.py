@@ -13,6 +13,7 @@ from app.api import stores
 from app.core.database import get_database
 from app.core.auth_utils import check_user_permissions
 from app.utils.blurred_name_utils import get_store_display_info
+from app.utils.business_type_utils import convert_business_type_to_japanese
 
 from app.api import auth, stores, twitter, pages, config
 from app.api.admin import router as admin_router
@@ -238,7 +239,7 @@ async def get_store_detail(request: Request, store_id: str, db = Depends(get_dat
             "id": store_data["business_id"],  # business_id
             "name": store_data["name"],
             "area": store_data["area"],
-            "genre": store_data["type"],  # type
+            "genre": convert_business_type_to_japanese(store_data["type"]),  # type
             "blurred_name": store_data["blurred_name"],
             "working_rate": 65,  # 仮の稼働率データ
             "history": {
