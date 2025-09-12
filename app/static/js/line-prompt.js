@@ -1,7 +1,17 @@
 // LINE誘導ポップアップの状態管理
 let linePromptShown = false;
-let lastPromptTime = 0;
 let lineConfig = null;
+const LINE_PROMPT_SHOWN_KEY = 'linePromptShown';
+
+// LocalStorageから表示済みフラグを確認
+const hasShownPrompt = () => {
+  return localStorage.getItem(LINE_PROMPT_SHOWN_KEY) === 'true';
+};
+
+// LocalStorageに表示済みフラグを保存
+const markPromptAsShown = () => {
+  localStorage.setItem(LINE_PROMPT_SHOWN_KEY, 'true');
+};
 
 // LINE設定を取得する関数
 const fetchLineConfig = async () => {
@@ -64,7 +74,7 @@ const showLinePrompt = () => {
   const prompt = createLinePrompt();
   document.body.appendChild(prompt);
   linePromptShown = true;
-  lastPromptTime = Date.now();
+  markPromptAsShown(); // LocalStorageに記録
 };
 
 // ポップアップを非表示にする関数
@@ -80,26 +90,17 @@ const handleLinePrompt = async () => {
   // 既にログインしている場合は表示しない
   if (document.cookie.includes('logged_in=true')) return;
   
+  // 既に表示済みの場合は表示しない
+  if (hasShownPrompt()) return;
+  
   // LINE設定を取得
   if (!lineConfig) {
     await fetchLineConfig();
   }
   
-  const currentTime = Date.now();
-  const timeSinceLastPrompt = currentTime - lastPromptTime;
-  
-  // 設定から遅延時間と間隔を取得
-  const initialDelayMs = (lineConfig?.initial_delay_seconds || 30) * 1000;
-  const reoccurrenceIntervalMs = (lineConfig?.reoccurrence_interval_minutes || 30) * 60 * 1000;
-  
-  // 初回表示（設定された秒数後）
-  if (!linePromptShown) {
-    setTimeout(showLinePrompt, initialDelayMs);
-  }
-  // 2回目以降（設定された分数ごと）
-  else if (timeSinceLastPrompt >= reoccurrenceIntervalMs) {
-    showLinePrompt();
-  }
+  // 1分後に1回だけ表示
+  const delayMs = 60 * 1000; // 1分 = 60秒
+  setTimeout(showLinePrompt, delayMs);
 };
 
 // ページ読み込み時にポップアップ制御を開始
