@@ -2,9 +2,11 @@ name: Batch Job Execution
 
 on:
   schedule:
-    - cron: '0 3 * * *'      # 毎日 JST 12:00
-    - cron: '*/30 * * * *'   # 30分おき
-  workflow_dispatch:
+    # 毎日12時に稼働率計算を実行（base.yamlの設定に合わせて）
+    - cron: '0 3 * * *'  # 日本時間12時 = UTC 3時
+    # 30分ごとに稼働状況取得を実行
+    - cron: '*/30 * * * *'
+  workflow_dispatch:  # 手動実行も可能
     inputs:
       job_type:
         description: 'Job type to run'
@@ -12,65 +14,63 @@ on:
         default: 'status-collection'
         type: choice
         options:
-          - status-collection
-          - working-rate
-          - debug-html
+        - status-collection
+        - working-rate-calculation
+        - debug-html
 
 jobs:
   batch-execution:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        working-directory: batch
-        run: pip install -r requirements.txt
-
-      - name: Create secret.yml from secrets
-        working-directory: batch
-        run: |
-          mkdir -p config
-          cat > config/secret.yml << 'EOF'
-          database:
-            url: "${{ secrets.DATABASE_URL }}"
-            password: "${{ secrets.DB_PASSWORD }}"
-          auth:
-            secret_key: "${{ secrets.AUTH_SECRET_KEY }}"
-          x_api:
-            bearer_token: "${{ secrets.X_BEARER_TOKEN }}"
-            api_key: "${{ secrets.X_API_KEY }}"
-            api_secret: "${{ secrets.X_API_SECRET }}"
-            access_token: "${{ secrets.X_ACCESS_TOKEN }}"
-            access_token_secret: "${{ secrets.X_ACCESS_TOKEN_SECRET }}"
-          EOF
-
-      - name: Run batch job
-        working-directory: batch
-        run: |
-          case "${{ github.event.inputs.job_type || 'status-collection' }}" in
-            "status-collection")
-              python main.py status-collection
-              ;;
-            "working-rate-calculation")
-              python main.py working-rate-calculation
-              ;;
-            "debug-html")
-              python main.py debug-html --local-file "sample.html"
-              ;;
-          esac
-
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: "batch-logs-${{ github.event.inputs.job_type || 'status-collection' }}"
-          path: batch/logs/
-          if-no-files-found: ignore   # ← ログ未生成でも失敗させない保険
+    - name: Install dependencies
+      run: pip3 install -r requirements.txt
+    
+    - name: Create secret.yml from secrets
+      working-directory: batch
+      run: |
+        mkdir -p config
+        cat > config/secret.yml << EOF
+        database:
+          url: "${{ secrets.DATABASE_URL }}"
+          password: "${{ secrets.DB_PASSWORD }}"
+        auth:
+          secret_key: "${{ secrets.AUTH_SECRET_KEY }}"
+        x_api:
+          bearer_token: "${{ secrets.X_BEARER_TOKEN }}"
+          api_key: "${{ secrets.X_API_KEY }}"
+          api_secret: "${{ secrets.X_API_SECRET }}"
+          access_token: "${{ secrets.X_ACCESS_TOKEN }}"
+          access_token_secret: "${{ secrets.X_ACCESS_TOKEN_SECRET }}"
+        EOF
+    
+    - name: Run batch job
+      working-directory: batch
+      run: |
+        case "${{ github.event.inputs.job_type || 'status-collection' }}" in
+          "status-collection")
+            python main.py status-collection
+            ;;
+          "working-rate-calculation")
+            python main.py working-rate-calculation
+            ;;
+          "debug-html")
+            python main.py debug-html --local-file "sample.html"
+            ;;
+        esac
+    
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: batch-logs-${{ github.event.inputs.job_type || 'status-collection' }}
+        path: batch/logs/
