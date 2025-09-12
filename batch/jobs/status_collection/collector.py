@@ -200,8 +200,7 @@ async def collect_all_working_status(businesses: Dict[int, Dict[str, Any]], use_
     except Exception as e:
         logger.error(f"ステータス収集処理でエラーが発生: {str(e)}")
     finally:
-        # WebDriverのクリーンアップ
-        await cleanup_webdrivers()
+        pass
     
     logger.info(f"全店舗のキャスト稼働ステータス収集完了: 合計 {len(all_cast_data)} 件")
     
@@ -276,8 +275,7 @@ async def collect_all_working_status_parallel(businesses: Dict[int, Dict[str, An
     except Exception as e:
         logger.error(f"ステータス収集処理でエラーが発生: {str(e)}")
     finally:
-        # WebDriverのクリーンアップ
-        await cleanup_webdrivers()
+        pass
     
     logger.info(f"全店舗のキャスト稼働ステータス収集完了: 合計 {len(all_cast_data)} 件")
     
@@ -334,12 +332,7 @@ def _output_collection_results_json(all_cast_data: List[Dict[str, Any]]):
         print("="*50 + "\n")
 
 
-async def cleanup_webdrivers():
-    """すべてのWebDriverインスタンスをクリーンアップ"""
-    try:
-        logger.info("WebDriverクリーンアップ完了")
-    except Exception as e:
-        logger.error(f"WebDriverクリーンアップエラー: {e}")
+# WebDriverクリーンアップ関数は削除されました（aiohttp使用のため不要）
 
 
 async def run_status_collection(businesses: Dict[int, Dict[str, Any]]) -> bool:

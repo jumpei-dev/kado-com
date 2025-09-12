@@ -132,9 +132,8 @@ batch/
 │   │   ├── cityheaven_parsers.py  # 🔧 HTML解析（受付終了判定付き）
 │   │   ├── cityheaven_strategy.py # 戦略パターン
 │   │   ├── database_saver.py      # DB保存処理
-│   │   ├── html_loader.py         # HTML取得
-│   │   ├── aiohttp_loader.py      # 非同期HTTP取得
-│   │   └── webdriver_manager.py   # WebDriver管理
+│   │   ├── html_loader.py         # ローカルHTML取得
+│   │   └── aiohttp_loader.py      # 非同期HTTP取得
 │   └── working_rate_calculation/  # 稼働率計算（日次）
 │       ├── calculator.py          # 🔧 計算統合（capacity対応）
 │       ├── rate_calculator.py     # 🔧 稼働率計算（capacity補正）
@@ -426,7 +425,6 @@ python batch/main.py test-db-integration filename.html --business-name "店舗�
 ### スクレイピング・データ処理
 - **BeautifulSoup4**: HTML解析
 - **aiohttp**: 非同期HTTP通信
-- **Selenium**: WebDriverによる動的コンテンツ取得
 - **Pandas**: データ処理・分析
 
 ### CI/CD・インフラ
