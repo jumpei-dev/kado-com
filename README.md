@@ -1,6 +1,25 @@
-# 稼働.com - バッチ処理システム
+# 稼働.com - 統合管理システム
 
-風俗店の稼働状況を自動収集・分析するバッチ処理システム
+風俗店の稼働状況を自動収集・分析し、Webインターフェースで可視化する統合管理システム
+
+## 🏗️ **システム構成**
+
+### Webアプリケーション (FastAPI)
+- **フロントエンド**: HTML/CSS/JavaScript (HTMX, Tailwind CSS)
+- **バックエンド**: FastAPI + SQLAlchemy
+- **認証システム**: JWT認証、パスワードリセット機能
+- **データ可視化**: Chart.js による稼働率グラフ表示
+- **管理機能**: 店舗管理、ユーザー管理
+
+### バッチ処理システム
+- **自動データ収集**: 30分間隔での稼働状況スクレイピング
+- **稼働率計算**: 日次での稼働率算出・履歴保存
+- **GitHub Actions**: クラウド環境での自動バッチ実行
+
+### CI/CD & 自動化
+- **GitHub Actions**: バッチ処理の自動実行
+- **スケジュール実行**: cron式による定期実行
+- **手動実行**: ワークフロー手動トリガー対応
 
 ## ✨ **最新実装機能**
 
@@ -67,79 +86,196 @@
 | date | DATE | 日付 |
 | **working_rate** | DECIMAL | **稼働率%（capacity補正済み）** |
 
-## 🏗️ **システム構成**
+## 📁 **プロジェクト構造**
+
+### Webアプリケーション
+```
+app/
+├── api/                    # APIエンドポイント
+│   ├── admin.py           # 管理者API
+│   ├── auth.py            # 認証API
+│   ├── auth_new.py        # 新認証システム
+│   ├── pages.py           # ページルーティング
+│   ├── stores.py          # 店舗API
+│   └── twitter.py         # Twitter連携
+├── core/                   # コアモジュール
+│   ├── auth_config.py     # 認証設定
+│   ├── auth_service.py    # 認証サービス
+│   ├── auth_utils.py      # 認証ユーティリティ
+│   ├── config.py          # アプリ設定
+│   ├── database.py        # データベース管理
+│   ├── email_service.py   # メール送信サービス
+│   └── seed.py            # データシード
+├── models/                 # データモデル
+│   └── store.py           # 店舗モデル
+├── static/                 # 静的ファイル
+│   ├── css/               # スタイルシート
+│   └── js/                # JavaScript
+├── templates/              # HTMLテンプレート
+│   ├── admin/             # 管理画面
+│   ├── components/        # コンポーネント
+│   └── partials/          # パーシャル
+├── utils/                  # ユーティリティ
+└── main.py                # FastAPIアプリケーション
+```
 
 ### バッチ処理システム
 ```
 batch/
-├── core/              # コアモジュール
-│   ├── database.py   # データベース管理
-│   ├── models.py     # データモデル
-│   └── scraper.py    # スクレイピング機能
-├── jobs/              # バッチジョブ
-│   ├── status_collection/    # ステータス収集（30分間隔）
-│   │   ├── collector.py     # 収集メイン処理
+├── core/                   # コアモジュール
+│   ├── database.py        # データベース管理
+│   ├── models.py          # データモデル
+│   └── scraper.py         # スクレイピング機能
+├── jobs/                   # バッチジョブ
+│   ├── status_collection/ # ステータス収集（30分間隔）
+│   │   ├── collector.py           # 収集メイン処理
 │   │   ├── cityheaven_parsers.py  # 🔧 HTML解析（受付終了判定付き）
 │   │   ├── cityheaven_strategy.py # 戦略パターン
 │   │   ├── database_saver.py      # DB保存処理
 │   │   ├── html_loader.py         # HTML取得
+│   │   ├── aiohttp_loader.py      # 非同期HTTP取得
 │   │   └── webdriver_manager.py   # WebDriver管理
 │   └── working_rate_calculation/  # 稼働率計算（日次）
 │       ├── calculator.py          # 🔧 計算統合（capacity対応）
 │       ├── rate_calculator.py     # 🔧 稼働率計算（capacity補正）
 │       ├── data_retriever.py      # データ取得
 │       ├── history_saver.py       # 履歴保存
+│       ├── history_summary.py     # 履歴サマリー
 │       └── models.py              # データモデル
-├── schedulers/        # スケジューラー
+├── schedulers/             # スケジューラー
 │   ├── batch_scheduler.py         # メインスケジューラー
 │   ├── status_collection_scheduler.py  # 収集スケジューラー
 │   └── working_rate_scheduler.py      # 稼働率スケジューラー
-├── tests/             # テスト
-│   ├── integration/   # 統合テスト
+├── tests/                  # テスト
+│   ├── integration/       # 統合テスト
 │   │   ├── test_html_to_db.py           # HTML→DB統合テスト
 │   │   └── test_working_rate_calculation.py  # 稼働率計算テスト
-│   └── utils/         # テストユーティリティ
-├── utils/            # ユーティリティ
-│   ├── config.py     # 設定管理
+│   └── utils/             # テストユーティリティ
+├── utils/                  # ユーティリティ
+│   ├── config.py          # 設定管理
 │   ├── datetime_utils.py  # 日時処理
+│   ├── debug_html_output.py # HTMLデバッグ
 │   └── logging_utils.py   # ログ管理
-└── main.py           # 🔧 CLIエントリーポイント（新機能コマンド付き）
+├── main.py                 # 🔧 CLIエントリーポイント
+└── requirements.txt        # Python依存関係
 ```
 
-### データディレクトリ
+### CI/CD & 自動化
 ```
-data/
-├── raw_html/         # 取得したHTMLファイル
-│   ├── cityhaven/   # CityHeaven HTMLデータ
-│   └── deliher_town/ # デリヘルタウン HTMLデータ
-├── parsed_data/     # 解析済みデータ
-└── test_samples/    # テスト用サンプル
+.github/
+└── workflows/              # GitHub Actionsワークフロー
+    ├── batch-job.yml      # 基本バッチ処理
+    ├── advanced-batch.yml # 高度なバッチ処理
+    └── README.md          # ワークフロー説明
 ```
 
-### 設定ファイル
+### 設定・データ・その他
 ```
 config/
-├── development.yaml  # 開発環境設定
-├── production.yaml   # 本番環境設定
-└── testing.yaml     # テスト環境設定
+├── base.yaml        # 基本設定
+└── config.yml       # アプリケーション設定
+
+data/
+├── README.md        # データディレクトリ説明
+└── blurred_names_template.csv  # 匿名化テンプレート
+
+shared/
+├── __init__.py
+└── config.py        # 共有設定
+
+tests/
+├── integration/     # 統合テスト
+├── batch_utils/     # バッチユーティリティテスト
+├── core/           # コアモジュールテスト
+├── jobs/           # ジョブテスト
+├── schedulers/     # スケジューラーテスト
+└── utils/          # テストヘルパー
+
+docs/
+└── blurred_name_implementation.md  # 実装ドキュメント
+
+migrations/
+└── auth_system_renewal.sql  # データベースマイグレーション
+
+_backup/
+└── auth/           # 認証システムバックアップ
+```
+
+## 🚀 **GitHub Actions 自動化**
+
+### ワークフロー概要
+
+#### 基本バッチ処理 (`batch-job.yml`)
+- **稼働率計算**: 毎日日本時間12時（UTC 3時）
+- **稼働状況取得**: 30分ごと
+- **手動実行**: ワークフロー画面から実行可能
+
+#### 高度なバッチ処理 (`advanced-batch.yml`)
+- **並行実行**: マトリックス戦略による複数ジョブ同時実行
+- **エラーハンドリング**: 詳細なログ出力とアーティファクト保存
+- **ヘルスチェック**: 15分ごとのシステム監視
+- **クリーンアップ**: 毎日午前2時の自動データクリーンアップ
+
+### 必要なGitHub Secrets
+```
+DATABASE_URL          # データベース接続URL
+DB_PASSWORD           # データベースパスワード
+AUTH_SECRET_KEY       # 認証用秘密鍵
+X_BEARER_TOKEN        # X API Bearer Token
+X_API_KEY             # X API Key
+X_API_SECRET          # X API Secret
+X_ACCESS_TOKEN        # X Access Token
+X_ACCESS_TOKEN_SECRET # X Access Token Secret
 ```
 
 ## 🚀 **セットアップ**
 
-1. **依存関係インストール**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 1. 依存関係インストール
+```bash
+# プロジェクトルート
+pip install -r requirements.txt
 
-2. **データベース設定**
-   - Supabaseプロジェクトを作成
-   - 環境変数またはconfig/production.yamlで接続情報を設定
+# バッチ処理用
+cd batch
+pip install -r requirements.txt
 
-3. **バッチスケジューラー起動**
-   ```bash
-   python batch/main.py status-collection  # 稼働状況収集スケジューラー
-   python batch/main.py working-rate       # 稼働率計算スケジューラー
-   ```
+# フロントエンド（Tailwind CSS）
+cd app
+npm install
+```
+
+### 2. データベース設定
+- Supabaseプロジェクトを作成
+- `config/secret.yml`で接続情報を設定（GitHub Secretsから自動生成）
+
+### 3. アプリケーション起動
+
+#### Webアプリケーション
+```bash
+# 開発サーバー起動
+cd app
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+# または
+python app/run_app.py
+```
+
+#### バッチ処理（ローカル実行）
+```bash
+# 稼働状況収集
+python batch/main.py status-collection
+
+# 稼働率計算
+python batch/main.py working-rate-calculation
+
+# データベーステスト
+python batch/main.py test-db
+```
+
+#### GitHub Actions（自動実行）
+1. GitHubリポジトリのSecretsを設定
+2. `.github/workflows/`のワークフローが自動実行
+3. 手動実行も可能（Actions画面から）
 
 ## 🛠️ **コマンドライン操作**
 
@@ -228,15 +364,31 @@ python batch/main.py test-db-integration filename.html --business-name "店舗�
 → 稼働率: 6人 / 出勤中人数 × 100%
 ```
 
-## 📈 **機能**
+## 📈 **主要機能**
 
+### Webアプリケーション機能
+- **🔐 認証システム**: JWT認証、パスワードリセット、メール認証
+- **📊 データ可視化**: Chart.js による稼働率グラフ表示
+- **🏪 店舗管理**: 店舗情報の表示・検索・フィルタリング
+- **👥 ユーザー管理**: 管理者によるユーザー管理機能
+- **📱 レスポンシブUI**: Tailwind CSS + HTMX による現代的なUI
+- **🐦 Twitter連携**: ソーシャルメディア統合
+
+### バッチ処理機能
 - **🔧 自動スクレイピング**: 店舗の稼働情報を30分間隔で収集（受付終了判定付き）
 - **🔧 capacity補正稼働率計算**: ソープランド店舗の物理的制約を考慮した正確な稼働率算出
-- **営業時間考慮**: 店舗の営業時間内のみスクレイピング実行
-- **エラー処理**: 堅牢なエラーハンドリングとリトライ機能
-- **ログ管理**: 詳細なログ出力とローテーション
+- **⏰ 営業時間考慮**: 店舗の営業時間内のみスクレイピング実行
+- **🛡️ エラー処理**: 堅牢なエラーハンドリングとリトライ機能
+- **📝 ログ管理**: 詳細なログ出力とローテーション
 - **🔧 詳細デバッグ**: キャスト稼働判定の詳細分析機能（DOM確認モード）
-- **🔧 テスト機能**: 店舗設定の一時変更とテスト機能
+- **🧪 テスト機能**: 店舗設定の一時変更とテスト機能
+
+### CI/CD & 自動化機能
+- **⚙️ GitHub Actions**: クラウド環境での自動バッチ実行
+- **📅 スケジュール実行**: cron式による定期実行
+- **🎛️ 手動実行**: ワークフロー手動トリガー対応
+- **📊 並行処理**: マトリックス戦略による効率的な処理
+- **🔍 監視機能**: ヘルスチェックとエラー通知
 
 ## 🎯 **実装検証済み機能**
 
@@ -252,133 +404,50 @@ python batch/main.py test-db-integration filename.html --business-name "店舗�
 - **出勤率削除**: システム上意味の薄い指標を削除済み
 - **情報集約**: 稼働率のみに集中した表示
 
+## 🔧 **技術スタック**
+
+### フロントエンド
+- **HTML/CSS/JavaScript**: 基本的なWeb技術
+- **Tailwind CSS**: ユーティリティファーストCSSフレームワーク
+- **HTMX**: 動的なHTMLアップデート
+- **Chart.js**: データ可視化ライブラリ
+
+### バックエンド
+- **Python 3.11+**: メインプログラミング言語
+- **FastAPI**: 高性能WebAPIフレームワーク
+- **SQLAlchemy**: ORM（Object-Relational Mapping）
+- **Pydantic**: データバリデーション
+- **Uvicorn**: ASGIサーバー
+
+### データベース
+- **PostgreSQL**: メインデータベース（Supabase）
+- **Alembic**: データベースマイグレーション
+
+### スクレイピング・データ処理
+- **BeautifulSoup4**: HTML解析
+- **aiohttp**: 非同期HTTP通信
+- **Selenium**: WebDriverによる動的コンテンツ取得
+- **Pandas**: データ処理・分析
+
+### CI/CD・インフラ
+- **GitHub Actions**: 自動化ワークフロー
+- **Docker**: コンテナ化（予定）
+- **Supabase**: データベースホスティング
+
+### 開発・テスト
+- **pytest**: テストフレームワーク
+- **Black**: コードフォーマッター
+- **isort**: インポート整理
+- **mypy**: 型チェック
+
 ## 📝 **ライセンス**
 
-Private Project
+Private Project - 商用利用禁止
 
-### バッチ処理システム
-```
-batch/
-├── core/              # コアモジュール
-│   ├── database.py   # データベース管理
-│   ├── models.py     # データモデル
-│   └── scraper.py    # スクレイピング機能
-├── jobs/              # バッチジョブ
-│   ├── status_collection.py  # ステータス収集（30分間隔）
-│   └── working_rate_calculation.py # 稼働率計算（日次）および稼働履歴計算
-├── scheduler/         # スケジューラー
-│   └── main.py       # メインスケジューラー
-└── utils/            # ユーティリティ
-    ├── config.py     # 設定管理
-    ├── datetime_utils.py  # 日時処理
-    └── logging_utils.py   # ログ管理
-```
+## 🤝 **コントリビューション**
 
-### 設定ファイル
-```
-config/
-├── development.yaml  # 開発環境設定
-├── production.yaml   # 本番環境設定
-└── testing.yaml     # テスト環境設定
-```
+このプロジェクトはプライベートプロジェクトです。
 
-## 🚀 セットアップ
+## 📞 **サポート**
 
-1. **依存関係インストール**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **データベース設定**
-   - Supabaseプロジェクトを作成
-   - 環境変数またはconfig/production.yamlで接続情報を設定
-
-3. **バッチスケジューラー起動**
-   ```bash
-   python -m batch.scheduler.main
-   ```
-
-## � 詳細デバッグ機能
-
-### キャスト稼働判定デバッグツール
-
-HTMLを取得してキャストの稼働状況を判定する際の重要なデバッグ機能です。
-
-#### 使用方法
-```bash
-python3 test_detailed_debug.py
-```
-
-#### 出力内容
-
-**1. 基本情報**
-- HTML内容長とsugunavi_wrapper要素数
-- sugunaviboxでフィルタリングされたキャスト数（期待値: 41人）
-
-**2. 各キャストの詳細分析（出勤中のみ）**
-```
-🔍 デバッグ詳細出力 - キャスト ID: 60539207
-================================================================================
-📅 HTML取得時間: 2025-08-25 21:52:50
-
-⏰ 出勤時間情報:
-   出勤時間1: '10:30～2:00'
-   DOM内容: <p class="time_font_size shadow shukkin_detail_time">...</p>
-
-💼 待機状態表記:
-   待機状態1: '次回22:10～'
-   DOM内容: <div class="title"><span>次回22:10～</span></div>
-
-📦 sugunavibox全体:
-   '次回22:10～合言葉【即姫+10分】今すぐ遊べる女の子選んで+10分GET'
-
-🎯 ソースコード判定結果:
-   is_on_shift (出勤中): True
-   is_working (稼働中): True
-
-🧮 判定ロジック詳細:
-   【出勤判定 (on_shift)】
-     '10:30～2:00' → 休み/調整中: False, 時間範囲内: True
-   【稼働判定 (is_working)】
-     '次回22:10～' → 現在時刻以降: True
-       💡 詳細計算: 22:10 - 21:52 = 17.2分後
-   最終結果: on_shift=True AND 現在時刻以降=True → is_working=True
-```
-
-#### 判定ロジック
-
-**出勤判定 (is_on_shift)**
-1. 出勤時間が「お休み」「調整中」等でないか確認
-2. 現在時刻が出勤時間範囲内にあるか確認
-3. 夜間営業の場合の跨日計算に対応
-
-**稼働判定 (is_working)**
-1. 出勤中（is_on_shift=True）が前提条件
-2. 待機状態が「次回XX:XX～」形式で未来時刻を示すか確認
-3. 「XX:XX ～待機中」（過去時刻）は非稼働として判定
-4. 「受付終了」は自動的に非稼働
-
-#### 実際の分析例
-
-**✅ 稼働中パターン**
-- `次回22:10～` → 17.2分後 → is_working=True
-- `次回23:40～` → 107.2分後 → is_working=True
-
-**❌ 非稼働パターン**
-- `21:13 ～待機中` → 39.8分前 → is_working=False
-- `受付終了` → title要素なし → is_working=False
-
-このデバッグ機能により、HTML解析とキャスト稼働判定の精度を詳細に検証できます。
-
-## �📈 機能
-
-- **自動スクレイピング**: 店舗の稼働情報を30分間隔で収集
-- **稼働率計算**: 日次で稼働率を算出・保存
-- **営業時間考慮**: 店舗の営業時間内のみスクレイピング実行
-- **エラー処理**: 堅牢なエラーハンドリングとリトライ機能
-- **ログ管理**: 詳細なログ出力とローテーション
-- **詳細デバッグ**: キャスト稼働判定の詳細分析機能
-
-## 📝 ライセンス
-
-Private Project
+技術的な問題や質問がある場合は、プロジェクト管理者にお問い合わせください。
