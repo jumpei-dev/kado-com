@@ -57,7 +57,13 @@
       </div>
 
       <div class="bg-gray-50 p-4 rounded-lg">
-        <h3 class="font-medium text-gray-900 mb-4">稼働推移</h3>
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-medium text-gray-900">稼働推移</h3>
+          <div class="flex bg-gray-200 rounded-lg p-1">
+            <button id="period-7days" class="px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-900 shadow-sm transition-colors">7日間</button>
+            <button id="period-2months" class="px-3 py-1 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-colors">2ヶ月</button>
+          </div>
+        </div>
         <div class="h-64 bg-white p-4 rounded-lg border border-gray-200">
           <canvas id="workingRateChart" width="100%" height="200"></canvas>
         </div>
@@ -73,28 +79,19 @@
         <div>
           <div class="flex justify-between items-center mb-1">
             <span class="text-sm text-gray-600">同エリア平均</span>
-            <span class="text-sm font-medium">{{ store.area_avg_rate }}%</span>
+            <span class="text-sm font-medium">72%</span>
           </div>
           <div class="w-full bg-gray-200 rounded-full h-2.5">
-            <div class="bg-gray-600 h-2.5 rounded-full" {% if store.area_avg_rate %}style="width: {{ store.area_avg_rate }}%"{% endif %}></div>
+            <div class="bg-gray-600 h-2.5 rounded-full" style="width: 72%"></div>
           </div>
         </div>
         <div>
           <div class="flex justify-between items-center mb-1">
             <span class="text-sm text-gray-600">同業種平均</span>
-            <span class="text-sm font-medium">{{ store.genre_avg_rate }}%</span>
+            <span class="text-sm font-medium">68%</span>
           </div>
           <div class="w-full bg-gray-200 rounded-full h-2.5">
-            <div class="bg-gray-600 h-2.5 rounded-full" {% if store.genre_avg_rate %}style="width: {{ store.genre_avg_rate }}%"{% endif %}></div>
-          </div>
-        </div>
-        <div>
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-sm text-gray-600">{{ store.name }}</span>
-            <span class="text-sm font-medium">{{ store.working_rate }}%</span>
-          </div>
-          <div class="w-full bg-gray-200 rounded-full h-2.5">
-            <div class="bg-{{ 'green-600' if store.working_rate > 70 else 'yellow-600' if store.working_rate > 40 else 'red-600' }} h-2.5 rounded-full" {% if store.working_rate %}style="width: {{ store.working_rate }}%"{% endif %}></div>
+            <div class="bg-gray-600 h-2.5 rounded-full" style="width: 68%"></div>
           </div>
         </div>
       </div>
@@ -137,12 +134,14 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script id="chart-data" type="application/json">{{ store.history|tojson }}</script>
 <script src="/static/js/store_detail_chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const labels = [{% for period in store.history %}'{{ period.label }}'{% if not loop.last %}, {% endif %}{% endfor %}];
-    const data = [{% for period in store.history %}{{ period.rate }}{% if not loop.last %}, {% endif %}{% endfor %}];
-    initWorkingRateChart(labels, data);
+    const chartDataElement = document.getElementById('chart-data');
+    const data = JSON.parse(chartDataElement.textContent);
+    
+    initWorkingRateChart(data);
 });
 </script>
 {% endblock %}

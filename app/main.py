@@ -206,6 +206,33 @@ async def get_store_detail(request: Request, store_id: str, db = Depends(get_dat
                 {"request": request, "message": "指定された店舗が見つかりません"}
             )
         
+        # 7日間と2ヶ月のダミーデータを生成
+        from datetime import datetime, timedelta
+        
+        today = datetime.now()
+        
+        # 7日間のデータ（日付ベース）
+        daily_data = []
+        for i in range(7):
+            date = today - timedelta(days=6-i)
+            rate = 60 + (i * 5) + (i % 3) * 10  # バリエーションのあるダミーデータ
+            daily_data.append({
+                "date": date.strftime("%Y-%m-%d"),
+                "rate": min(rate, 95)  # 最大95%に制限
+            })
+        
+        # 2ヶ月のデータ（週単位）
+        weekly_data = []
+        for i in range(8):  # 8週間分
+            week_start = today - timedelta(weeks=7-i, days=today.weekday())
+            week_end = week_start + timedelta(days=6)
+            rate = 55 + (i * 4) + (i % 2) * 8  # バリエーションのあるダミーデータ
+            weekly_data.append({
+                "week_start": week_start.strftime("%Y-%m-%d"),
+                "week_end": week_end.strftime("%Y-%m-%d"),
+                "rate": min(rate, 90)  # 最大90%に制限
+            })
+        
         # 店舗情報を辞書形式に変換
         store = {
             "id": store_data["business_id"],  # business_id
@@ -214,15 +241,10 @@ async def get_store_detail(request: Request, store_id: str, db = Depends(get_dat
             "genre": store_data["type"],  # type
             "blurred_name": store_data["blurred_name"],
             "working_rate": 65,  # 仮の稼働率データ
-            "history": [
-                {"label": "月", "rate": 60, "date": "2024-01-15"},
-                {"label": "火", "rate": 70, "date": "2024-01-16"},
-                {"label": "水", "rate": 55, "date": "2024-01-17"},
-                {"label": "木", "rate": 80, "date": "2024-01-18"},
-                {"label": "金", "rate": 85, "date": "2024-01-19"},
-                {"label": "土", "rate": 90, "date": "2024-01-20"},
-                {"label": "日", "rate": 75, "date": "2024-01-21"}
-            ]
+            "history": {
+                "daily": daily_data,
+                "weekly": weekly_data
+            }
         }
         
         # 表示名を取得
