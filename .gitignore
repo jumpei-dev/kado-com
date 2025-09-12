@@ -1,6 +1,9 @@
 # 機密情報ファイル
 config/secret.yml
 
+# GitHub Workflows
+.github/workflows/
+
 # Python
 __pycache__/
 *.py[cod]
