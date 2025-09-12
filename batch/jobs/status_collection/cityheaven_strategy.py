@@ -23,10 +23,12 @@ except ImportError:
 # Local imports
 try:
     from .html_loader import HTMLLoader
+    from .aiohttp_loader import load_html_compatible
     from .cityheaven_parsers import CityheavenParserFactory
 except ImportError:
     try:
         from html_loader import HTMLLoader
+        from aiohttp_loader import load_html_compatible
         from cityheaven_parsers import CityheavenParserFactory
     except ImportError as e:
         print(f"Local imports failed: {e}")
@@ -64,7 +66,7 @@ class ScrapingStrategy(ABC):
 
 
 class CityheavenStrategy(ScrapingStrategy):
-    """Cityheavenサイト用のスクレイピング戦略（Selenium使用）"""
+    """Cityheavenサイト用のスクレイピング戦略（aiohttp使用）"""
     
     def __init__(self, use_local_html: bool = False, specific_file: Optional[str] = None):
         """
@@ -80,7 +82,7 @@ class CityheavenStrategy(ScrapingStrategy):
         if use_local_html:
             logger.info("🔧 開発モード: ローカルHTMLファイルを使用します")
         else:
-            logger.info("🌐 本番モード: Seleniumでライブスクレイピングを実行します")
+            logger.info("🌐 本番モード: aiohttpでライブスクレイピングを実行します")
     
     async def scrape_working_status(self, business_name: str, business_id: str, base_url: str, use_local: bool = True, dom_check_mode: bool = False) -> list[CastStatus]:
         """
@@ -100,9 +102,13 @@ class CityheavenStrategy(ScrapingStrategy):
             logger.info(f"📊 Cityheaven稼働状況スクレイピング開始: {business_name}")
         
         # HTMLコンテンツと取得時刻を読み込み（修正版）
-        html_content, html_acquisition_time = await self.html_loader.load_html_content(
-            business_name, business_id, base_url if not use_local else None
-        )
+        if use_local:
+            html_content, html_acquisition_time = await self.html_loader.load_html_content(
+                business_name, business_id, None
+            )
+        else:
+            html_content = await load_html_compatible(base_url)
+            html_acquisition_time = get_current_jst_datetime()
         
         if not html_content:
             logger.error(f"HTMLコンテンツが取得できませんでした: {business_name}")

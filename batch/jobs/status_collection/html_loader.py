@@ -1,23 +1,13 @@
 """
-HTMLコンテンツローダー（ローカル・リモート対応）
+HTMLコンテンツローダー（ローカル対応）
 
-ローカルHTMLファイルの読み込みとSeleniumによるリモート取得を管理
+ローカルHTMLファイルの読み込みを管理
 """
 
 import asyncio
-import concurrent.futures
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-
-try:
-    from .webdriver_manager import WebDriverManager
-except ImportError:
-    try:
-        from webdriver_manager import WebDriverManager
-    except ImportError as e:
-        print(f"WebDriverManager import failed: {e}")
-        WebDriverManager = None
 
 try:
     from ..utils.logging_utils import get_logger
@@ -141,32 +131,6 @@ class HTMLLoader:
             return "", datetime.now()
     
     async def _load_remote_html(self, url: str) -> str:
-        """Seleniumを使ってリモートHTMLを取得"""
-        def _sync_scrape():
-            """同期的なSeleniumスクレイピング処理"""
-            webdriver_manager = None
-            try:
-                print("  🌐 WebDriverManagerを作成中...")
-                webdriver_manager = WebDriverManager()
-                print("  ✓ WebDriverManager作成完了")
-                
-                print("  📄 ページソースを取得中...")
-                page_source = webdriver_manager.get_page_source(url)
-                print("  ✓ ページソース取得処理完了")
-                
-                return page_source
-            except Exception as e:
-                print(f"  ❌ _sync_scrapeエラー: {e}")
-                raise
-            finally:
-                print("  🔄 WebDriverManagerをクリーンアップ中...")
-                if webdriver_manager:
-                    webdriver_manager.close()
-                print("  ✓ WebDriverManagerクリーンアップ完了")
-        
-        # 別スレッドでSeleniumを実行
-        loop = asyncio.get_event_loop()
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            page_source = await loop.run_in_executor(executor, _sync_scrape)
-        
-        return page_source
+        """リモートHTMLの取得（現在は非対応）"""
+        logger.warning(f"リモートHTML取得は現在非対応です: {url}")
+        return ""

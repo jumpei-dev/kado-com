@@ -222,32 +222,17 @@ async def load_html_with_aiohttp(url: str) -> Optional[str]:
     async with AiohttpHTMLLoader() as loader:
         return await loader.load_html(url)
 
-# 従来のWebDriverとの互換性を保つための関数
+# aiohttp専用の互換性関数
 async def load_html_compatible(url: str, use_aiohttp: bool = True) -> Optional[str]:
     """
-    WebDriverまたはaiohttp を使用してHTMLを取得
-    設定に基づいて自動選択
+    aiohttpを使用してHTMLを取得
     
     Args:
         url: 取得対象のURL
-        use_aiohttp: aiohttp を使用するかどうか
+        use_aiohttp: 互換性のため残されているが、常にaiohttpを使用
         
     Returns:
         HTMLコンテンツまたはNone（エラー時）
     """
-    config = get_scraping_config()
-    
-    if use_aiohttp and config.get('use_aiohttp', True):
-        # aiohttp を使用（高速・軽量）
-        logger.info(f"🚀 aiohttp使用: {url}")
-        return await load_html_with_aiohttp(url)
-    else:
-        # 従来のWebDriver使用（フォールバック）
-        logger.info(f"🔧 WebDriver使用（フォールバック）: {url}")
-        try:
-            # 既存のhtml_loaderをインポート
-            from .html_loader import load_html_content
-            return await load_html_content(url)
-        except ImportError:
-            logger.warning("WebDriverローダーが利用できません。aiohttp を使用します。")
-            return await load_html_with_aiohttp(url)
+    logger.info(f"🚀 aiohttp使用: {url}")
+    return await load_html_with_aiohttp(url)
