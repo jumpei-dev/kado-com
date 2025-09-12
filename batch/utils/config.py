@@ -5,7 +5,7 @@ YAML形式の設定ファイルと環境変数をサポート。
 
 import os
 import yaml
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Dict, Any, Optional
 from pathlib import Path
 
@@ -16,6 +16,13 @@ class DatabaseConfig:
     pool_size: int = 5
     max_overflow: int = 10
     pool_timeout: int = 30
+    host: str = "localhost"
+    port: int = 5432
+    database: str = "postgres"
+    user: str = "postgres"
+    password: str = ""
+    sslmode: str = "prefer"
+    url: str = ""
     
     @classmethod
     def from_env(cls) -> 'DatabaseConfig':
@@ -27,7 +34,14 @@ class DatabaseConfig:
             ),
             pool_size=int(os.getenv('DB_POOL_SIZE', 5)),
             max_overflow=int(os.getenv('DB_MAX_OVERFLOW', 10)),
-            pool_timeout=int(os.getenv('DB_POOL_TIMEOUT', 30))
+            pool_timeout=int(os.getenv('DB_POOL_TIMEOUT', 30)),
+            host=os.getenv('DB_HOST', 'localhost'),
+            port=int(os.getenv('DB_PORT', 5432)),
+            database=os.getenv('DB_NAME', 'postgres'),
+            user=os.getenv('DB_USER', 'postgres'),
+            password=os.getenv('DB_PASSWORD', ''),
+            sslmode=os.getenv('DB_SSLMODE', 'prefer'),
+            url=os.getenv('DB_URL', '')
         )
     
     @classmethod
@@ -78,7 +92,17 @@ class ScrapingConfig:
     max_concurrent_businesses: int = 5  # 店舗並行処理数
     retry_attempts: int = 3
     retry_delay: float = 1.0
+    delay_between_requests: float = 1.0
     user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    user_agents: list = None
+    max_parallel_businesses: int = 3
+    min_delay: float = 0.5
+    max_delay: float = 2.0
+    request_interval: float = 1.0
+    use_aiohttp: bool = True
+    connection_pooling: bool = True
+    keep_alive: bool = True
+    compress: bool = True
     
     @classmethod
     def from_env(cls) -> 'ScrapingConfig':
@@ -89,12 +113,22 @@ class ScrapingConfig:
             max_concurrent_businesses=int(os.getenv('SCRAPING_MAX_CONCURRENT_BUSINESSES', 5)),
             retry_attempts=int(os.getenv('SCRAPING_RETRY_ATTEMPTS', 3)),
             retry_delay=float(os.getenv('SCRAPING_RETRY_DELAY', 1.0)),
-            user_agent=os.getenv('SCRAPING_USER_AGENT', cls.user_agent)
+            delay_between_requests=float(os.getenv('SCRAPING_DELAY_BETWEEN_REQUESTS', 1.0)),
+            user_agent=os.getenv('SCRAPING_USER_AGENT', cls.user_agent),
+            user_agents=None,
+            max_parallel_businesses=int(os.getenv('SCRAPING_MAX_PARALLEL_BUSINESSES', 3)),
+            min_delay=float(os.getenv('SCRAPING_MIN_DELAY', 0.5)),
+            max_delay=float(os.getenv('SCRAPING_MAX_DELAY', 2.0)),
+            request_interval=float(os.getenv('SCRAPING_REQUEST_INTERVAL', 1.0)),
+            use_aiohttp=os.getenv('SCRAPING_USE_AIOHTTP', 'true').lower() == 'true',
+            connection_pooling=os.getenv('SCRAPING_CONNECTION_POOLING', 'true').lower() == 'true',
+            keep_alive=os.getenv('SCRAPING_KEEP_ALIVE', 'true').lower() == 'true',
+            compress=os.getenv('SCRAPING_COMPRESS', 'true').lower() == 'true'
         )
 
 @dataclass
 class SchedulingConfig:
-    """ジョブスケジューリング設定"""
+    """スケジューリング設定"""
     status_collection_interval: int = 30  # 分
     history_calculation_hour: int = 12    # 稼働率計算実行時刻
     history_calculation_minute: int = 0   # 稼働率計算実行分
@@ -106,6 +140,7 @@ class SchedulingConfig:
     misfire_grace_time_status: int = 300  # ステータス収集の猶予時間（秒）
     misfire_grace_time_history: int = 600 # 履歴計算の猶予時間（秒）
     max_log_retention_days: int = 30      # ログ保持日数
+    business_hours_buffer: int = 0        # 営業時間バッファ（分）
     
     @classmethod
     def from_env(cls) -> 'SchedulingConfig':
@@ -121,7 +156,8 @@ class SchedulingConfig:
             cleanup_time_minute=int(os.getenv('CLEANUP_TIME_MINUTE', 0)),
             misfire_grace_time_status=int(os.getenv('MISFIRE_GRACE_TIME_STATUS', 300)),
             misfire_grace_time_history=int(os.getenv('MISFIRE_GRACE_TIME_HISTORY', 600)),
-            max_log_retention_days=int(os.getenv('MAX_LOG_RETENTION_DAYS', 30))
+            max_log_retention_days=int(os.getenv('MAX_LOG_RETENTION_DAYS', 30)),
+            business_hours_buffer=int(os.getenv('BUSINESS_HOURS_BUFFER', 0))
         )
 
 @dataclass
@@ -131,6 +167,7 @@ class LoggingConfig:
     log_dir: str = "logs"
     max_file_size: int = 10 * 1024 * 1024  # 10MB
     backup_count: int = 5
+    format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     
     @classmethod
     def from_env(cls) -> 'LoggingConfig':
@@ -139,7 +176,8 @@ class LoggingConfig:
             level=os.getenv('LOG_LEVEL', 'INFO'),
             log_dir=os.getenv('LOG_DIR', 'logs'),
             max_file_size=int(os.getenv('LOG_MAX_FILE_SIZE', 10 * 1024 * 1024)),
-            backup_count=int(os.getenv('LOG_BACKUP_COUNT', 5))
+            backup_count=int(os.getenv('LOG_BACKUP_COUNT', 5)),
+            format=os.getenv('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         )
 
 @dataclass
@@ -184,7 +222,7 @@ class BatchConfig:
             del scheduling_data['misfire_grace_time']
         
         return cls(
-            database=DatabaseConfig(**data.get('database', {})),
+            database=DatabaseConfig.from_dict(data),
             scraping=ScrapingConfig(**data.get('scraping', {})),
             scheduling=SchedulingConfig(**scheduling_data),
             logging=LoggingConfig(**data.get('logging', {})),
@@ -268,6 +306,10 @@ class BatchConfig:
     def is_production(self) -> bool:
         """本番環境かどうかチェック"""
         return self.environment.lower() == 'production'
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """設定を辞書形式に変換"""
+        return asdict(self)
 
 # グローバル設定インスタンス
 _config: Optional[BatchConfig] = None
