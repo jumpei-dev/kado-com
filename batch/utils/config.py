@@ -35,15 +35,33 @@ class DatabaseConfig:
         """設定辞書から設定を作成する"""
         db_config = config_dict.get('database', {})
         
-        # YAML設定から接続文字列を構築
-        host = db_config.get('host', 'localhost')
-        port = db_config.get('port', 5432)
-        database = db_config.get('database', 'postgres')
-        user = db_config.get('user', 'postgres')
-        password = db_config.get('password', '')
-        sslmode = db_config.get('sslmode', 'disable')
+        # secret.ymlから機密情報を読み込み
+        project_root = Path(__file__).parent.parent.parent
+        secret_file = project_root / 'config' / 'secret.yml'
         
-        connection_string = f"postgresql://{user}:{password}@{host}:{port}/{database}?sslmode={sslmode}"
+        secret_config = {}
+        if secret_file.exists():
+            try:
+                with open(secret_file, 'r', encoding='utf-8') as f:
+                    secret_data = yaml.safe_load(f)
+                    secret_config = secret_data.get('database', {})
+            except Exception as e:
+                print(f"secret.yml読み込みエラー: {e}")
+        
+        # secret.ymlの値を優先し、なければconfig.ymlの値を使用
+        if 'url' in secret_config:
+            # secret.ymlに直接URLが記載されている場合
+            connection_string = secret_config['url']
+        else:
+            # YAML設定から接続文字列を構築
+            host = db_config.get('host', 'localhost')
+            port = db_config.get('port', 5432)
+            database = db_config.get('database', 'postgres')
+            user = db_config.get('user', 'postgres')
+            password = secret_config.get('password', db_config.get('password', ''))
+            sslmode = db_config.get('sslmode', 'disable')
+            
+            connection_string = f"postgresql://{user}:{password}@{host}:{port}/{database}?sslmode={sslmode}"
         
         return cls(
             connection_string=connection_string,
