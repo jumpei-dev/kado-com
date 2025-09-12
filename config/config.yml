@@ -69,8 +69,40 @@ frontend:
   
   # X (旧Twitter) 設定
   twitter:
-    username: "elonmusk"
+    username: "AkariRikaRika"
     display_name: "Elon Musk"
+
+# 🐦 X API設定
+x_api:
+  # API認証情報（環境変数から取得推奨）
+  bearer_token: "AAAAAAAAAAAAAAAAAAAAAGFw4AEAAAAATIxZu93omDbMN4CCkc%2B6ge9CYzs%3DjeiFB9pihkHZ6NlnhS14dIglLZQtVp5NwmkjoZXJ8vQcnn9LdT"  # Bearer Token
+  api_key: "JPLQhRHQ6KODWKf4jy04wjIrb"            # API Key
+  api_secret: "St1QvSUpsrLWztcmdOo9oQlQWS9ccZiEZADeTBou4uWAWQd7TI"      # API Secret
+  access_token: "1691820841187897344-t2M5ZFhq2kK5upufX4A1Why3Du8Qh2"  # Access Token
+  access_token_secret: "4p2znBpTvdvPYmKy0yQq65DHYrFCzUqHfMbap9Qeo5SSX"  # Access Token Secret
+  
+  # タイムライン設定
+  timeline:
+    username: "AkariRikaRika"              # 取得対象ユーザー
+    max_results: 10                   # 最大取得ツイート数
+    exclude_replies: true             # リプライを除外
+    exclude_retweets: false           # リツイートを含める
+    
+  # API制限・エラーハンドリング
+  rate_limit:
+    requests_per_15min: 75           # 15分間のリクエスト制限
+    retry_attempts: 3                # リトライ回数
+    retry_delay: 60                  # リトライ間隔（秒）
+    
+  # キャッシュ設定
+  cache:
+    enabled: true                    # キャッシュ有効
+    ttl_seconds: 300                 # キャッシュ有効期間（5分）
+    
+  # フォールバック設定
+  fallback:
+    use_dummy_data: false             # API失敗時にダミーデータを使用（開発時推奨）
+    dummy_tweet_count: 5             # ダミーツイート数
   
 # 📝 ログ設定
 logging:

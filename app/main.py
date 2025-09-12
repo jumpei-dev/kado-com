@@ -16,6 +16,7 @@ from app.utils.blurred_name_utils import get_store_display_info
 
 from app.api import auth, stores, twitter, pages, config
 from app.api.admin import router as admin_router
+from app.core.config import config_manager
 
 # デバッグ情報出力
 print("\n" + "=" * 60)
@@ -137,9 +138,10 @@ async def add_process_time_header(request: Request, call_next):
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """メインページを表示"""
+    config_data = config_manager.config
     return templates.TemplateResponse(
         "index.html", 
-        {"request": request, "title": "稼働.com"}
+        {"request": request, "title": "稼働.com", "config": config_data}
     )
 
 # 店舗一覧ページ
@@ -194,13 +196,16 @@ async def get_store_detail(request: Request, store_id: str):
             related_store["blurred_name"] = related_display["blurred_name"]
             related_store["is_blurred"] = related_display["is_blurred"]
         
+        config_data = config_manager.config
+        
         return templates.TemplateResponse(
             "store_detail.html",
             {
                 "request": request,
                 "store": store,
                 "related_stores": related_stores,
-                "user_permissions": user_permissions
+                "user_permissions": user_permissions,
+                "config": config_data
             }
         )
     except Exception as e:
@@ -309,4 +314,4 @@ async def server_error_handler(request: Request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

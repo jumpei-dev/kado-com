@@ -16,6 +16,7 @@ import logging
 
 # 認証サービスのインポート
 from app.core.auth_service import auth_service
+from app.core.config import config_manager
 
 # テンプレート設定
 templates_path = Path(__file__).parent.parent / "templates"
@@ -43,9 +44,10 @@ async def login(
         
         if not user:
             logger.warning(f"ログイン失敗: ユーザー {username} - 無効な認証情報")
+            config_data = config_manager.config
             return templates.TemplateResponse(
                 "components/auth_response.html",
-                {"request": request, "error": "ユーザー名またはパスワードが正しくありません。"}
+                {"request": request, "error": "ユーザー名またはパスワードが正しくありません。", "config": config_data}
             )
         
         # アクセストークンの作成
@@ -53,13 +55,15 @@ async def login(
         access_token = auth_service.create_access_token(token_data)
         
         # トークンをCookieに設定
+        config_data = config_manager.config
         response = templates.TemplateResponse(
             "components/auth_response.html",
             {
                 "request": request,
                 "success": "ログインしました。",
                 "user_name": user["username"],
-                "reload": True
+                "reload": True,
+                "config": config_data
             }
         )
         
@@ -78,9 +82,10 @@ async def login(
         
     except Exception as e:
         logger.error(f"ログイン処理エラー: {str(e)}")
+        config_data = config_manager.config
         return templates.TemplateResponse(
             "components/auth_response.html",
-            {"request": request, "error": "ログイン処理中にエラーが発生しました。"}
+            {"request": request, "error": "ログイン処理中にエラーが発生しました。", "config": config_data}
         )
 
 @router.get("/logout")
@@ -210,9 +215,10 @@ async def register(
         
         # 一般ユーザー登録の場合は管理者キーが必要
         if not admin_key or admin_key != valid_admin_key:
+            config_data = config_manager.config
             return templates.TemplateResponse(
                 "components/auth_response.html",
-                {"request": request, "error": "ユーザー登録には管理者キーが必要です。"}
+                {"request": request, "error": "ユーザー登録には管理者キーが必要です。", "config": config_data}
             )
             
         # 管理者登録の場合
@@ -223,25 +229,29 @@ async def register(
         new_user = await auth_service.create_user(username, password, is_admin)
         
         if not new_user:
+            config_data = config_manager.config
             return templates.TemplateResponse(
                 "components/auth_response.html",
-                {"request": request, "error": "このユーザー名は既に使用されています。"}
+                {"request": request, "error": "このユーザー名は既に使用されています。", "config": config_data}
             )
             
         logger.info(f"ユーザー登録成功: {username}, 管理者: {is_admin}")
+        config_data = config_manager.config
         return templates.TemplateResponse(
             "components/auth_response.html",
             {
                 "request": request,
-                "success": "ユーザー登録が完了しました。登録したアカウントでログインしてください。"
+                "success": "ユーザー登録が完了しました。登録したアカウントでログインしてください。",
+                "config": config_data
             }
         )
         
     except Exception as e:
         logger.error(f"ユーザー登録エラー: {str(e)}")
+        config_data = config_manager.config
         return templates.TemplateResponse(
             "components/auth_response.html",
-            {"request": request, "error": "ユーザー登録中にエラーが発生しました。"}
+            {"request": request, "error": "ユーザー登録中にエラーが発生しました。", "config": config_data}
         )
 
 
