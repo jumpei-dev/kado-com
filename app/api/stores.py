@@ -161,6 +161,7 @@ async def get_stores(
             {
                 "request": request, 
                 "stores": paged_stores,
+                "user_permissions": user_permissions,
                 "pagination": {
                     "current_page": page,
                     "total_pages": total_pages,
@@ -289,7 +290,7 @@ async def get_store_detail(
         
         # HTMLテンプレートをレンダリング
         return templates.TemplateResponse(
-            "components/store_detail.html", 
+            "store_detail.html", 
             {
                 "request": request, 
                 "store": store_data,

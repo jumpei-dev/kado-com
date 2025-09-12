@@ -155,6 +155,9 @@ async def index(request: Request):
 async def stores_page(request: Request, db = Depends(get_database)):
     """店舗一覧ページ表示"""
     try:
+        # ユーザー権限を確認
+        user_permissions = await check_user_permissions(request)
+        
         # APIから店舗一覧を取得
         store_data = await stores.get_stores(db=db)
         
@@ -163,6 +166,7 @@ async def stores_page(request: Request, db = Depends(get_database)):
             {
                 "request": request, 
                 "stores": store_data["items"],
+                "user_permissions": user_permissions,
                 "page_type": "stores"
             }
         )
@@ -241,6 +245,7 @@ async def get_store_detail(request: Request, store_id: str, db = Depends(get_dat
             "area": store_data["area"],
             "genre": convert_business_type_to_japanese(store_data["type"]),  # type
             "blurred_name": store_data["blurred_name"],
+            "original_name": store_data["name"],  # 元の店舗名
             "working_rate": 65,  # 仮の稼働率データ
             "history": {
                 "daily": daily_data,

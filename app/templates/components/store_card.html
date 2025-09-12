@@ -36,7 +36,7 @@
     <div class="col-span-2">
       {% if rank == 1 or store.rank == 1 %}
         <h3 class="font-bold text-gray-900 truncate text-lg">
-          {% if can_see_contents %}
+          {% if user_permissions.can_see_contents %}
             {{ store.original_name or store.name }}
           {% else %}
             {{ store.blurred_name or store.name }}
@@ -44,7 +44,7 @@
         </h3>
       {% elif rank == 2 or store.rank == 2 %}
         <h3 class="font-bold text-gray-900 truncate text-base">
-          {% if can_see_contents %}
+          {% if user_permissions.can_see_contents %}
             {{ store.original_name or store.name }}
           {% else %}
             {{ store.blurred_name or store.name }}
@@ -52,7 +52,7 @@
         </h3>
       {% elif rank == 3 or store.rank == 3 %}
         <h3 class="font-bold text-gray-900 truncate text-base">
-          {% if can_see_contents %}
+          {% if user_permissions.can_see_contents %}
             {{ store.original_name or store.name }}
           {% else %}
             {{ store.blurred_name or store.name }}
@@ -60,7 +60,7 @@
         </h3>
       {% else %}
         <h3 class="font-bold text-gray-900 truncate">
-          {% if can_see_contents %}
+          {% if user_permissions.can_see_contents %}
             {{ store.original_name or store.name }}
           {% else %}
             {{ store.blurred_name or store.name }}

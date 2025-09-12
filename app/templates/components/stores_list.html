@@ -1,6 +1,6 @@
 {% for store in stores %}
   <a href="/stores/{{ store.id }}" class="block store-card cursor-pointer">
-    {% with store=store, rank=loop.index + ((pagination.current_page - 1) * pagination.page_size) if pagination else loop.index %}
+    {% with store=store, rank=loop.index + ((pagination.current_page - 1) * pagination.page_size) if pagination else loop.index, user_permissions=user_permissions %}
       {% include "components/store_card.html" %}
     {% endwith %}
   </a>
