@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.absolute()))
 from app.core.database import get_database
 from app.core.auth_service import AuthService
 from app.utils.blurred_name_utils import get_store_display_info
+from app.utils.business_type_utils import convert_business_type_to_japanese
 
 # AuthServiceのインスタンス化
 auth_service = AuthService()
@@ -123,7 +124,7 @@ async def get_stores(
                     "prefecture": business.get('prefecture', '不明'),
                     "city": business.get('city', '不明'), 
                     "area": business.get('area', '不明'),
-                    "genre": business.get('genre', '一般'),
+                    "genre": convert_business_type_to_japanese(business.get('type', '')),
                     "status": "active" if business.get('in_scope') else "inactive",
                     "last_updated": business.get('last_updated', '2024-01-01'),
                     "util_today": util_today,

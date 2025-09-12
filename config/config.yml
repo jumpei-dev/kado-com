@@ -133,6 +133,13 @@ scheduling:
   max_log_retention_days: 30       # ログ保持日数
   business_hours_buffer: 0         # 営業時間バッファ（分）
 
+# 🏪 業種マッピング設定
+business_types:
+  delivery_health: "デリヘル"
+  fashion_health: "箱ヘル"
+  dc: "DC"
+  soapland: "ソープ"
+
 # 🌐 スクレイピング設定
 scraping:
   timeout: 30
