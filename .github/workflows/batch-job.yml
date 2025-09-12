@@ -1,4 +1,4 @@
-name: Batch Job - ${{ github.event.inputs.job_type || 'status-collection' }}
+name: "Batch Job - ${{ github.event.inputs.job_type || 'status-collection' }}"
 
 on:
   schedule:
