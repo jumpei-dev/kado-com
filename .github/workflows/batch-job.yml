@@ -1,3 +1,6 @@
+name: バッチジョブ実行ワークフロー
+
+# トリガー設定
 on:
   schedule:
     # 30分ごとに稼働状況取得を実行
@@ -5,7 +8,7 @@ on:
   workflow_dispatch:  # 手動実行も可能
     inputs:
       job_type:
-        description: 'Job type to run'
+        description: '実行するジョブタイプ'
         required: true
         default: 'status-collection'
         type: choice
@@ -13,78 +16,216 @@ on:
         - status-collection
         - working-rate
         - debug-html
+      log_level:
+        description: 'ログレベル'
+        required: false
+        default: 'INFO'
+        type: choice
+        options:
+        - DEBUG
+        - INFO
+        - WARNING
+        - ERROR
 
 # 並列実行を防ぐためのconcurrency制御
 concurrency:
-  group: batch-job
+  group: batch-job-${{ github.ref }}
   cancel-in-progress: false
+
+# 環境変数の定義
+env:
+  PYTHON_VERSION: '3.11'
+  WORKING_DIRECTORY: 'batch'
 
 jobs:
   batch-execution:
+    name: バッチジョブ実行
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # タイムアウト設定
     
     steps:
-    - name: Checkout code
+    - name: リポジトリのチェックアウト
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1  # 最新のコミットのみ取得
     
-    - name: Set up Python
+    - name: Python環境のセットアップ
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
+        cache-dependency-path: 'requirements.txt'
 
-    - name: Install dependencies
-      run: pip3 install -r requirements.txt
-    
-    - name: Create config from secrets
-      working-directory: batch
+    - name: 依存関係のインストール
       run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        # 開発用依存関係があれば追加
+        # pip install -r requirements-dev.txt
+    
+    - name: 設定ファイルの作成
+      working-directory: ${{ env.WORKING_DIRECTORY }}
+      run: |
+        # 設定ディレクトリの作成
         mkdir -p config
-        echo '${{ secrets.SECRET_YML }}' > config/secret.yml
+        
+        # secret.ymlファイルの作成（環境変数から）
+        cat > config/secret.yml << 'EOF'
+        database:
+          password: "${{ secrets.DB_PASSWORD }}"
+          url: "${{ secrets.DATABASE_URL }}"
+        
+        auth:
+          secret_key: "${{ secrets.JWT_SECRET_KEY }}"
+        
+        x_api:
+          bearer_token: "${{ secrets.X_API_BEARER_TOKEN }}"
+          consumer_key: "${{ secrets.X_API_CONSUMER_KEY }}"
+          consumer_secret: "${{ secrets.X_API_CONSUMER_SECRET }}"
+          access_token: "${{ secrets.X_API_ACCESS_TOKEN }}"
+          access_token_secret: "${{ secrets.X_API_ACCESS_TOKEN_SECRET }}"
+        EOF
+        
+        # ファイルの権限設定（セキュリティ強化）
+        chmod 600 config/secret.yml
     
-    - name: Database connectivity test
-      working-directory: batch
+    - name: データベース接続テスト
+      working-directory: ${{ env.WORKING_DIRECTORY }}
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        LOG_LEVEL: ${{ github.event.inputs.log_level || 'INFO' }}
       run: |
+        echo "データベース接続テストを開始します..."
         python -c "
         import sys
+        import logging
+        import os
+        
+        # ログレベルの設定
+        log_level = os.getenv('LOG_LEVEL', 'INFO')
+        logging.basicConfig(level=getattr(logging, log_level))
+        logger = logging.getLogger(__name__)
+        
         try:
             from core.database import DatabaseManager
+            logger.info('DatabaseManagerをインポートしました')
+            
             db = DatabaseManager()
+            logger.info('DatabaseManagerを初期化しました')
+            
             with db.get_connection() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute('SELECT 1')
+                    cursor.execute('SELECT 1 as test_value, NOW() as current_time')
                     result = cursor.fetchone()
-                    print('Database connection successful')
+                    logger.info(f'テストクエリ結果: {result}')
+                    print('✅ データベース接続テストが成功しました')
+        except ImportError as e:
+            logger.error(f'モジュールのインポートに失敗: {e}')
+            print('❌ 必要なモジュールが見つかりません')
+            sys.exit(1)
         except Exception as e:
-            print(f'Database connection failed: {e}')
+            logger.error(f'データベース接続エラー: {e}')
+            print(f'❌ データベース接続に失敗しました: {e}')
             sys.exit(1)
         "
     
-    - name: Run batch job
-      working-directory: batch
+    - name: バッチジョブの実行
+      working-directory: ${{ env.WORKING_DIRECTORY }}
+      env:
+        # データベース関連
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        
+        # 認証関連
+        JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        
+        # X API関連
+        X_API_BEARER_TOKEN: ${{ secrets.X_API_BEARER_TOKEN }}
+        X_API_CONSUMER_KEY: ${{ secrets.X_API_CONSUMER_KEY }}
+        X_API_CONSUMER_SECRET: ${{ secrets.X_API_CONSUMER_SECRET }}
+        X_API_ACCESS_TOKEN: ${{ secrets.X_API_ACCESS_TOKEN }}
+        X_API_ACCESS_TOKEN_SECRET: ${{ secrets.X_API_ACCESS_TOKEN_SECRET }}
+        
+        # ログ設定
+        LOG_LEVEL: ${{ github.event.inputs.log_level || 'INFO' }}
+        
+        # 実行環境
+        ENVIRONMENT: 'production'
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        GITHUB_RUN_NUMBER: ${{ github.run_number }}
       run: |
-        set -e  # エラー時に即座に終了
-        case "${{ github.event.inputs.job_type || 'status-collection' }}" in
+        # ジョブタイプの取得
+        JOB_TYPE="${{ github.event.inputs.job_type || 'status-collection' }}"
+        echo "🚀 バッチジョブを開始します: ${JOB_TYPE}"
+        
+        # ログディレクトリの作成
+        mkdir -p logs
+        
+        # ジョブの実行
+        case "${JOB_TYPE}" in
           "status-collection")
-            python main.py status-collection
+            echo "📊 稼働状況収集ジョブを実行中..."
+            python main.py status-collection 2>&1 | tee logs/status-collection.log
+            EXIT_CODE=${PIPESTATUS[0]}
             ;;
           "working-rate")
-            python main.py working-rate
+            echo "📈 稼働率計算ジョブを実行中..."
+            python main.py working-rate 2>&1 | tee logs/working-rate.log
+            EXIT_CODE=${PIPESTATUS[0]}
             ;;
           "debug-html")
-            python main.py debug-html --local-file "sample.html"
+            echo "🔍 HTMLデバッグジョブを実行中..."
+            python main.py debug-html --local-file "sample.html" 2>&1 | tee logs/debug-html.log
+            EXIT_CODE=${PIPESTATUS[0]}
+            ;;
+          *)
+            echo "❌ 不明なジョブタイプ: ${JOB_TYPE}"
+            exit 1
             ;;
         esac
         
-        # ジョブ実行結果の確認
-        if [ $? -ne 0 ]; then
-          echo "Batch job failed with exit code $?"
-          exit 1
+        # 実行結果の確認
+        if [ ${EXIT_CODE} -eq 0 ]; then
+          echo "✅ バッチジョブが正常に完了しました (終了コード: ${EXIT_CODE})"
+        else
+          echo "❌ バッチジョブが失敗しました (終了コード: ${EXIT_CODE})"
+          exit ${EXIT_CODE}
         fi
     
-    - name: Upload logs
+    - name: ジョブ実行結果の要約
+      if: always()
+      working-directory: ${{ env.WORKING_DIRECTORY }}
+      run: |
+        echo "## 📋 ジョブ実行結果サマリー" >> $GITHUB_STEP_SUMMARY
+        echo "- **ジョブタイプ**: ${{ github.event.inputs.job_type || 'status-collection' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **実行時刻**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "- **実行ID**: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **実行番号**: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+        
+        # ログファイルの存在確認と要約
+        if [ -d "logs" ] && [ "$(ls -A logs)" ]; then
+          echo "- **生成されたログファイル**:" >> $GITHUB_STEP_SUMMARY
+          for log_file in logs/*.log; do
+            if [ -f "$log_file" ]; then
+              file_size=$(stat -f%z "$log_file" 2>/dev/null || stat -c%s "$log_file" 2>/dev/null || echo "不明")
+              echo "  - $(basename "$log_file") (${file_size} bytes)" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+        else
+          echo "- **ログファイル**: なし" >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: ログファイルのアップロード
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: batch-logs-${{ github.event.inputs.job_type || 'status-collection' }}
-        path: batch/logs/
+        name: batch-logs-${{ github.event.inputs.job_type || 'status-collection' }}-${{ github.run_number }}
+        path: ${{ env.WORKING_DIRECTORY }}/logs/
+        retention-days: 30  # ログの保持期間
+        if-no-files-found: warn
+    
+    - name: 失敗時の通知準備
+      if: failure()
+      run: |
+        echo "FAILURE_SUMMARY=バッチジョブ '${{ github.event.inputs.job_type || 'status-collection' }}' が失敗しました (Run ID: ${{ github.run_id }})" >> $GITHUB_ENV
+        echo "FAILURE_DETAILS=詳細はログファイルを確認してください。" >> $GITHUB_ENV
