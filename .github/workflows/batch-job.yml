@@ -1,5 +1,3 @@
-name: "Store Status Collection and Working Rate Calculation"
-
 on:
   schedule:
     # 30分ごとに稼働状況取得を実行
@@ -15,6 +13,11 @@ on:
         - status-collection
         - working-rate
         - debug-html
+
+# 並列実行を防ぐためのconcurrency制御
+concurrency:
+  group: batch-job
+  cancel-in-progress: false
 
 jobs:
   batch-execution:
@@ -39,9 +42,28 @@ jobs:
         mkdir -p config
         echo '${{ secrets.BATCH_CONFIG }}' > config/secret.yml
     
+    - name: Database connectivity test
+      working-directory: batch
+      run: |
+        python -c "
+        import sys
+        try:
+            from core.database import DatabaseManager
+            db = DatabaseManager()
+            with db.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute('SELECT 1')
+                    result = cursor.fetchone()
+                    print('Database connection successful')
+        except Exception as e:
+            print(f'Database connection failed: {e}')
+            sys.exit(1)
+        "
+    
     - name: Run batch job
       working-directory: batch
       run: |
+        set -e  # エラー時に即座に終了
         case "${{ github.event.inputs.job_type || 'status-collection' }}" in
           "status-collection")
             python main.py status-collection
@@ -53,6 +75,12 @@ jobs:
             python main.py debug-html --local-file "sample.html"
             ;;
         esac
+        
+        # ジョブ実行結果の確認
+        if [ $? -ne 0 ]; then
+          echo "Batch job failed with exit code $?"
+          exit 1
+        fi
     
     - name: Upload logs
       if: always()
