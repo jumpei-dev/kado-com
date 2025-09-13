@@ -25,15 +25,10 @@ on:
         - WARNING
         - ERROR
 
-# 並列実行を防ぐためのconcurrency制御
+# ジョブタイプ別の並列実行制御
 concurrency:
-  group: batch-job-${{ github.ref }}
-  cancel-in-progress: false
-
-# 環境変数の定義
-env:
-  PYTHON_VERSION: '3.11'
-  WORKING_DIRECTORY: 'batch'
+  group: ${{ github.workflow }}-${{ github.event.inputs.job_type || 'status-collection' }}-${{ github.ref }}
+  cancel-in-progress: true  # 同じジョブタイプの重複実行をキャンセル
 
 jobs:
   batch-execution:
