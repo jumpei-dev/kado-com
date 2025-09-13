@@ -34,7 +34,7 @@ jobs:
   batch-execution:
     name: バッチジョブ実行
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # タイムアウト設定
+    timeout-minutes: 720  # 12時間（スケジュール実行のため）
     
     steps:
     - name: リポジトリのチェックアウト
