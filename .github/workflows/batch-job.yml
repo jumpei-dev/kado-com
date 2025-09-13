@@ -24,6 +24,11 @@ on:
         - INFO
         - WARNING
         - ERROR
+      force_immediate:
+        description: 'Status Collection即時実行（待機時間をスキップ）'
+        required: false
+        default: false
+        type: boolean
 
 # ジョブタイプ別の並列実行制御
 concurrency:
@@ -153,6 +158,9 @@ jobs:
         
         # ログ設定
         LOG_LEVEL: ${{ github.event.inputs.log_level || 'INFO' }}
+        
+        # 実行制御
+        FORCE_IMMEDIATE: ${{ github.event.inputs.force_immediate || 'false' }}
         
         # 実行環境
         ENVIRONMENT: 'production'
