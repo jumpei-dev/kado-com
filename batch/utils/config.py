@@ -27,11 +27,12 @@ class DatabaseConfig:
     @classmethod
     def from_env(cls) -> 'DatabaseConfig':
         """環境変数から設定を作成する"""
+        database_url = os.getenv('DATABASE_URL')
+        if not database_url:
+            raise ValueError("DATABASE_URL環境変数が設定されていません")
+        
         return cls(
-            connection_string=os.getenv(
-                'DATABASE_URL',
-                'postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require'
-            ),
+            connection_string=database_url,
             pool_size=int(os.getenv('DB_POOL_SIZE', 5)),
             max_overflow=int(os.getenv('DB_MAX_OVERFLOW', 10)),
             pool_timeout=int(os.getenv('DB_POOL_TIMEOUT', 30)),
@@ -62,20 +63,17 @@ class DatabaseConfig:
             except Exception as e:
                 print(f"secret.yml読み込みエラー: {e}")
         
-        # secret.ymlの値を優先し、なければconfig.ymlの値を使用
-        if 'url' in secret_config:
+        # 接続文字列の優先順位: 1. secret.yml URL, 2. 環境変数, 3. エラー
+        if 'url' in secret_config and secret_config['url']:
             # secret.ymlに直接URLが記載されている場合
             connection_string = secret_config['url']
         else:
-            # YAML設定から接続文字列を構築
-            host = db_config.get('host', 'localhost')
-            port = db_config.get('port', 5432)
-            database = db_config.get('database', 'postgres')
-            user = db_config.get('user', 'postgres')
-            password = secret_config.get('password', db_config.get('password', ''))
-            sslmode = db_config.get('sslmode', 'disable')
-            
-            connection_string = f"postgresql://{user}:{password}@{host}:{port}/{database}?sslmode={sslmode}"
+            # 環境変数を確認
+            env_url = os.getenv('DATABASE_URL')
+            if env_url:
+                connection_string = env_url
+            else:
+                raise ValueError("データベース接続情報が見つかりません。secret.ymlのurlまたはDATABASE_URL環境変数を設定してください。")
         
         return cls(
             connection_string=connection_string,
