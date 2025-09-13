@@ -31,7 +31,7 @@ jobs:
   working-rate-calculation:
     name: 稼働率計算ジョブ
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # 稼働率計算は時間がかかる可能性があるため長めに設定
+    timeout-minutes: 720  # 12時間（毎日12時のスケジュール実行のため）
     
     steps:
     - name: リポジトリのチェックアウト
