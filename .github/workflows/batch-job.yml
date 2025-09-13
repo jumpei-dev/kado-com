@@ -87,8 +87,13 @@ jobs:
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
         LOG_LEVEL: ${{ github.event.inputs.log_level || 'INFO' }}
+        PYTHONPATH: ${{ github.workspace }}/batch
       run: |
         echo "データベース接続テストを開始します..."
+        echo "現在のディレクトリ: $(pwd)"
+        echo "Pythonパス: $PYTHONPATH"
+        ls -la
+        
         python -c "
         import sys
         import logging
@@ -98,6 +103,10 @@ jobs:
         log_level = os.getenv('LOG_LEVEL', 'INFO')
         logging.basicConfig(level=getattr(logging, log_level))
         logger = logging.getLogger(__name__)
+        
+        # デバッグ情報の出力
+        logger.debug(f'現在の作業ディレクトリ: {os.getcwd()}')
+        logger.debug(f'Pythonパス: {sys.path}')
         
         try:
             from core.database import DatabaseManager
@@ -114,6 +123,8 @@ jobs:
                     print('✅ データベース接続テストが成功しました')
         except ImportError as e:
             logger.error(f'モジュールのインポートに失敗: {e}')
+            logger.error(f'現在のディレクトリ: {os.getcwd()}')
+            logger.error(f'利用可能なファイル: {os.listdir(".")}' if os.path.exists('.') else 'ディレクトリが存在しません')
             print('❌ 必要なモジュールが見つかりません')
             sys.exit(1)
         except Exception as e:
