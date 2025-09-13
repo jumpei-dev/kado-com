@@ -51,7 +51,7 @@ def get_twitter_client():
             
         _twitter_client = tweepy.Client(
             bearer_token=bearer_token,
-            wait_on_rate_limit=True
+            wait_on_rate_limit=False
         )
         
         logger.info("X API client initialized successfully")
@@ -148,42 +148,31 @@ def get_real_tweets(username: str, count: int = 10) -> List[Dict[str, Any]]:
         return formatted_tweets[:count]
         
     except tweepy.TooManyRequests:
-        logger.warning("X API rate limit exceeded, using cached or dummy data")
-        if _last_tweets_cache:
-            return _last_tweets_cache[:count]
-        return get_dummy_tweets(count)
+        logger.warning("X API rate limit exceeded")
+        # rateリミット時は空の配列を返してエラーメッセージを表示させる
+        return []
         
     except Exception as e:
         logger.error(f"Error fetching tweets from X API: {e}")
-        
-        # フォールバック設定をチェック
-        config = get_config()
-        fallback_config = config.get('x_api', {}).get('fallback', {})
-        if fallback_config.get('use_dummy_data', True):
-            dummy_count = fallback_config.get('dummy_tweet_count', 5)
-            return get_dummy_tweets(min(count, dummy_count))
-        
-        raise HTTPException(status_code=503, detail="Twitter service temporarily unavailable")
+        # API接続エラー時は空の配列を返してエラーメッセージを表示させる
+        return []
 
 @router.get("", response_class=HTMLResponse)
 async def get_tweets(
     request: Request,
     count: int = 5
 ):
-    """運営者のツイートを取得 - HTMLレスポンス（非同期処理）"""
-    
+    """Twitterタイムラインを取得してHTMLを返す"""
     try:
         config = get_config()
+        twitter_config = config.get('frontend', {}).get('twitter', {})
         
-        # 設定からユーザー名を取得
-        frontend_config = config.get('frontend', {})
-        twitter_config = frontend_config.get('twitter', {})
-        username = twitter_config.get('username', 'elonmusk')  # デフォルト
+        # 実際のツイートを取得
+        tweets = get_real_tweets(twitter_config.get('username', 'kado_admin'), count)
         
-        # 非同期でX APIからツイートを取得
-        tweets = await asyncio.to_thread(get_real_tweets, username, count)
+        # rate limit時やAPI接続エラー時は空配列が返されるので、エラーメッセージを表示
+        # ダミーデータは使用しない
         
-        # HTMLテンプレートをレンダリングして返す
         return templates.TemplateResponse(
             "components/twitter_timeline.html", 
             {
@@ -196,27 +185,14 @@ async def get_tweets(
         
     except Exception as e:
         logger.error(f"Error in get_tweets endpoint: {e}")
-        # レート制限エラーの場合はローディング表示を返す
-        if "Rate limit" in str(e) or "429" in str(e):
-            return templates.TemplateResponse(
-                "components/twitter_timeline.html", 
-                {
-                    "request": request, 
-                    "tweets": [], 
-                    "loading": True, 
-                    "loading_message": "Xポスト取得中...",
-                    "twitter_username": config.get('twitter', {}).get('username', 'kado_admin')
-                }
-            )
-        # その他のエラー時はダミーデータを返す
-        tweets = get_dummy_tweets(count)
+        # 予期しないエラー時はエラーメッセージを表示
         return templates.TemplateResponse(
             "components/twitter_timeline.html", 
             {
                 "request": request, 
-                "tweets": tweets, 
+                "tweets": [], 
                 "loading": False,
-                "twitter_username": config.get('twitter', {}).get('username', 'kado_admin')
+                "twitter_username": config.get('frontend', {}).get('twitter', {}).get('username', 'kado_admin')
             }
         )
 
