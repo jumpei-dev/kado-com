@@ -367,19 +367,28 @@ def get_scheduling_config():
 def get_database_config():
     """設定ファイルからデータベース設定を取得"""
     try:
-        # 直接YAMLファイルを読み込み
+        # secret.ymlから直接読み込み
         project_root = Path(__file__).parent.parent.parent
-        config_file = project_root / 'config' / 'config.yml'
+        secret_file = project_root / 'config' / 'secret.yml'
         
-        if config_file.exists():
-            with open(config_file, 'r', encoding='utf-8') as f:
-                config_dict = yaml.safe_load(f)
-            return DatabaseConfig.from_dict(config_dict)
+        if secret_file.exists():
+            with open(secret_file, 'r', encoding='utf-8') as f:
+                secret_data = yaml.safe_load(f)
+                database_config = secret_data.get('database', {})
+                
+                if database_config.get('url'):
+                    return DatabaseConfig(
+                        connection_string=database_config['url'],
+                        password=database_config.get('password', ''),
+                        url=database_config['url']
+                    )
+                else:
+                    raise ValueError("secret.ymlにdatabase.urlが設定されていません")
         else:
             # フォールバック: 環境変数
             return DatabaseConfig.from_env()
     except Exception as e:
-        print(f"設定ファイル読み込みエラー: {e}")
+        print(f"設定ファイル読み込みエラー: データベース接続情報が見つかりません。secret.ymlのdatabase.urlまたはDATABASE_URL環境変数を設定してください。")
         # フォールバック: 環境変数
         return DatabaseConfig.from_env()
 
