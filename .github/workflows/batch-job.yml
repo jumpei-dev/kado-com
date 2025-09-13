@@ -124,7 +124,8 @@ jobs:
         except ImportError as e:
             logger.error(f'モジュールのインポートに失敗: {e}')
             logger.error(f'現在のディレクトリ: {os.getcwd()}')
-            logger.error(f'利用可能なファイル: {os.listdir(".")}' if os.path.exists('.') else 'ディレクトリが存在しません')
+            current_dir = '.';
+            logger.error(f'利用可能なファイル: {os.listdir(current_dir)}' if os.path.exists(current_dir) else 'ディレクトリが存在しません')
             print('❌ 必要なモジュールが見つかりません')
             sys.exit(1)
         except Exception as e:
