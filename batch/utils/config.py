@@ -109,6 +109,7 @@ class ScrapingConfig:
     connection_pooling: bool = True
     keep_alive: bool = True
     compress: bool = True
+    session_rotation: bool = True  # セッションローテーション有効
     
     @classmethod
     def from_env(cls) -> 'ScrapingConfig':
@@ -129,7 +130,8 @@ class ScrapingConfig:
             use_aiohttp=os.getenv('SCRAPING_USE_AIOHTTP', 'true').lower() == 'true',
             connection_pooling=os.getenv('SCRAPING_CONNECTION_POOLING', 'true').lower() == 'true',
             keep_alive=os.getenv('SCRAPING_KEEP_ALIVE', 'true').lower() == 'true',
-            compress=os.getenv('SCRAPING_COMPRESS', 'true').lower() == 'true'
+            compress=os.getenv('SCRAPING_COMPRESS', 'true').lower() == 'true',
+            session_rotation=os.getenv('SCRAPING_SESSION_ROTATION', 'true').lower() == 'true'
         )
 
 @dataclass
