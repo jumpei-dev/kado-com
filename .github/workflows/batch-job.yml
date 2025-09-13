@@ -40,7 +40,7 @@ jobs:
       working-directory: batch
       run: |
         mkdir -p config
-        echo '${{ secrets.BATCH_CONFIG }}' > config/secret.yml
+        echo '${{ secrets.SECRET_YML }}' > config/secret.yml
     
     - name: Database connectivity test
       working-directory: batch
