@@ -1,9 +1,7 @@
-name: "Batch Job - ${{ github.event.inputs.job_type || 'status-collection' }}"
+name: "Store Status Collection and Working Rate Calculation"
 
 on:
   schedule:
-    # 毎日12時に稼働率計算を実行（base.yamlの設定に合わせて）
-    - cron: '0 3 * * *'  # 日本時間12時 = UTC 3時
     # 30分ごとに稼働状況取得を実行
     - cron: '*/30 * * * *'
   workflow_dispatch:  # 手動実行も可能
@@ -48,7 +46,7 @@ jobs:
           "status-collection")
             python main.py status-collection
             ;;
-          "working-rate-calculation")
+          "working-rate")
             python main.py working-rate
             ;;
           "debug-html")
