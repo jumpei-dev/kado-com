@@ -19,12 +19,11 @@ class DatabaseManager:
             db_config = get_database_config()
             self.connection_string = db_config.connection_string
         except ImportError:
-            # フォールバック: 環境変数またはデフォルト値
+            # フォールバック: 環境変数のみ（ハードコードされた値は削除）
             import os
-            self.connection_string = os.getenv(
-                'DATABASE_URL', 
-                'postgresql://postgres.hnmbsqydlfemlmsyexrq:Ggzzmmb3@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require'
-            )
+            self.connection_string = os.getenv('DATABASE_URL')
+            if not self.connection_string:
+                raise ValueError("DATABASE_URL環境変数またはsecret.ymlの設定が必要です")
     
     @contextmanager
     def get_connection(self):
