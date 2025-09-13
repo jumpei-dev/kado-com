@@ -59,13 +59,14 @@ class DatabaseConfig:
             try:
                 with open(secret_file, 'r', encoding='utf-8') as f:
                     secret_data = yaml.safe_load(f)
+                    # secret.ymlの構造: database.url の形式に対応
                     secret_config = secret_data.get('database', {})
             except Exception as e:
                 print(f"secret.yml読み込みエラー: {e}")
         
-        # 接続文字列の優先順位: 1. secret.yml URL, 2. 環境変数, 3. エラー
-        if 'url' in secret_config and secret_config['url']:
-            # secret.ymlに直接URLが記載されている場合
+        # 接続文字列の優先順位: 1. secret.yml database.url, 2. 環境変数, 3. エラー
+        if secret_config.get('url'):
+            # secret.ymlのdatabase.urlが記載されている場合
             connection_string = secret_config['url']
         else:
             # 環境変数を確認
@@ -73,7 +74,7 @@ class DatabaseConfig:
             if env_url:
                 connection_string = env_url
             else:
-                raise ValueError("データベース接続情報が見つかりません。secret.ymlのurlまたはDATABASE_URL環境変数を設定してください。")
+                raise ValueError("データベース接続情報が見つかりません。secret.ymlのdatabase.urlまたはDATABASE_URL環境変数を設定してください。")
         
         return cls(
             connection_string=connection_string,
