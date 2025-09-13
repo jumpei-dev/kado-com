@@ -57,7 +57,7 @@ jobs:
         # pip install -r requirements-dev.txt
     
     - name: 設定ファイルの作成
-      working-directory: ${{ env.WORKING_DIRECTORY }}
+      working-directory: batch
       run: |
         # 設定ディレクトリの作成
         mkdir -p config
@@ -83,7 +83,7 @@ jobs:
         chmod 600 config/secret.yml
     
     - name: データベース接続テスト
-      working-directory: ${{ env.WORKING_DIRECTORY }}
+      working-directory: batch
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
         LOG_LEVEL: ${{ github.event.inputs.log_level || 'INFO' }}
@@ -135,7 +135,7 @@ jobs:
         "
     
     - name: バッチジョブの実行
-      working-directory: ${{ env.WORKING_DIRECTORY }}
+      working-directory: batch
       env:
         # データベース関連
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -199,7 +199,7 @@ jobs:
     
     - name: ジョブ実行結果の要約
       if: always()
-      working-directory: ${{ env.WORKING_DIRECTORY }}
+      working-directory: batch
       run: |
         echo "## 📋 ジョブ実行結果サマリー" >> $GITHUB_STEP_SUMMARY
         echo "- **ジョブタイプ**: ${{ github.event.inputs.job_type || 'status-collection' }}" >> $GITHUB_STEP_SUMMARY
@@ -225,7 +225,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: batch-logs-${{ github.event.inputs.job_type || 'status-collection' }}-${{ github.run_number }}
-        path: ${{ env.WORKING_DIRECTORY }}/logs/
+        path: batch/logs/
         retention-days: 30  # ログの保持期間
         if-no-files-found: warn
     
