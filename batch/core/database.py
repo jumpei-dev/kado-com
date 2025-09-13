@@ -19,11 +19,28 @@ class DatabaseManager:
             db_config = get_database_config()
             self.connection_string = db_config.connection_string
         except ImportError:
-            # フォールバック: 環境変数のみ（ハードコードされた値は削除）
-            import os
-            self.connection_string = os.getenv('DATABASE_URL')
-            if not self.connection_string:
-                raise ValueError("DATABASE_URL環境変数またはsecret.ymlの設定が必要です")
+            # フォールバック: secret.ymlから直接読み込み
+            import yaml
+            from pathlib import Path
+            
+            project_root = Path(__file__).parent.parent.parent
+            secret_file = project_root / 'config' / 'secret.yml'
+            
+            if secret_file.exists():
+                try:
+                    with open(secret_file, 'r', encoding='utf-8') as f:
+                        secret_data = yaml.safe_load(f)
+                        database_config = secret_data.get('database', {})
+                        self.connection_string = database_config.get('url')
+                        if not self.connection_string:
+                            raise ValueError("secret.ymlにdatabase.urlが設定されていません")
+                except Exception as e:
+                    raise ValueError(f"secret.yml読み込みエラー: {e}")
+            else:
+                # 最後のフォールバック: 環境変数
+                self.connection_string = os.getenv('DATABASE_URL')
+                if not self.connection_string:
+                    raise ValueError("secret.ymlファイルまたはDATABASE_URL環境変数が必要です")
     
     @contextmanager
     def get_connection(self):
