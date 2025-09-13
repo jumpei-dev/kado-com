@@ -272,6 +272,7 @@ def setup_argument_parser():
     status_parser.add_argument('--once', action='store_true', help='スケジューラーを一回だけ実行（in_scope=trueの全店舗）')
     status_parser.add_argument('--force', action='store_true', help='営業時間外でも強制実行')
     status_parser.add_argument('--ignore-hours', action='store_true', help='営業時間制限を無視')
+    status_parser.add_argument('--force-immediate', action='store_true', help='待機時間をスキップして即時実行')
     status_parser.add_argument('--parallel', action='store_true', help='並行処理版を使用（高速化・ブロック対策）')
     status_parser.add_argument('--max-workers', type=int, help='並行処理数（デフォルト: 3）')
     
@@ -717,6 +718,11 @@ async def main():
     
     try:
         if args.command == 'status-collection':
+            # force-immediateオプションの処理
+            if hasattr(args, 'force_immediate') and args.force_immediate:
+                os.environ['FORCE_IMMEDIATE'] = 'true'
+                print("⚡ 強制即時実行モード有効 - 待機時間をスキップします")
+            
             if hasattr(args, 'once') and args.once:
                 # 一回だけ強制実行モード
                 print("📊 稼働状況取得スケジューラーを一回だけ強制実行中...")

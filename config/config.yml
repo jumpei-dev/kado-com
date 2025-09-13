@@ -115,7 +115,7 @@ logging:
 # ⏰ スケジュール設定
 scheduling:
   # 🕐 基本スケジュール設定
-  status_collection_interval: 30  # 稼働状況取得間隔（分）
+  status_collection_interval: 60  # 稼働状況取得間隔（分）- Phase1対策で60分に変更
   history_calculation_hour: 12     # 稼働率計算実行時刻（12時）
   history_calculation_minute: 0    # 稼働率計算実行分
   
@@ -147,13 +147,30 @@ scraping:
   delay_between_requests: 1
   user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
   
-  # 🛡️ ブロック対策設定
+  # 🛡️ ブロック対策設定 - Phase 1強化
   user_agents:
     - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     - "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0"
     - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15"
     - "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:122.0) Gecko/20100101 Firefox/122.0"
+    - "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0"
+  
+  # 🍪 セッション・Cookie管理
+  session_rotation: true        # セッションローテーション有効
+  session_lifetime: 1800        # セッション有効期間（秒）30分
+  cookie_persistence: true      # Cookie永続化
+  
+  # 🎲 ランダム化設定
+  random_intervals: true        # 完全ランダム間隔
+  interval_base_minutes: 60     # ベース間隔（分）
+  interval_variance_percent: 50 # 変動幅（±50%）
+  random_headers: true          # ヘッダーランダム化
+  random_referer: true          # リファラーランダム化
   
   # 🚀 並行処理・ブロック対策
   max_parallel_businesses: 3    # 店舗並行処理数
