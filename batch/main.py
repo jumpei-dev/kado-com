@@ -826,10 +826,11 @@ async def main():
                     return 0
                     
                 except Exception as e:
-                    print(f"❌ スケジューラー一回実行エラー: {e}")
+                    print(f"⚠️ スクレイピング処理でエラーが発生しましたが、処理を継続します: {e}")
                     import traceback
                     print(f"詳細: {traceback.format_exc()}")
-                    return 1
+                    print("🔄 エラーが発生しましたが、ワークフローは継続されます")
+                    return 0
             else:
                 # 通常のスケジューラーモード（設定ファイル対応）
                 try:
@@ -844,12 +845,17 @@ async def main():
                     print("30分ごとに営業中店舗の稼働状況を取得します")
                     print("停止するにはCtrl+Cを押してください")
                 
-                if run_status_collection_scheduler is None:
-                    print("❌ run_status_collection_schedulerが利用できません")
-                    return 1
-                
-                await run_status_collection_scheduler()
+                # GitHub Actionsで実行するため、ローカルスケジューラーは無効化
+                print("ℹ️ ステータス収集はGitHub Actionsで実行されます")
+                print("📋 GitHub Actions設定: 2時間間隔で自動実行")
                 return 0
+                
+                # if run_status_collection_scheduler is None:
+                #     print("❌ run_status_collection_schedulerが利用できません")
+                #     return 1
+                # 
+                # await run_status_collection_scheduler()
+                # return 0
             
         elif args.command == 'working-rate':
             if hasattr(args, 'once') and args.once:

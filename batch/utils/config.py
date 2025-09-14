@@ -151,7 +151,7 @@ class ScrapingConfig:
 @dataclass
 class SchedulingConfig:
     """スケジューリング設定"""
-    status_collection_interval: int = 30  # 分
+    status_collection_interval: int = 120  # 分（2時間間隔）
     history_calculation_hour: int = 12    # 稼働率計算実行時刻
     history_calculation_minute: int = 0   # 稼働率計算実行分
     max_concurrent_businesses: int = 5        # 店舗並行処理数

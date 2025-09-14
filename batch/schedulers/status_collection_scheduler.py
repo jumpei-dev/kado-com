@@ -48,8 +48,8 @@ class StatusCollectionScheduler:
         
         logger.info("稼働状況取得スケジューラーを開始中...")
         
-        # 30分間隔のジョブを追加
-        status_collection_interval = self.config.get("scheduling.status_collection_interval", 30)
+        # 2時間間隔のジョブを追加
+        status_collection_interval = self.config.get("scheduling.status_collection_interval", 120)
         self.scheduler.add_job(
             func=self._collect_status_data,
             trigger=IntervalTrigger(minutes=status_collection_interval),
