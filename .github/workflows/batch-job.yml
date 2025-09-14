@@ -15,15 +15,12 @@ on:
         - working-rate
         - debug-html
       log_level:
-        description: 'ログレベル'
+        description: 'ログレベル（固定：DEBUG）'
         required: false
-        default: 'INFO'
+        default: 'DEBUG'
         type: choice
         options:
         - DEBUG
-        - INFO
-        - WARNING
-        - ERROR
       force_immediate:
         description: 'Status Collection即時実行（待機時間をスキップ）'
         required: false
