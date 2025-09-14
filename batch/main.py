@@ -268,7 +268,7 @@ def setup_argument_parser():
     subparsers = parser.add_subparsers(dest='command', help='実行するコマンド')
     
     # 稼働状況取得スケジューラー
-    status_parser = subparsers.add_parser('status-collection', help='稼働状況取得スケジューラー（30分ごと）')
+    status_parser = subparsers.add_parser('status-collection', help='稼働状況取得スケジューラー（2時間ごと）')
     status_parser.add_argument('--once', action='store_true', help='スケジューラーを一回だけ実行（in_scope=trueの全店舗）')
     status_parser.add_argument('--force', action='store_true', help='営業時間外でも強制実行')
     status_parser.add_argument('--ignore-hours', action='store_true', help='営業時間制限を無視')
@@ -842,7 +842,7 @@ async def main():
                     print("停止するにはCtrl+Cを押してください")
                 except ImportError:
                     print("稼働状況取得スケジューラーを開始中...")
-                    print("30分ごとに営業中店舗の稼働状況を取得します")
+                    print("2時間ごとに営業中店舗の稼働状況を取得します")
                     print("停止するにはCtrl+Cを押してください")
                 
                 # GitHub Actionsで実行するため、ローカルスケジューラーは無効化

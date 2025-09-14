@@ -175,25 +175,31 @@ scraping:
   cookie_persistence: true      # Cookie永続化
   
   # 🎲 ランダム化設定
-  random_intervals: true        # 完全ランダム間隔
+  random_intervals: false       # 完全ランダム間隔（デバッグ用に無効化）
   interval_base_minutes: 60     # ベース間隔（分）
   interval_variance_percent: 50 # 変動幅（±50%）
   random_headers: true          # ヘッダーランダム化
   random_referer: true          # リファラーランダム化
   
-  # 🚀 並行処理・ブロック対策
-  max_parallel_businesses: 3    # 店舗並行処理数
-  max_concurrent: 3             # 同時接続数
-  min_delay: 0.5               # 最小待機時間（秒）
-  max_delay: 2.0               # 最大待機時間（秒）
-  request_interval: 1.0        # リクエスト間隔基本値（秒）
-  retry_delay: 3.0             # リトライ時の待機時間（秒）
+  # 🚀 並行処理・ブロック対策（アクセス拒否対策強化）
+  max_parallel_businesses: 1    # 店舗並行処理数（アクセス拒否対策で1に削減）
+  max_concurrent: 1             # 同時接続数（アクセス拒否対策で1に削減）
+  min_delay: 2.0               # 最小待機時間（秒）（アクセス拒否対策で延長）
+  max_delay: 5.0               # 最大待機時間（秒）（アクセス拒否対策で延長）
+  request_interval: 3.0        # リクエスト間隔基本値（秒）（アクセス拒否対策で延長）
+  retry_delay: 10.0            # リトライ時の待機時間（秒）（アクセス拒否対策で延長）
   
   # 🔧 高速化設定
   use_aiohttp: true            # aiohttp使用フラグ
   connection_pooling: true     # 接続プール使用
   keep_alive: true             # Keep-Alive有効
   compress: true               # 圧縮有効
+  
+  # 🛡️ プロキシ設定（アクセス拒否対策）
+  enable_proxy_rotation: true  # プロキシローテーション有効
+  proxy_rotation_interval: 3   # プロキシ切り替え間隔（リクエスト数）
+  proxy_test_timeout: 10       # プロキシテストタイムアウト（秒）
+  proxy_refresh_interval: 3600 # プロキシリスト更新間隔（秒）
 
 # 🚀 本番環境設定（環境変数でオーバーライド可能）
 production:

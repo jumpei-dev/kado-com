@@ -91,8 +91,12 @@ class CityheavenStrategy(ScrapingStrategy):
         Args:
             dom_check_mode: 追加店舗DOM確認モード（HTML詳細出力）
         """
-        # URL直接指定（DOM確認モード）の場合は強制的にリモート取得
-        if dom_check_mode and base_url and base_url.startswith('http'):
+        # DOM確認モードでローカルファイル指定の場合はローカル処理を維持
+        if dom_check_mode and self.html_loader.specific_file:
+            use_local = True
+            logger.info(f"🔍 DOM確認モード: ローカルファイル指定のためローカル処理を維持")
+        # URL直接指定（DOM確認モード）の場合のみリモート取得
+        elif dom_check_mode and base_url and base_url.startswith('http') and not self.html_loader.specific_file:
             use_local = False
             logger.info(f"🔍 DOM確認モード: URL直接指定のためリモート取得を強制")
         
@@ -104,7 +108,7 @@ class CityheavenStrategy(ScrapingStrategy):
         # HTMLコンテンツと取得時刻を読み込み（修正版）
         if use_local:
             html_content, html_acquisition_time = await self.html_loader.load_html_content(
-                business_name, business_id, None
+                business_name, business_id, None, self.html_loader.specific_file
             )
         else:
             html_content = await load_html_compatible(base_url)
