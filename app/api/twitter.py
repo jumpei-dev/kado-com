@@ -156,7 +156,8 @@ async def get_tweets(
                 "request": request, 
                 "tweets": tweets, 
                 "loading": False,
-                "twitter_username": twitter_config.get('username', 'kado_admin')
+                "twitter_username": twitter_config.get('username', 'kado_admin'),
+                "config": config
             }
         )
         
@@ -169,7 +170,8 @@ async def get_tweets(
                 "request": request, 
                 "tweets": [], 
                 "loading": False,
-                "twitter_username": config.get('frontend', {}).get('twitter', {}).get('username', 'kado_admin')
+                "twitter_username": config.get('frontend', {}).get('twitter', {}).get('username', 'kado_admin'),
+                "config": config
             }
         )
 
@@ -219,7 +221,8 @@ async def twitter_timeline(request: Request, count: int = 3):
                 "request": request, 
                 "tweets": tweets, 
                 "loading": False,
-                "twitter_username": twitter_config.get('username', 'kado_admin')
+                "twitter_username": twitter_config.get('username', 'kado_admin'),
+                "config": config
             }
         )
         
@@ -232,6 +235,7 @@ async def twitter_timeline(request: Request, count: int = 3):
                 "request": request, 
                 "tweets": [], 
                 "loading": False,
-                "twitter_username": config.get('frontend', {}).get('twitter', {}).get('username', 'kado_admin')
+                "twitter_username": config.get('frontend', {}).get('twitter', {}).get('username', 'kado_admin'),
+                "config": config
             }
         )

@@ -79,9 +79,6 @@ frontend:
   # X (旧Twitter) 設定
   twitter:
     username: "AkariRikaRika"
-    display_name: "Elon Musk"
-
-
     max_results: 10                   # 最大取得ツイート数
     exclude_replies: true             # リプライを除外
     exclude_retweets: false           # リツイートを含める
