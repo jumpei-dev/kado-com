@@ -381,6 +381,7 @@ async def get_store_detail(
             if biz_id == store_id:
                 business = biz
                 print(f"✅ DB店舗データ取得: {biz.get('name', biz.get('Name', 'Unknown'))}")
+                print(f"[DEBUG] Business type data: {biz.get('type')}, Type: {biz.get('Type')}, genre: {biz.get('genre')}")
                 break
         
         # 見つからない場合の詳細ログ
@@ -436,7 +437,7 @@ async def get_store_detail(
             "prefecture": business.get('Prefecture', business.get('prefecture', '不明')),
             "city": business.get('City', business.get('city', '不明')),
             "area": business.get('Area', business.get('area', '不明')),
-            "genre": convert_business_type_to_japanese(business.get('Type', business.get('genre', ''))),
+            "genre": convert_business_type_to_japanese(business.get('type', business.get('Type', business.get('genre', '')))),
             "status": "active" if business.get('in_scope') else "inactive",
             "last_updated": business.get('last_updated', '2024-01-01'),
             "util_today": util_today,
