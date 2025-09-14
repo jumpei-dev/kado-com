@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 def setup_logging(
-    log_level: str = "INFO",
+    log_level: str = "DEBUG",  # 固定：詳細ログ出力
     log_dir: str = "logs",
     max_bytes: int = 10 * 1024 * 1024,  # 10MB
     backup_count: int = 5
@@ -18,7 +18,7 @@ def setup_logging(
     バッチ処理システムの包括的なログ設定を行う。
     
     Args:
-        log_level: ログレベル（DEBUG, INFO, WARNING, ERROR, CRITICAL）
+        log_level: ログレベル（固定：DEBUG - 詳細ログ出力）
         log_dir: ログファイルを保存するディレクトリ
         max_bytes: ローテーション前の各ログファイルの最大サイズ
         backup_count: 保持するバックアップファイル数
@@ -37,16 +37,16 @@ def setup_logging(
         '%(asctime)s - %(levelname)s - %(message)s'
     )
     
-    # ルートロガー設定
+    # ルートロガー設定（強制的にDEBUGレベルに固定）
     root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, log_level.upper()))
+    root_logger.setLevel(logging.DEBUG)  # 常にDEBUGレベルに固定
     
     # 既存のハンドラーをクリア
     root_logger.handlers = []
     
-    # コンソールハンドラー（INFO以上）
+    # コンソールハンドラー（DEBUG以上 - 詳細ログ出力）
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.DEBUG)  # DEBUGレベルに固定
     console_handler.setFormatter(simple_formatter)
     root_logger.addHandler(console_handler)
     
@@ -57,7 +57,7 @@ def setup_logging(
         maxBytes=max_bytes,
         backupCount=backup_count
     )
-    main_handler.setLevel(getattr(logging, log_level.upper()))
+    main_handler.setLevel(logging.DEBUG)  # 常にDEBUGレベルに固定
     main_handler.setFormatter(detailed_formatter)
     root_logger.addHandler(main_handler)
     
@@ -87,7 +87,7 @@ def setup_logging(
     job_logger.addHandler(job_handler)
     job_logger.propagate = True  # Also send to root logger
     
-    logging.info(f"Logging initialized - Level: {log_level}, Dir: {log_dir}")
+    logging.info(f"Logging initialized - Level: DEBUG (固定), Dir: {log_dir}")
 
 def get_job_logger(job_name: str) -> logging.Logger:
     """Get a logger for a specific job."""
