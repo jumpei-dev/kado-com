@@ -242,10 +242,10 @@ try:
     scraper_config = ScraperConfig()
     
     print('  📡 ネットワーク設定:')
-    print(f'    - プロキシ有効: {getattr(scraper_config, \"use_proxy\", \"不明\")}')
-    print(f'    - プロキシローテーション: {getattr(scraper_config, \"proxy_rotation\", \"不明\")}')
-    print(f'    - User-Agent ローテーション: {getattr(scraper_config, \"ua_rotation\", \"不明\")}')
-    print(f'    - リクエスト間隔: {getattr(scraper_config, \"request_interval\", \"不明\")}秒')
+    print(f'    - プロキシ有効: {getattr(scraper_config, \"use_proxy\", \"不明\")}')    
+    print(f'    - プロキシローテーション: {getattr(scraper_config, \"proxy_rotation\", \"不明\")}')    
+    print(f'    - User-Agent ローテーション: {getattr(scraper_config, \"ua_rotation\", \"不明\")}')    
+    print(f'    - リクエスト間隔: {getattr(scraper_config, \"request_interval\", \"不明\")}秒')    
     print(f'    - タイムアウト設定: {getattr(scraper_config, \"timeout\", \"不明\")}秒')
     
     print('  🔍 最新のHTTPエラー情報:')
