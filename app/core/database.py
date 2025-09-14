@@ -277,8 +277,15 @@ class DatabaseManager:
             
             where_clause = " AND ".join(where_conditions)
             
-            # 期間に応じた稼働率計算（簡易版）
-            period_days = 7 if period == "week" else 30 if period == "month" else 1
+            # 期間に応じた稼働率計算
+            if period == "month":
+                period_condition = "sh.biz_date >= DATE_TRUNC('month', CURRENT_DATE) AND sh.biz_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'"
+            elif period == "last_month":
+                period_condition = "sh.biz_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month' AND sh.biz_date < DATE_TRUNC('month', CURRENT_DATE)"
+            elif period == "week":
+                period_condition = "sh.biz_date >= CURRENT_DATE - INTERVAL '7 days'"
+            else:
+                period_condition = "sh.biz_date >= CURRENT_DATE - INTERVAL '1 day'"
             
             query = f"""
             SELECT 
@@ -289,8 +296,9 @@ class DatabaseManager:
                 b.prefecture,
                 b.type,
                 b.cast_type,
-                COALESCE(AVG(CASE WHEN RANDOM() > 0.3 THEN 75 + RANDOM() * 20 ELSE 50 + RANDOM() * 25 END), 0) as avg_working_rate
+                COALESCE(AVG(sh.working_rate), 0) as avg_working_rate
             FROM business b
+            LEFT JOIN status_history sh ON b.business_id = sh.business_id AND {period_condition}
             WHERE {where_clause}
             GROUP BY b.business_id, b.name, b.blurred_name, b.area, b.prefecture, b.type, b.cast_type
             ORDER BY avg_working_rate DESC
@@ -306,7 +314,7 @@ class DatabaseManager:
                 ranking.append({
                     "business_id": row["business_id"],
                     "name": row["name"],
-                    "blurred_name": row.get("blurred_name", self._generate_blurred_name(row["name"])),
+                    "blurred_name": row.get("blurred_name", row["name"]),
                     "area": row["area"],
                     "prefecture": row["prefecture"],
                     "type": row["type"],
@@ -319,13 +327,7 @@ class DatabaseManager:
             
         except Exception as e:
             logger.error(f"❌ ランキングデータ取得エラー: {e}")
-            logger.info("🔄 ダミーデータにフォールバックします")
-            # エラー時はダミーデータを返す
-            return [
-                {"business_id": 1, "name": "チュチュバナナ", "blurred_name": "チ○○バ○○", "area": "関東", "prefecture": "東京都", "type": "ソープランド", "cast_type": "スタンダード", "avg_working_rate": 85.5},
-                {"business_id": 2, "name": "クラブA", "blurred_name": "ク○○A", "area": "関西", "prefecture": "大阪府", "type": "キャバクラ", "cast_type": "低スペ", "avg_working_rate": 78.2},
-                {"business_id": 3, "name": "レモネード", "blurred_name": "レ○○○ド", "area": "中部", "prefecture": "名古屋市", "type": "ピンサロ", "cast_type": "スタンダード", "avg_working_rate": 72.8}
-            ]
+            return []
     
     def get_store_details(self, business_id):
         """店舗の詳細を取得する"""
@@ -347,28 +349,65 @@ class DatabaseManager:
             store = result[0]
             today = datetime.now()
             
-            # 稼働率データ（簡易版 - 実際の実装では稼働データテーブルから取得）
-            current_rate = 70 + (hash(str(business_id)) % 30)  # 70-99の範囲でランダム
-            area_avg = current_rate - 5 + (hash(str(store["area"])) % 10)
-            genre_avg = current_rate - 3 + (hash(str(store["type"])) % 6)
+            # 実際の稼働率データを取得
+            current_rate_query = """
+            SELECT working_rate 
+            FROM status_history 
+            WHERE business_id = %s 
+            ORDER BY biz_date DESC 
+            LIMIT 1
+            """
+            current_rate_result = self.execute_query(current_rate_query, (business_id,))
+            current_rate = float(current_rate_result[0]["working_rate"]) if current_rate_result else 0.0
             
-            # 履歴データ（簡易版）
+            # エリア平均稼働率を取得
+            area_avg_query = """
+            SELECT AVG(sh.working_rate) as avg_rate
+            FROM status_history sh
+            JOIN business b ON sh.business_id = b.business_id
+            WHERE b.area = %s AND sh.biz_date >= CURRENT_DATE - INTERVAL '7 days'
+            """
+            area_avg_result = self.execute_query(area_avg_query, (store["area"],))
+            area_avg = float(area_avg_result[0]["avg_rate"]) if area_avg_result and area_avg_result[0]["avg_rate"] else 0.0
+            
+            # 業種平均稼働率を取得
+            genre_avg_query = """
+            SELECT AVG(sh.working_rate) as avg_rate
+            FROM status_history sh
+            JOIN business b ON sh.business_id = b.business_id
+            WHERE b.type = %s AND sh.biz_date >= CURRENT_DATE - INTERVAL '7 days'
+            """
+            genre_avg_result = self.execute_query(genre_avg_query, (store["type"],))
+            genre_avg = float(genre_avg_result[0]["avg_rate"]) if genre_avg_result and genre_avg_result[0]["avg_rate"] else 0.0
+            
+            # 過去7日間の履歴データを取得
+            history_query = """
+            SELECT biz_date, working_rate
+            FROM status_history
+            WHERE business_id = %s AND biz_date >= CURRENT_DATE - INTERVAL '7 days'
+            ORDER BY biz_date ASC
+            """
+            history_result = self.execute_query(history_query, (business_id,))
+            
             history = []
             weekdays = ["月", "火", "水", "木", "金", "土", "日"]
-            for i, day in enumerate(weekdays):
-                rate = current_rate + (hash(str(business_id) + day) % 20) - 10
-                rate = max(50, min(95, rate))  # 50-95の範囲に制限
+            for i in range(7):
+                target_date = today - timedelta(days=6-i)
+                # 該当日のデータを検索
+                day_data = next((h for h in history_result if h["biz_date"] == target_date.date()), None)
+                rate = float(day_data["working_rate"]) if day_data else 0.0
+                
                 history.append({
-                    "label": day,
+                    "label": weekdays[i],
                     "rate": round(rate, 1),
-                    "date": today - timedelta(days=7-i)
+                    "date": target_date
                 })
             
             # 詳細データを構築
             details = {
                 "business_id": store["business_id"],
                 "name": store["name"],
-                "blurred_name": store.get("blurred_name", self._generate_blurred_name(store["name"])),
+                "blurred_name": store.get("blurred_name", store["name"]),
                 "area": store["area"],
                 "prefecture": store["prefecture"],
                 "type": store["type"],

@@ -81,9 +81,17 @@
     
     <!-- 稼働率＋週間比較 -->
     <div class="text-right">
-      <div class="text-sm font-bold text-gray-900">{{ store.working_rate }}%</div>
+      <div class="text-sm font-bold text-gray-900">
+        {% if store.working_rate == 0.0 %}
+          -%
+        {% else %}
+          {{ store.working_rate }}%
+        {% endif %}
+      </div>
       <div class="text-xs">
-        {% if store.working_rate > store.weekly_rate %}
+        {% if store.working_rate == 0.0 or store.weekly_rate == 0.0 %}
+          <span class="text-gray-600">-</span>
+        {% elif store.working_rate > store.weekly_rate %}
           <span class="text-green-600">+{{ (store.working_rate - store.weekly_rate)|round(1) }}%</span>
         {% elif store.working_rate < store.weekly_rate %}
           <span class="text-red-600">{{ (store.working_rate - store.weekly_rate)|round(1) }}%</span>

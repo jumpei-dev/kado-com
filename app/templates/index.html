@@ -6,12 +6,10 @@
 <main class="py-6 px-4" style="width: 640px; max-width: 100%; margin: 0 auto;">
   
   <!-- フィルタードロワー -->
-  <div x-data="{ open: false, periodText: '先週の' }" x-init="
+  <div x-data="{ open: false, periodText: '今月の' }" x-init="
     $watch('$store.periodFilter.value', (val) => {
-      if (val === 'week') periodText = '先週の';
-      else if (val === 'month') periodText = '過去一ヶ月の';
-      else if (val === 'three_months') periodText = '過去三ヶ月の';
-      else if (val === 'six_months') periodText = '過去半年の';
+      if (val === 'month') periodText = '今月の';
+      else if (val === 'last_month') periodText = '先月の';
       else periodText = '';
     })
   ">
@@ -106,10 +104,8 @@
                         hx-params="area,genre,rank,period,page=1,page_size=30"
                         hx-swap="innerHTML"
                         @change="$store.periodFilter.value = $event.target.value">
-                  <option value="week" selected>先週</option>
-                  <option value="month">過去一ヶ月</option>
-                  <option value="three_months">過去三ヶ月</option>
-                  <option value="six_months">過去半年</option>
+                  <option value="month" selected>今月</option>
+                  <option value="last_month">先月</option>
                 </select>
               </div>
             </div>
@@ -140,7 +136,7 @@
     <div id="store-list" class="grid grid-cols-1 gap-3 mb-8 p-2 bg-gray-50 rounded-lg border border-gray-100"
          hx-get="/api/stores" 
          hx-trigger="load"
-         hx-params="area=all,genre=all,period=week,page=1,page_size=30"
+         hx-params="area=all,genre=all,period=month,page=1,page_size=30"
          hx-swap="innerHTML">
       <!-- ここにHTMXがAPIから店舗一覧を読み込みます -->
     </div>
