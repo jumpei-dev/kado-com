@@ -329,7 +329,7 @@ class DatabaseManager:
             logger.error(f"❌ ランキングデータ取得エラー: {e}")
             return []
     
-    def get_store_details(self, business_id):
+    async def get_store_details(self, business_id):
         """店舗の詳細を取得する"""
         try:
             # 店舗の基本情報を取得
@@ -349,16 +349,16 @@ class DatabaseManager:
             store = result[0]
             today = datetime.now()
             
-            # 実際の稼働率データを取得
+            # 今月の平均稼働率データを取得（一覧画面と同じロジック）
             current_rate_query = """
-            SELECT working_rate 
+            SELECT COALESCE(AVG(working_rate), 0) as avg_working_rate
             FROM status_history 
             WHERE business_id = %s 
-            ORDER BY biz_date DESC 
-            LIMIT 1
+            AND biz_date >= DATE_TRUNC('month', CURRENT_DATE) 
+            AND biz_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
             """
             current_rate_result = self.execute_query(current_rate_query, (business_id,))
-            current_rate = float(current_rate_result[0]["working_rate"]) if current_rate_result else 0.0
+            current_rate = float(current_rate_result[0]["avg_working_rate"]) if current_rate_result else 0.0
             
             # エリア平均稼働率を取得
             area_avg_query = """

@@ -85,7 +85,7 @@
         {% if store.working_rate == 0.0 %}
           -%
         {% else %}
-          {{ store.working_rate|int }}%
+          {{ store.working_rate }}%
         {% endif %}
       </div>
       <div class="text-xs">
@@ -96,7 +96,7 @@
         {% elif store.working_rate < store.weekly_rate %}
           <span class="text-red-600">{{ (store.working_rate - store.weekly_rate)|round(1) }}%</span>
         {% else %}
-          <span class="text-gray-600"></span>
+          <span class="text-gray-600">±0.0%</span>
         {% endif %}
 
       </div>
