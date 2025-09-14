@@ -14,6 +14,7 @@ on:
         type: choice
         options:
         - status-collection
+        - debug-html
       log_level:
         description: 'ログレベル（固定：DEBUG）'
         required: false
@@ -178,11 +179,7 @@ jobs:
             python main.py status-collection 2>&1 | tee logs/status-collection.log
             EXIT_CODE=${PIPESTATUS[0]}
             ;;
-          "working-rate")
-            echo "📈 稼働率計算ジョブを実行中..."
-            python main.py working-rate 2>&1 | tee logs/working-rate.log
-            EXIT_CODE=${PIPESTATUS[0]}
-            ;;
+
           "debug-html")
             echo "🔍 HTMLデバッグジョブを実行中..."
             python main.py debug-html --local-file "sample.html" 2>&1 | tee logs/debug-html.log
