@@ -401,6 +401,7 @@ async def get_store_detail(
         util_today = get_working_rate(db, business_id, 'today')
         util_yesterday = get_working_rate(db, business_id, 'yesterday')
         util_7d = get_working_rate(db, business_id, 'week')
+        util_month = get_working_rate(db, business_id, 'month')
         
         # 履歴データも実際のデータから生成
         history_data = [
@@ -445,7 +446,7 @@ async def get_store_detail(
             # 期間ごとの稼働率履歴を追加
             "history": history_data,
             # テンプレート用のプロパティを追加
-            "working_rate": util_today,
+            "working_rate": util_month,
             "previous_rate": util_yesterday,
             "weekly_rate": util_7d
         }
