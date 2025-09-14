@@ -183,7 +183,7 @@ jobs:
         case "${JOB_TYPE}" in
           "status-collection")
             echo "📊 稼働状況収集ジョブを実行中..."
-            python main.py status-collection 2>&1 | tee logs/status-collection.log
+            python main.py status-collection --once 2>&1 | tee logs/status-collection.log
             EXIT_CODE=${PIPESTATUS[0]}
             ;;
 
