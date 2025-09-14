@@ -1,6 +1,5 @@
-"""
-稼働状況取得スケジューラー
-30分ごとに InScope=True かつ営業時間中の店舗から稼働状況を取得
+"""稼働状況取得スケジューラー
+2時間ごとに InScope=True かつ営業時間中の店舗から稼働状況を取得
 """
 
 import asyncio
@@ -86,7 +85,7 @@ class StatusCollectionScheduler:
             
             if not businesses_dict:
                 logger.info("対象店舗がありません（InScope=True かつ営業時間中の店舗なし）")
-                logger.info("次回の30分後に再チェックします")
+                logger.info("次回の2時間後に再チェックします")
                 return
             
             logger.info(f"{len(businesses_dict)}店舗の稼働状況取得を開始")

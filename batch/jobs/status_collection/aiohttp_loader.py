@@ -54,6 +54,192 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+class ProxyManager:
+    """プロキシ管理クラス - ローテーション機能付き"""
+    
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.proxy_list = []
+        self.current_proxy_index = 0
+        self.failed_proxies = set()
+        self.last_refresh_time = 0
+        self.refresh_interval = config.get('proxy_refresh_interval', 3600)  # 1時間
+        self.test_timeout = config.get('proxy_test_timeout', 10)
+        
+    async def get_proxy_list(self) -> List[Dict[str, Any]]:
+        """プロキシリストを取得（必要に応じて更新）"""
+        current_time = time.time()
+        
+        # 初回取得または更新間隔を過ぎた場合
+        if not self.proxy_list or (current_time - self.last_refresh_time) > self.refresh_interval:
+            await self._refresh_proxy_list()
+            
+        # 失敗したプロキシを除外
+        available_proxies = [
+            proxy for proxy in self.proxy_list 
+            if proxy['url'] not in self.failed_proxies
+        ]
+        
+        return available_proxies
+        
+    async def _refresh_proxy_list(self):
+        """プロキシリストを更新"""
+        logger.info("📡 プロキシリスト更新中...")
+        
+        try:
+            # 複数のプロキシソースから取得
+            new_proxies = []
+            
+            # 無料プロキシAPI 1: ProxyList
+            try:
+                proxies_1 = await self._fetch_from_proxylist_api()
+                new_proxies.extend(proxies_1)
+            except Exception as e:
+                logger.warning(f"⚠️ ProxyList API エラー: {e}")
+                
+            # 無料プロキシAPI 2: Free Proxy List
+            try:
+                proxies_2 = await self._fetch_from_free_proxy_api()
+                new_proxies.extend(proxies_2)
+            except Exception as e:
+                logger.warning(f"⚠️ Free Proxy API エラー: {e}")
+                
+            # 重複除去
+            unique_proxies = {}
+            for proxy in new_proxies:
+                key = f"{proxy['host']}:{proxy['port']}"
+                if key not in unique_proxies:
+                    unique_proxies[key] = proxy
+                    
+            self.proxy_list = list(unique_proxies.values())
+            self.last_refresh_time = time.time()
+            
+            logger.info(f"✅ プロキシリスト更新完了: {len(self.proxy_list)}個")
+            
+        except Exception as e:
+            logger.error(f"❌ プロキシリスト更新エラー: {e}")
+            # フォールバック: 基本的なプロキシリスト
+            self.proxy_list = self._get_fallback_proxies()
+            
+    async def _fetch_from_proxylist_api(self) -> List[Dict[str, Any]]:
+        """ProxyList APIからプロキシを取得"""
+        url = "https://www.proxy-list.download/api/v1/get?type=http"
+        
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    text = await response.text()
+                    proxies = []
+                    
+                    for line in text.strip().split('\n'):
+                        if ':' in line:
+                            host, port = line.strip().split(':', 1)
+                            proxies.append({
+                                'host': host,
+                                'port': int(port),
+                                'type': 'http',
+                                'url': f"http://{host}:{port}",
+                                'source': 'proxylist'
+                            })
+                            
+                    return proxies[:50]  # 最大50個
+                    
+        return []
+        
+    async def _fetch_from_free_proxy_api(self) -> List[Dict[str, Any]]:
+        """Free Proxy APIからプロキシを取得"""
+        url = "https://api.proxyscrape.com/v2/?request=get&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all"
+        
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    text = await response.text()
+                    proxies = []
+                    
+                    for line in text.strip().split('\n'):
+                        if ':' in line:
+                            host, port = line.strip().split(':', 1)
+                            try:
+                                proxies.append({
+                                    'host': host,
+                                    'port': int(port),
+                                    'type': 'http',
+                                    'url': f"http://{host}:{port}",
+                                    'source': 'proxyscrape'
+                                })
+                            except ValueError:
+                                continue
+                                
+                    return proxies[:50]  # 最大50個
+                    
+        return []
+        
+    def _get_fallback_proxies(self) -> List[Dict[str, Any]]:
+        """フォールバック用の基本プロキシリスト"""
+        return [
+            {'host': '8.210.83.33', 'port': 80, 'type': 'http', 'url': 'http://8.210.83.33:80', 'source': 'fallback'},
+            {'host': '47.74.152.29', 'port': 8888, 'type': 'http', 'url': 'http://47.74.152.29:8888', 'source': 'fallback'},
+            {'host': '20.111.54.16', 'port': 80, 'type': 'http', 'url': 'http://20.111.54.16:80', 'source': 'fallback'}
+        ]
+        
+    async def get_next_proxy(self) -> Optional[Dict[str, Any]]:
+        """次のプロキシを取得（ローテーション）"""
+        available_proxies = await self.get_proxy_list()
+        
+        if not available_proxies:
+            logger.warning("⚠️ 利用可能なプロキシがありません")
+            return None
+            
+        # ローテーション
+        if self.current_proxy_index >= len(available_proxies):
+            self.current_proxy_index = 0
+            
+        proxy = available_proxies[self.current_proxy_index]
+        self.current_proxy_index = (self.current_proxy_index + 1) % len(available_proxies)
+        
+        logger.debug(f"🔄 プロキシローテーション: {proxy['host']}:{proxy['port']}")
+        return proxy
+        
+    def mark_proxy_failed(self, proxy_url: str):
+        """プロキシを失敗としてマーク"""
+        self.failed_proxies.add(proxy_url)
+        logger.warning(f"❌ プロキシ失敗マーク: {proxy_url}")
+        
+    def reset_failed_proxies(self):
+        """失敗プロキシリストをリセット"""
+        self.failed_proxies.clear()
+        logger.info("🔄 失敗プロキシリストをリセット")
+        
+    async def test_proxy(self, proxy: Dict[str, Any]) -> bool:
+        """プロキシの動作テスト"""
+        test_url = "http://httpbin.org/ip"
+        
+        try:
+            timeout = aiohttp.ClientTimeout(total=self.test_timeout)
+            connector = aiohttp.TCPConnector(ssl=False)
+            
+            async with aiohttp.ClientSession(
+                timeout=timeout,
+                connector=connector
+            ) as session:
+                proxy_url = f"http://{proxy['host']}:{proxy['port']}"
+                
+                async with session.get(
+                    test_url,
+                    proxy=proxy_url,
+                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                ) as response:
+                    if response.status == 200:
+                        logger.debug(f"✅ プロキシテスト成功: {proxy['host']}:{proxy['port']}")
+                        return True
+                        
+        except Exception as e:
+            logger.debug(f"❌ プロキシテスト失敗: {proxy['host']}:{proxy['port']} - {e}")
+            
+        return False
+
 class SessionManager:
     """セッション管理クラス - ローテーション機能付き"""
     
@@ -64,6 +250,12 @@ class SessionManager:
         self.current_session_index = 0
         self.session_lifetime = config.get('session_lifetime', 1800)  # 30分
         self.cookie_jar_storage = {}
+        
+        # プロキシ管理
+        self.proxy_manager = None
+        self.current_proxy = None
+        if config.get('enable_proxy_rotation', False):
+            self.proxy_manager = ProxyManager(config)
         
     async def get_session(self) -> aiohttp.ClientSession:
         """アクティブなセッションを取得（必要に応じてローテーション）"""
@@ -101,6 +293,18 @@ class SessionManager:
             ssl=False  # SSL検証を緩和
         )
         
+        # プロキシ設定を取得
+        proxy_url = None
+        if self.proxy_manager:
+            try:
+                proxy = await self.proxy_manager.get_next_proxy()
+                if proxy:
+                    proxy_url = proxy['url']
+                    self.current_proxy = proxy  # 現在のプロキシを保存
+                    logger.debug(f"🔄 セッションにプロキシ設定: {proxy_url}")
+            except Exception as e:
+                logger.warning(f"⚠️ プロキシ取得エラー: {e}")
+        
         session = aiohttp.ClientSession(
             timeout=timeout,
             connector=connector,
@@ -108,11 +312,19 @@ class SessionManager:
             headers=self._get_base_headers()
         )
         
+        # セッションにプロキシ情報を保存
+        if proxy_url:
+            session._proxy_url = proxy_url
+        
         self.sessions.append(session)
         self.session_created_times.append(datetime.now())
         
-        logger.info(f"🆕 新しいセッション作成 (総数: {len(self.sessions)})")
+        logger.info(f"🆕 新しいセッション作成 (総数: {len(self.sessions)}, プロキシ: {proxy_url or 'なし'})")
         return session
+    
+    def get_current_proxy(self):
+        """現在のプロキシ情報を取得"""
+        return self.current_proxy
         
     async def _rotate_session(self):
         """セッションをローテーション"""
@@ -356,10 +568,20 @@ class AiohttpHTMLLoader:
                 # ランダム化されたヘッダーでリクエスト
                 headers = self._get_random_headers(url)
                 
+                # プロキシ設定を取得
+                proxy_url = getattr(session, '_proxy_url', None)
+                
                 logger.info(f"📡 HTML取得開始: {url} (試行 {attempt + 1}/{retries + 1})")
                 logger.debug(f"🔧 User-Agent: {headers['User-Agent'][:50]}...")
+                if proxy_url:
+                    logger.debug(f"🔄 プロキシ使用: {proxy_url}")
                 
-                async with session.get(url, headers=headers) as response:
+                # プロキシを使用してリクエスト
+                request_kwargs = {'headers': headers}
+                if proxy_url:
+                    request_kwargs['proxy'] = proxy_url
+                
+                async with session.get(url, **request_kwargs) as response:
                     if response.status == 200:
                         html_content = await response.text(encoding='utf-8')
                         
@@ -379,6 +601,12 @@ class AiohttpHTMLLoader:
                             
                     elif response.status in [403, 406]:  # アクセス拒否
                         logger.warning(f"🚫 アクセス拒否: HTTP {response.status} - {url}")
+                        
+                        # プロキシが原因の可能性がある場合、失敗マーク
+                        if proxy_url and self.session_manager.proxy_manager:
+                            self.session_manager.proxy_manager.mark_proxy_failed(proxy_url)
+                            logger.info(f"❌ プロキシ失敗マーク: {proxy_url}")
+                        
                         if attempt < retries:
                             # セッションローテーション強制実行
                             logger.info("🔄 403エラー対策: セッションローテーション実行")
@@ -406,7 +634,17 @@ class AiohttpHTMLLoader:
                     
             except aiohttp.ClientError as e:
                 logger.warning(f"🌐 接続エラー: {e} - {url} (試行 {attempt + 1}/{retries + 1})")
+                
+                # プロキシ接続エラーの可能性がある場合、失敗マーク
+                session = await self.session_manager.get_session()
+                proxy_url = getattr(session, '_proxy_url', None)
+                if proxy_url and self.session_manager.proxy_manager:
+                    self.session_manager.proxy_manager.mark_proxy_failed(proxy_url)
+                    logger.info(f"❌ プロキシ接続エラーでマーク: {proxy_url}")
+                
                 if attempt < retries:
+                    # セッションローテーション実行（新しいプロキシを取得）
+                    await self.session_manager._rotate_session()
                     continue
                 else:
                     logger.error(f"❌ 接続エラーが継続: {url}")

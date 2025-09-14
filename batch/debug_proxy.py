@@ -16,15 +16,19 @@ async def test_improved_proxy_system():
     """改善されたプロキシシステムのテスト"""
     logger.info("🚀 改善されたプロキシシステムのテストを開始")
     
-    # 設定を作成（プロキシローテーション有効 + デバッグ用設定）
-    config = get_scraping_config()
+    # AiohttpHTMLLoaderを初期化
+    loader = AiohttpHTMLLoader()
+    
+    # 設定を取得してプロキシローテーション有効化
+    config = loader.config
     config['enable_proxy_rotation'] = True
     config['proxy_rotation_interval'] = 1  # 1リクエストごとにローテーション
     config['force_immediate_execution'] = True  # 強制即時実行モード
     config['interval_base_minutes'] = 0.1  # デバッグ用に短縮（6秒）
     
-    # AiohttpHTMLLoaderを設定付きで初期化
-    loader = AiohttpHTMLLoader(config=config)
+    # プロキシマネージャーを再初期化
+    loader.session_manager.proxy_manager = ProxyManager(config)
+    loader.session_manager.current_proxy = None
     
     try:
         # 1. プロキシマネージャーの状態確認
@@ -56,22 +60,17 @@ async def test_improved_proxy_system():
                 source = proxy.get('source', 'unknown')
                 logger.info(f"  {i}. {proxy['host']}:{proxy['port']} ({source})")
         
-        # 3. プロキシの包括的テスト
-        logger.info("\n=== プロキシ包括的テスト ===")
+        # 3. プロキシの基本テスト
+        logger.info("\n=== プロキシ基本テスト ===")
         if proxy_manager and proxy_list:
             test_proxy = proxy_list[0]
             logger.info(f"テスト対象プロキシ: {test_proxy['host']}:{test_proxy['port']}")
             
-            # 包括的テストを実行
-            test_result = await proxy_manager._test_proxy_comprehensive(test_proxy)
-            
-            logger.info("テスト結果:")
-            logger.info(f"  動作状況: {'✅ 正常' if test_result.get('is_working', False) else '❌ 異常'}")
-            logger.info(f"  応答時間: {test_result.get('response_time', '測定不可')}")
-            logger.info(f"  匿名性レベル: {test_result.get('anonymity_level', 'unknown')}")
-            logger.info(f"  HTTPS対応: {'✅ 対応' if test_result.get('supports_https', False) else '❌ 非対応'}")
-            if test_result.get('error'):
-                logger.info(f"  エラー: {test_result['error']}")
+            try:
+                test_result = await proxy_manager.test_proxy(test_proxy)
+                logger.info(f"テスト結果: {'✅ 成功' if test_result else '❌ 失敗'}")
+            except Exception as e:
+                logger.error(f"テスト中にエラーが発生: {e}")
         
         # 4. 実際のHTMLローダーテスト
         logger.info("\n=== 実際のHTMLローダーテスト ===")

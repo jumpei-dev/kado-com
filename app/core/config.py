@@ -91,9 +91,7 @@ class ConfigManager:
                     return secret_config.get('database', {}).get('url', config)
                 elif secret_key == 'auth_key':
                     return secret_config.get('auth', {}).get('secret_key', config)
-                elif secret_key.startswith('x_'):
-                    x_key = secret_key.replace('x_', '')
-                    return secret_config.get('x_api', {}).get(x_key, config)
+
             
             # 環境変数から取得
             return os.getenv(var_name, config)

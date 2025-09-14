@@ -38,41 +38,18 @@ def get_twitter_client():
     if _twitter_client is not None:
         return _twitter_client
     
-    try:
-        config = get_config()
-        x_config = config.get('x_api', {})
-        
-        # Bearer Tokenを使用したクライアント（API v2）
-        bearer_token = os.getenv('X_BEARER_TOKEN') or x_config.get('bearer_token', '')
-        
-        if not bearer_token or bearer_token.startswith('${'):
-            logger.warning("X Bearer Token not configured, using dummy data")
-            return None
-            
-        _twitter_client = tweepy.Client(
-            bearer_token=bearer_token,
-            wait_on_rate_limit=False
-        )
-        
-        logger.info("X API client initialized successfully")
-        return _twitter_client
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize X API client: {e}")
-        return None
+    # X API機能は削除されました - ダミーデータのみ使用
+    logger.info("X API client disabled, using dummy data only")
+    return None
 
 def get_real_tweets(username: str, count: int = 10) -> List[Dict[str, Any]]:
     """X APIから実際のツイートを取得"""
     global _last_tweets_cache, _cache_timestamp
     
     try:
-        config = get_config()
-        x_config = config.get('x_api', {})
-        cache_config = x_config.get('cache', {})
-        fallback_config = x_config.get('fallback', {})
-        
-        # フォールバック設定でダミーデータ使用が有効な場合は即座にダミーデータを返す
-        if fallback_config.get('use_dummy_data', False):
+        # X API機能は削除されました - 常にダミーデータを使用
+        logger.info("Using dummy data for tweets")
+        if True:  # 常にダミーデータを使用
             logger.info("Using dummy data as configured in fallback settings")
             return get_dummy_tweets(count)
         

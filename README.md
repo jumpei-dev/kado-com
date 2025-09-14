@@ -220,11 +220,6 @@ _backup/
 DATABASE_URL          # データベース接続URL
 DB_PASSWORD           # データベースパスワード
 AUTH_SECRET_KEY       # 認証用秘密鍵
-X_BEARER_TOKEN        # X API Bearer Token
-X_API_KEY             # X API Key
-X_API_SECRET          # X API Secret
-X_ACCESS_TOKEN        # X Access Token
-X_ACCESS_TOKEN_SECRET # X Access Token Secret
 ```
 
 ## 🚀 **セットアップ**
