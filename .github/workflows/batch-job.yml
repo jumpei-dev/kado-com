@@ -1,3 +1,5 @@
+name: status collection
+
 # トリガー設定
 on:
   schedule:
