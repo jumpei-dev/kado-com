@@ -231,39 +231,39 @@ jobs:
           
           # サーバー拒否・bot検知対策の詳細情報
           echo "🚫 サーバー拒否・bot検知対策の詳細:"
-          python -c "
+          python -c '
 import sys
 import os
-sys.path.append('.')
+sys.path.append(".")
 try:
     from utils.config import Config
     from core.scraper import ScraperConfig
     config = Config()
     scraper_config = ScraperConfig()
     
-    print('  📡 ネットワーク設定:')
-    print(f'    - プロキシ有効: {getattr(scraper_config, \"use_proxy\", \"不明\")}')
-    print(f'    - プロキシローテーション: {getattr(scraper_config, \"proxy_rotation\", \"不明\")}')
-    print(f'    - User-Agent ローテーション: {getattr(scraper_config, \"ua_rotation\", \"不明\")}')
-    print(f'    - リクエスト間隔: {getattr(scraper_config, \"request_interval\", \"不明\")}秒')
-    print(f'    - タイムアウト設定: {getattr(scraper_config, \"timeout\", \"不明\")}秒')
+    print("  📡 ネットワーク設定:")
+    print(f"    - プロキシ有効: {getattr(scraper_config, \"use_proxy\", \"不明\")}")
+    print(f"    - プロキシローテーション: {getattr(scraper_config, \"proxy_rotation\", \"不明\")}")
+    print(f"    - User-Agent ローテーション: {getattr(scraper_config, \"ua_rotation\", \"不明\")}")
+    print(f"    - リクエスト間隔: {getattr(scraper_config, \"request_interval\", \"不明\")}秒")
+    print(f"    - タイムアウト設定: {getattr(scraper_config, \"timeout\", \"不明\")}秒")
     
-    print('  🔍 最新のHTTPエラー情報:')
+    print("  🔍 最新のHTTPエラー情報:")
     # ログファイルからHTTPエラーを抽出
     import glob
-    log_files = glob.glob('logs/*.log')
+    log_files = glob.glob("logs/*.log")
     for log_file in log_files[-3:]:  # 最新3ファイル
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 lines = f.readlines()[-100:]  # 最後の100行
                 for line in lines:
-                    if any(keyword in line.lower() for keyword in ['403', '429', '503', 'blocked', 'captcha', 'bot']):
-                        print(f'    - {line.strip()}')
+                    if any(keyword in line.lower() for keyword in ["403", "429", "503", "blocked", "captcha", "bot"]):
+                        print(f"    - {line.strip()}")
         except Exception:
             pass
 except Exception as e:
-    print(f'  ❌ 詳細情報の取得に失敗: {e}')
-" || echo "  ❌ 詳細情報スクリプトの実行に失敗"
+    print(f"  ❌ 詳細情報の取得に失敗: {e}")
+' || echo "  ❌ 詳細情報スクリプトの実行に失敗"
           
           exit ${EXIT_CODE}
         fi
