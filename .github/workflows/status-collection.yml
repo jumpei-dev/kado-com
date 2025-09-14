@@ -247,7 +247,7 @@ jobs:
               print(f"    - タイムアウト設定: {getattr(scraper_config, 'timeout', '不明')}秒")
           except Exception as e:
               print(f"  ❌ 詳細情報の取得に失敗: {e}")
-          PY
+PY
           
           exit ${EXIT_CODE}
         fi
