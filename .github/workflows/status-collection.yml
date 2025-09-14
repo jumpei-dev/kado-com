@@ -18,6 +18,9 @@ name: status collection
 on:
   schedule:
     # 🕐 稼働状況収集: 2時間ごと実行（config.ymlと統一）
+    # cron式の読み方: '分 時 日 月 曜日'
+    # '0 */2 * * *' = 毎日、2時間おき（0:00, 2:00, 4:00, 6:00, 8:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00, 22:00）に実行
+    # */2 は「2で割り切れる時間」を意味するため、確実に2時間間隔で実行されます
     - cron: '0 */2 * * *'
   workflow_dispatch:  # 手動実行も可能
     inputs:
@@ -88,12 +91,7 @@ jobs:
         auth:
           secret_key: "${{ secrets.JWT_SECRET_KEY }}"
         
-        x_api:
-          bearer_token: "${{ secrets.X_API_BEARER_TOKEN }}"
-          consumer_key: "${{ secrets.X_API_CONSUMER_KEY }}"
-          consumer_secret: "${{ secrets.X_API_CONSUMER_SECRET }}"
-          access_token: "${{ secrets.X_API_ACCESS_TOKEN }}"
-          access_token_secret: "${{ secrets.X_API_ACCESS_TOKEN_SECRET }}"
+        # x_api設定は削除済み
         EOF
         
         # ファイルの権限設定（セキュリティ強化）
@@ -161,12 +159,7 @@ jobs:
         # 認証関連
         JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
         
-        # X API関連
-        X_API_BEARER_TOKEN: ${{ secrets.X_API_BEARER_TOKEN }}
-        X_API_CONSUMER_KEY: ${{ secrets.X_API_CONSUMER_KEY }}
-        X_API_CONSUMER_SECRET: ${{ secrets.X_API_CONSUMER_SECRET }}
-        X_API_ACCESS_TOKEN: ${{ secrets.X_API_ACCESS_TOKEN }}
-        X_API_ACCESS_TOKEN_SECRET: ${{ secrets.X_API_ACCESS_TOKEN_SECRET }}
+        # X API関連の設定は削除済み
         
         # ログ設定
         LOG_LEVEL: ${{ github.event.inputs.log_level || 'INFO' }}
@@ -210,6 +203,68 @@ jobs:
           echo "✅ バッチジョブが正常に完了しました (終了コード: ${EXIT_CODE})"
         else
           echo "❌ バッチジョブが失敗しました (終了コード: ${EXIT_CODE})"
+          echo "📋 失敗詳細情報:"
+          echo "  - ジョブタイプ: ${JOB_TYPE}"
+          echo "  - 実行時刻: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "  - 実行ID: ${{ github.run_id }}"
+          echo "  - 実行番号: ${{ github.run_number }}"
+          echo "  - ワークフロー: ${{ github.workflow }}"
+          echo "  - リポジトリ: ${{ github.repository }}"
+          echo "  - ブランチ: ${{ github.ref_name }}"
+          
+          # ログファイルの内容を出力（存在する場合）
+          if [ -f "logs/${JOB_TYPE}.log" ]; then
+            echo "📄 ログファイルの最後の50行:"
+            echo "--- ログ開始 ---"
+            tail -n 50 "logs/${JOB_TYPE}.log" || echo "ログファイルの読み取りに失敗"
+            echo "--- ログ終了 ---"
+          else
+            echo "⚠️  ログファイルが見つかりません: logs/${JOB_TYPE}.log"
+          fi
+          
+          # 環境情報の出力
+          echo "🔧 環境情報:"
+          echo "  - Python バージョン: $(python --version 2>&1)"
+          echo "  - 作業ディレクトリ: $(pwd)"
+          echo "  - ディスク使用量: $(df -h . | tail -1)"
+          echo "  - メモリ使用量: $(free -h | head -2 | tail -1 || echo 'メモリ情報取得不可')"
+          
+          # サーバー拒否・bot検知対策の詳細情報
+          echo "🚫 サーバー拒否・bot検知対策の詳細:"
+          python -c "
+import sys
+import os
+sys.path.append('.')
+try:
+    from utils.config import Config
+    from core.scraper import ScraperConfig
+    config = Config()
+    scraper_config = ScraperConfig()
+    
+    print('  📡 ネットワーク設定:')
+    print(f'    - プロキシ有効: {getattr(scraper_config, \"use_proxy\", \"不明\")}')
+    print(f'    - プロキシローテーション: {getattr(scraper_config, \"proxy_rotation\", \"不明\")}')
+    print(f'    - User-Agent ローテーション: {getattr(scraper_config, \"ua_rotation\", \"不明\")}')
+    print(f'    - リクエスト間隔: {getattr(scraper_config, \"request_interval\", \"不明\")}秒')
+    print(f'    - タイムアウト設定: {getattr(scraper_config, \"timeout\", \"不明\")}秒')
+    
+    print('  🔍 最新のHTTPエラー情報:')
+    # ログファイルからHTTPエラーを抽出
+    import glob
+    log_files = glob.glob('logs/*.log')
+    for log_file in log_files[-3:]:  # 最新3ファイル
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()[-100:]  # 最後の100行
+                for line in lines:
+                    if any(keyword in line.lower() for keyword in ['403', '429', '503', 'blocked', 'captcha', 'bot']):
+                        print(f'    - {line.strip()}')
+        except Exception:
+            pass
+except Exception as e:
+    print(f'  ❌ 詳細情報の取得に失敗: {e}')
+" || echo "  ❌ 詳細情報スクリプトの実行に失敗"
+          
           exit ${EXIT_CODE}
         fi
     
