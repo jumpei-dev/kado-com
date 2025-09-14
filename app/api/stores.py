@@ -36,7 +36,7 @@ def get_working_rate(db, business_id: int, period: str) -> float:
             """
         elif period == 'month':
             query = """
-            SELECT AVG(working_rate) as working_rate
+            SELECT CEIL(AVG(working_rate)) as working_rate
             FROM status_history 
             WHERE business_id = %s AND biz_date >= DATE_TRUNC('month', CURRENT_DATE)
             AND biz_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
@@ -347,17 +347,71 @@ async def get_store_detail(
     auth: bool = Depends(require_auth),
     db = Depends(get_database)
 ):
-    """店舗詳細取得"""
-    
-    # Debug log for store_id
-    print(f"🔍 [STORE_DETAIL] Received store_id: {store_id}")
-    print(f"🔍 [STORE_DETAIL] Request URL: {request.url}")
-    print(f"🔍 [STORE_DETAIL] Request method: {request.method}")
-    
-    # ユーザー権限を確認
-    user_permissions = await check_user_permissions(request)
-    
+    """店舗詳細ページを表示"""
     try:
+        # ユーザー権限を確認
+        user_permissions = await check_user_permissions(request)
+        
+        # 新しいロジック: database.pyのget_store_detailsメソッドを使用
+        try:
+            print(f"🔍 [NEW_LOGIC] 新しいロジックで店舗ID {store_id} の詳細を取得中...")
+            store_details = await db.get_store_details(int(store_id))
+            print(f"🔍 [NEW_LOGIC] 取得結果: {store_details}")
+            
+            if store_details:
+                print(f"🔍 [NEW_LOGIC] area_avg_rate: {store_details.get('area_avg_rate')}")
+                print(f"🔍 [NEW_LOGIC] genre_avg_rate: {store_details.get('genre_avg_rate')}")
+                
+                # 店舗名表示制御
+                name_display = get_store_display_info(store_details, user_permissions["can_see_contents"])
+                
+                store_data = {
+                    "id": store_id,
+                    "name": name_display["display_name"],
+                    "original_name": name_display["original_name"],
+                    "blurred_name": name_display["blurred_name"],
+                    "is_blurred": name_display["is_blurred"],
+                    "prefecture": store_details.get('prefecture', '不明'),
+                    "city": store_details.get('city', '不明'),
+                    "area": store_details.get('area', '不明'),
+                    "genre": convert_business_type_to_japanese(store_details.get('type', '')),
+                    "status": "active" if store_details.get('in_scope') else "inactive",
+                    "last_updated": store_details.get('updated_at', '2024-01-01'),
+                    "util_today": store_details.get('working_rate', 0),
+                    "util_yesterday": store_details.get('working_rate', 0),
+                    "util_7d": store_details.get('working_rate', 0),
+                    "timeline": store_details.get('timeline', []),
+                    "history": store_details.get('history', []),
+                    "working_rate": store_details.get('working_rate', 0),
+                    "previous_rate": store_details.get('working_rate', 0),
+                    "weekly_rate": store_details.get('working_rate', 0),
+                    "area_average": store_details.get('area_avg_rate', 0),
+                    "industry_average": store_details.get('genre_avg_rate', 0)
+                }
+                
+                print(f"🔍 [NEW_LOGIC] 最終的なstore_data.area_average: {store_data['area_average']}")
+                print(f"🔍 [NEW_LOGIC] 最終的なstore_data.industry_average: {store_data['industry_average']}")
+                
+                # HTMLテンプレートをレンダリング
+                return templates.TemplateResponse(
+                    "store_detail.html", 
+                    {
+                        "request": request, 
+                        "store": store_data,
+                        "user_permissions": user_permissions
+                    }
+                )
+        except Exception as new_logic_error:
+            print(f"⚠️ 新しいロジックでエラー発生、古いロジックにフォールバック: {new_logic_error}")
+            import traceback
+            print(f"⚠️ エラー詳細: {traceback.format_exc()}")
+        
+        # 古いロジック（フォールバック）: 既存の実装を維持
+        # Debug log for store_id
+        print(f"🔍 [STORE_DETAIL] Received store_id: {store_id}")
+        print(f"🔍 [STORE_DETAIL] Request URL: {request.url}")
+        print(f"🔍 [STORE_DETAIL] Request method: {request.method}")
+        
         # 実際のデータベースから店舗情報取得
         businesses = db.get_businesses()
         print(f"[DEBUG] Total businesses found: {len(businesses)}")

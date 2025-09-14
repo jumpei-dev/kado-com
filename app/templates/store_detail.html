@@ -86,19 +86,41 @@
         <div>
           <div class="flex justify-between items-center mb-1">
             <span class="text-sm text-gray-600">同エリア平均</span>
-            <span class="text-sm font-medium">72%</span>
+            <span class="text-sm font-medium">
+              {% if store.area_average and store.area_average > 0 %}
+                {{ "%.0f"|format(store.area_average) }}%
+              {% else %}
+                -%
+              {% endif %}
+            </span>
           </div>
           <div class="w-full bg-gray-200 rounded-full h-2.5">
-            <div class="bg-gray-600 h-2.5 rounded-full" style="width: 72%"></div>
+            <div class="bg-gray-600 h-2.5 rounded-full" 
+                 {% if store.area_average and store.area_average > 0 %}
+                   style="width: {{ store.area_average }}%"
+                 {% else %}
+                   style="width: 0%"
+                 {% endif %}></div>
           </div>
         </div>
         <div>
           <div class="flex justify-between items-center mb-1">
             <span class="text-sm text-gray-600">同業種平均</span>
-            <span class="text-sm font-medium">68%</span>
+            <span class="text-sm font-medium">
+              {% if store.industry_average and store.industry_average > 0 %}
+                {{ "%.0f"|format(store.industry_average) }}%
+              {% else %}
+                -%
+              {% endif %}
+            </span>
           </div>
           <div class="w-full bg-gray-200 rounded-full h-2.5">
-            <div class="bg-gray-600 h-2.5 rounded-full" style="width: 68%"></div>
+            <div class="bg-gray-600 h-2.5 rounded-full" 
+                 {% if store.industry_average and store.industry_average > 0 %}
+                   style="width: {{ store.industry_average }}%"
+                 {% else %}
+                   style="width: 0%"
+                 {% endif %}></div>
           </div>
         </div>
       </div>
