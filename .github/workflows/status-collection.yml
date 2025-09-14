@@ -231,24 +231,23 @@ jobs:
           
           # サーバー拒否・bot検知対策の詳細情報
           echo "🚫 サーバー拒否・bot検知対策の詳細:"
-          python - <<'PY'
+          python -c "
           import sys, os, glob
-          sys.path.append(".")
+          sys.path.append('.')
           try:
               from utils.config import Config
               from core.scraper import ScraperConfig
               config = Config()
               scraper_config = ScraperConfig()
-              print("  📡 ネットワーク設定:")
-              print(f"    - プロキシ有効: {getattr(scraper_config, 'use_proxy', '不明')}")
-              print(f"    - プロキシローテーション: {getattr(scraper_config, 'proxy_rotation', '不明')}")
-              print(f"    - User-Agent ローテーション: {getattr(scraper_config, 'ua_rotation', '不明')}")
-              print(f"    - リクエスト間隔: {getattr(scraper_config, 'request_interval', '不明')}秒")
-              print(f"    - タイムアウト設定: {getattr(scraper_config, 'timeout', '不明')}秒")
+              print('  📡 ネットワーク設定:')
+              print(f'    - プロキシ有効: {getattr(scraper_config, \"use_proxy\", \"不明\")}')
+              print(f'    - プロキシローテーション: {getattr(scraper_config, \"proxy_rotation\", \"不明\")}')
+              print(f'    - User-Agent ローテーション: {getattr(scraper_config, \"ua_rotation\", \"不明\")}')
+              print(f'    - リクエスト間隔: {getattr(scraper_config, \"request_interval\", \"不明\")}秒')
+              print(f'    - タイムアウト設定: {getattr(scraper_config, \"timeout\", \"不明\")}秒')
           except Exception as e:
-              print(f"  ❌ 詳細情報の取得に失敗: {e}")
-PY
-          
+              print(f'  ❌ 詳細情報の取得に失敗: {e}')
+          "
           exit ${EXIT_CODE}
         fi
     
