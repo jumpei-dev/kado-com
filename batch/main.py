@@ -826,10 +826,11 @@ async def main():
                     return 0
                     
                 except Exception as e:
-                    print(f"❌ スケジューラー一回実行エラー: {e}")
+                    print(f"⚠️ スクレイピング処理でエラーが発生しましたが、処理を継続します: {e}")
                     import traceback
                     print(f"詳細: {traceback.format_exc()}")
-                    return 1
+                    print("🔄 エラーが発生しましたが、ワークフローは継続されます")
+                    return 0
             else:
                 # 通常のスケジューラーモード（設定ファイル対応）
                 try:

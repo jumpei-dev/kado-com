@@ -81,10 +81,10 @@ class BatchScheduler:
     def setup_jobs(self):
         """全ジョブのスケジュール設定"""
         try:
-            # ステータス収集ジョブ（30分間隔、営業時間中のみ）
+            # ステータス収集ジョブ（2時間間隔、営業時間中のみ）
             self.scheduler.add_job(
                 self._run_status_collection,
-                IntervalTrigger(minutes=30),
+                IntervalTrigger(hours=2),
                 id='status_collection',
                 name='稼働ステータス収集',
                 max_instances=1,
