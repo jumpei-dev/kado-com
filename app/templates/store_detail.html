@@ -37,7 +37,11 @@
       <div class="bg-gray-50 p-4 rounded-lg text-center">
         <p class="text-gray-600 mb-1">先週の平均稼働率</p>
         <div class="text-2xl font-bold {{ 'text-green-600' if store.working_rate > 70 else 'text-yellow-600' if store.working_rate > 40 else 'text-red-600' }}">
+        {% if store.working_rate == 0.0 %}
+          -%
+        {% else %}
           {{ store.working_rate }}%
+        {% endif %}
         </div>
       </div>
     </div>
@@ -119,11 +123,17 @@
           <div class="mt-2">
             <div class="flex justify-between items-center mb-1">
               <span class="text-xs text-gray-600">稼働率</span>
-              <span class="text-xs font-medium">{{ related_store.working_rate }}%</span>
+              <span class="text-xs font-medium">
+                {% if related_store.working_rate == 0.0 %}
+                  -%
+                {% else %}
+                  {{ related_store.working_rate }}%
+                {% endif %}
+              </span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-1.5">
               <div class="bg-{{ 'green-600' if related_store.working_rate > 70 else 'yellow-600' if related_store.working_rate > 40 else 'red-600' }} h-1.5 rounded-full" 
-                   {% if related_store.working_rate %}style="width: {{ related_store.working_rate }}%"{% endif %}></div>
+                   {% if related_store.working_rate and related_store.working_rate > 0 %}style="width: {{ related_store.working_rate }}%"{% else %}style="width: 0%"{% endif %}></div>
             </div>
           </div>
         </a>
