@@ -6,8 +6,10 @@ let currentStoreId = null;
 
 // 稼働推移の折れ線グラフを初期化する関数
 function initWorkingRateChart(storeId, initialData = null) {
+    console.log('稼働推移チャート初期化開始:', storeId);
+    
+    // storeIdを保存
     currentStoreId = storeId;
-    chartData = initialData;
     
     const ctx = document.getElementById('workingRateChart');
     if (!ctx) {
@@ -20,38 +22,68 @@ function initWorkingRateChart(storeId, initialData = null) {
         workingRateChart.destroy();
     }
     
-    // 初期データがない場合はAPIから取得
-    if (!chartData) {
-        loadWorkingTrendData(storeId);
-        return;
+    if (initialData) {
+        console.log('初期データあり:', initialData);
+        // 初期データがある場合はそれを使用
+        chartData = {
+            daily: initialData.labels.map((label, index) => ({
+                date: getCurrentDateForIndex(index),
+                rate: initialData.data[index] || null
+            })),
+            weekly: [] // 週次データは後で実装
+        };
+        
+        renderChart();
+    } else {
+        console.log('APIからデータ取得');
+        // APIからデータを取得
+        loadWorkingTrendData(storeId, currentPeriod);
     }
     
-    renderChart();
+    // 期間切り替えボタンのイベントリスナーを設定
     setupPeriodButtons();
 }
 
 // APIから稼働推移データを取得する関数
-async function loadWorkingTrendData(storeId) {
+async function loadWorkingTrendData(storeId, period = '7days') {
     try {
         showLoadingState();
         
-        const response = await fetch(`/api/stores/${storeId}/working-trend`);
+        const response = await fetch(`/api/stores/${storeId}/working-trend?period=${period}`);
         const data = await response.json();
         
-        if (data.success !== false) {
+        if (data.success !== false && data.data && data.data.length > 0) {
             // APIレスポンスを内部データ形式に変換
-            chartData = {
-                daily: data.labels.map((label, index) => ({
-                    date: getCurrentDateForIndex(index),
-                    rate: data.data[index] || null
-                })),
-                weekly: [] // 週次データは後で実装
-            };
+            if (period === '2months') {
+                // 2ヶ月データの場合は週次データとして保存
+                chartData = {
+                    daily: [],
+                    weekly: data.labels.map((label, index) => ({
+                        startDate: label.split('-')[0],
+                        endDate: label.split('-')[1],
+                        rate: data.data[index] === 0 ? null : data.data[index]
+                    }))
+                };
+            } else {
+                // 7日間データの場合は日次データとして保存
+                chartData = {
+                    daily: data.labels.map((label, index) => ({
+                        date: getCurrentDateForIndex(index),
+                        rate: data.data[index] === 0 ? null : data.data[index]
+                    })),
+                    weekly: []
+                };
+            }
             
             renderChart();
             hideLoadingState();
         } else {
-            showErrorState(data.error || 'データの取得に失敗しました');
+            // データが空の場合
+            if (data.data && data.data.length === 0) {
+                showErrorState('データがありません');
+            } else {
+                showErrorState(data.error || data.message || 'データの取得に失敗しました');
+            }
         }
     } catch (error) {
         console.error('稼働推移データ取得エラー:', error);
@@ -61,8 +93,26 @@ async function loadWorkingTrendData(storeId) {
 
 // チャートを描画する関数
 function renderChart() {
-    const ctx = document.getElementById('workingRateChart').getContext('2d');
+    const ctx = document.getElementById('workingRateChart');
+    if (!ctx) {
+        console.error('チャート要素が見つかりません');
+        return;
+    }
+
+    // 既存のチャートを破棄
+    if (workingRateChart) {
+        workingRateChart.destroy();
+    }
+
+    // 現在の期間に応じたデータを取得
     const periodData = getPeriodData(currentPeriod);
+    
+    if (!periodData || !periodData.labels || !periodData.data) {
+        console.error('チャートデータが不正です:', periodData);
+        return;
+    }
+
+    const chartCtx = ctx.getContext('2d');
     
     workingRateChart = new Chart(ctx, {
         type: 'line',
@@ -188,58 +238,60 @@ function hideLoadingState() {
     }
 }
 
-// 現在の日付から指定されたインデックスの日付を取得
+// 現在の日付から指定されたインデックスの日付を取得（前日まで）
 function getCurrentDateForIndex(index) {
     const today = new Date();
     const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() - (6 - index));
+    // 前日までのデータにするため、今日から1日引いてから計算
+    targetDate.setDate(today.getDate() - 1 - (6 - index));
     return targetDate.toISOString().split('T')[0];
 }
 
 // 期間に応じたデータを取得する関数
 function getPeriodData(period) {
     if (!chartData) {
-        // データがない場合は空のデータを返す
-        const emptyLabels = period === '7days' ? 
-            ['月', '火', '水', '木', '金', '土', '日'] : 
-            ['週1', '週2', '週3', '週4', '週5', '週6', '週7', '週8'];
-        return {
-            labels: emptyLabels,
-            data: new Array(emptyLabels.length).fill(null)
-        };
+        console.warn('チャートデータが存在しません');
+        return { labels: [], data: [] };
     }
     
-    if (period === '7days') {
-        // 7日間のデータ（日付表示）
-        if (chartData.daily && chartData.daily.length > 0) {
-            return {
-                labels: chartData.daily.map(item => formatDate(item.date)),
-                data: chartData.daily.map(item => item.rate || null)
-            };
-        } else {
-            // データがない場合は曜日ラベルで空データを返す
-            return {
-                labels: ['月', '火', '水', '木', '金', '土', '日'],
-                data: [null, null, null, null, null, null, null]
-            };
-        }
-    } else if (period === '2months') {
-        // 2ヶ月のデータ（週単位）
-        if (chartData.weekly && chartData.weekly.length > 0) {
-            return {
-                labels: chartData.weekly.map(item => formatWeekRange(item.week_start, item.week_end)),
-                data: chartData.weekly.map(item => item.rate || null)
-            };
-        } else {
-            // データがない場合は週ラベルで空データを返す
-            const weekLabels = ['週1', '週2', '週3', '週4', '週5', '週6', '週7', '週8'];
-            return {
-                labels: weekLabels,
-                data: new Array(weekLabels.length).fill(null)
-            };
-        }
+    switch (period) {
+        case '7days':
+            // 日次データを使用
+            if (chartData.daily && chartData.daily.length > 0) {
+                return {
+                    labels: chartData.daily.map(item => formatDate(item.date)),
+                    data: chartData.daily.map(item => item.rate)
+                };
+            }
+            break;
+            
+        case '2months':
+            // 週次データを使用
+            if (chartData.weekly && chartData.weekly.length > 0) {
+                return {
+                    labels: chartData.weekly.map(item => formatWeekRange(item.startDate, item.endDate)),
+                    data: chartData.weekly.map(item => item.rate)
+                };
+            } else {
+                // 週次データがない場合は日次データから生成
+                console.warn('週次データが存在しないため、日次データから生成します');
+                if (chartData.daily && chartData.daily.length > 0) {
+                    return {
+                        labels: chartData.daily.map(item => formatDate(item.date)),
+                        data: chartData.daily.map(item => item.rate)
+                    };
+                }
+                return { labels: [], data: [] };
+            }
+            break;
+            
+        default:
+            console.warn('未対応の期間:', period);
+            return { labels: [], data: [] };
     }
     
+    // フォールバック
+    console.warn('データが見つかりません:', period);
     return { labels: [], data: [] };
 }
 
@@ -283,14 +335,8 @@ async function switchPeriod(period) {
         button2months.className = 'px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-900 shadow-sm transition-colors';
     }
     
-    // 期間が変わった場合は新しいデータを取得
+    // 新しい期間のデータを取得
     if (currentStoreId) {
-        await loadWorkingTrendData(currentStoreId);
-    } else if (workingRateChart && chartData) {
-        // データがある場合はチャートを更新
-        const periodData = getPeriodData(period);
-        workingRateChart.data.labels = periodData.labels;
-        workingRateChart.data.datasets[0].data = periodData.data;
-        workingRateChart.update();
+        await loadWorkingTrendData(currentStoreId, period);
     }
 }

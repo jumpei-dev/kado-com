@@ -68,8 +68,11 @@
             <button id="period-2months" class="px-3 py-1 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-colors">2ヶ月</button>
           </div>
         </div>
-        <div class="h-64 bg-white p-4 rounded-lg border border-gray-200">
+        <div class="h-64 bg-white p-4 rounded-lg border border-gray-200 relative">
           <canvas id="workingRateChart" width="100%" height="200"></canvas>
+        </div>
+        <div id="chart-data-info" class="mt-2 text-xs text-center">
+          <!-- データ情報がここに表示されます -->
         </div>
       </div>
     </div>
@@ -144,14 +147,14 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script id="chart-data" type="application/json">{{ store.history|tojson }}</script>
 <script src="/static/js/store_detail_chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const chartDataElement = document.getElementById('chart-data');
-    const data = JSON.parse(chartDataElement.textContent);
+    // 店舗IDを取得してグラフを初期化
+    const storeId = parseInt('{{ store.id }}');
     
-    initWorkingRateChart(data);
+    // APIから動的にデータを取得してグラフを初期化
+    initWorkingRateChart(storeId);
 });
 </script>
 {% endblock %}
