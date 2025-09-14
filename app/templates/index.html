@@ -60,8 +60,8 @@
                         hx-target="#store-list"
                         hx-trigger="change"
                         hx-indicator="#loading"
-                        hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
-                        hx-params="area,genre,rank,period,page=1,page_size=30"
+                        hx-include="[name='area'],[name='genre'],[name='period']"
+                        hx-params="area,genre,period,page=1,page_size=30"
                         hx-swap="innerHTML"
                         >
                   <option value="all">すべて</option>
@@ -82,34 +82,15 @@
                         hx-target="#store-list"
                         hx-trigger="change"
                         hx-indicator="#loading"
-                        hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
-                        hx-params="area,genre,rank,period,page=1,page_size=30"
+                        hx-include="[name='area'],[name='genre'],[name='period']"
+                        hx-params="area,genre,period,page=1,page_size=30"
                         hx-swap="innerHTML"
                         >
                   <option value="all">すべて</option>
-                  <option value="ソープランド">ソープランド</option>
-                  <option value="ヘルス">ヘルス</option>
+                  <option value="ソープ">ソープ</option>
+                  <option value="箱ヘル">箱ヘル</option>
                   <option value="デリヘル">デリヘル</option>
-                  <option value="キャバクラ">キャバクラ</option>
-                  <option value="ピンサロ">ピンサロ</option>
-                </select>
-              </div>
-              
-              <!-- ランク -->
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">ランク</label>
-                <select name="rank" class="w-full rounded-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-gray-500 focus:border-gray-500"
-                        hx-get="/api/stores" 
-                        hx-target="#store-list"
-                        hx-trigger="change"
-                        hx-indicator="#loading"
-                        hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
-                        hx-params="area,genre,rank,period,page=1,page_size=30"
-                        hx-swap="innerHTML"
-                        >
-                  <option value="all">すべて</option>
-                  <option value="under100">スペ～99</option>
-                  <option value="over100">それ以上</option>
+                  <option value="DC">DC</option>
                 </select>
               </div>
               
@@ -142,8 +123,8 @@
                       hx-target="#store-list"
                       hx-trigger="click"
                       hx-indicator="#loading"
-                      hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
-                      hx-params="area,genre,rank,period,page=1,page_size=30"
+                      hx-include="[name='area'],[name='genre'],[name='period']"
+                      hx-params="area,genre,period,page=1,page_size=30"
                       hx-swap="innerHTML"
                       @click="open = false; $store.periodFilter.value = document.getElementById('period-filter').value">
                 適用
@@ -159,7 +140,7 @@
     <div id="store-list" class="grid grid-cols-1 gap-3 mb-8 p-2 bg-gray-50 rounded-lg border border-gray-100"
          hx-get="/api/stores" 
          hx-trigger="load"
-         hx-params="area=all,genre=all,rank=all,period=week,page=1,page_size=30"
+         hx-params="area=all,genre=all,period=week,page=1,page_size=30"
          hx-swap="innerHTML">
       <!-- ここにHTMXがAPIから店舗一覧を読み込みます -->
     </div>
