@@ -110,6 +110,13 @@ class ScrapingConfig:
     keep_alive: bool = True
     compress: bool = True
     session_rotation: bool = True  # セッションローテーション有効
+    session_lifetime: int = 1800  # セッション有効期間（秒）30分
+    cookie_persistence: bool = True  # Cookie永続化
+    random_intervals: bool = True  # 完全ランダム間隔
+    interval_base_minutes: int = 60  # ベース間隔（分）
+    interval_variance_percent: int = 50  # 変動幅（±50%）
+    random_headers: bool = True  # ヘッダーランダム化
+    random_referer: bool = True  # リファラーランダム化
     
     @classmethod
     def from_env(cls) -> 'ScrapingConfig':
@@ -131,7 +138,14 @@ class ScrapingConfig:
             connection_pooling=os.getenv('SCRAPING_CONNECTION_POOLING', 'true').lower() == 'true',
             keep_alive=os.getenv('SCRAPING_KEEP_ALIVE', 'true').lower() == 'true',
             compress=os.getenv('SCRAPING_COMPRESS', 'true').lower() == 'true',
-            session_rotation=os.getenv('SCRAPING_SESSION_ROTATION', 'true').lower() == 'true'
+            session_rotation=os.getenv('SCRAPING_SESSION_ROTATION', 'true').lower() == 'true',
+            session_lifetime=int(os.getenv('SCRAPING_SESSION_LIFETIME', 1800)),
+            cookie_persistence=os.getenv('SCRAPING_COOKIE_PERSISTENCE', 'true').lower() == 'true',
+            random_intervals=os.getenv('SCRAPING_RANDOM_INTERVALS', 'true').lower() == 'true',
+            interval_base_minutes=int(os.getenv('SCRAPING_INTERVAL_BASE_MINUTES', 60)),
+            interval_variance_percent=int(os.getenv('SCRAPING_INTERVAL_VARIANCE_PERCENT', 50)),
+            random_headers=os.getenv('SCRAPING_RANDOM_HEADERS', 'true').lower() == 'true',
+            random_referer=os.getenv('SCRAPING_RANDOM_REFERER', 'true').lower() == 'true'
         )
 
 @dataclass
