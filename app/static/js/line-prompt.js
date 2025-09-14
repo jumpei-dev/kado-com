@@ -101,12 +101,12 @@ const createLinePrompt = () => {
         </svg>
       </button>
       <div class="text-center space-y-4">
-        <h3 class="text-xl font-bold text-gray-900">店舗名の閲覧には特別なアクセス権限が必要です</h3>
-        <p class="text-gray-700">LINEで問い合わせると、より詳細な情報が閲覧できるようになります</p>
-        <p class="text-gray-600">下のボタンからLINEの友だちに追加してください</p>
+        <h3 class="text-lg font-bold text-gray-900">店舗名の閲覧には特別なアクセス権限が必要です</h3>
+        <p class="text-sm text-gray-700">LINEで問い合わせると、より詳細な情報が閲覧できるようになります</p>
+        <p class="text-sm text-gray-600">下のボタンからLINEの友だちに追加してください</p>
         <div class="mt-6">
           <a href="${lineUrl}" target="_blank" 
-             class="inline-block w-full px-6 py-3 bg-green-500 text-white text-lg font-medium rounded-lg hover:bg-green-600 transition-colors text-center">
+             class="inline-block w-full px-6 py-3 bg-green-500 text-white text-base font-medium rounded-lg hover:bg-green-600 transition-colors text-center">
              LINE公式アカウントを友だち追加
           </a>
         </div>
