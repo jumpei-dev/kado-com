@@ -74,7 +74,6 @@ async def get_stores(
     page_size: int = Query(30, description="1ページあたりの表示件数", ge=1, le=50),
     area: str = Query("all", description="エリアフィルター"),
     genre: str = Query("all", description="業種フィルター"),
-    rank: str = Query("all", description="ランクフィルター"),
     period: str = Query("week", description="期間フィルター"),
     auth: bool = Depends(require_auth),
     db = Depends(get_database)
@@ -83,7 +82,7 @@ async def get_stores(
     
     # ユーザー権限を確認
     user_permissions = await check_user_permissions(request)
-    print(f"🔍 [DEBUG] 店舗一覧リクエスト: page={page}, user_permissions={user_permissions}")
+    print(f"🔍 [DEBUG] 店舗一覧リクエスト: page={page}, area={area}, genre={genre}, period={period}, user_permissions={user_permissions}")
     print(f"🔍 [DEBUG] リクエストヘッダー: {dict(request.headers)}")
     print(f"🔍 [DEBUG] クッキー: {dict(request.cookies)}")
     
@@ -100,6 +99,29 @@ async def get_stores(
         
         for key, business in businesses.items():
             if business.get('in_scope', False):  # 管理対象店舗のみ
+                # エリアフィルター適用
+                business_area = business.get('area', '不明')
+                if area != "all" and business_area != area:
+                    continue
+                
+                # 業種フィルター適用
+                business_type = convert_business_type_to_japanese(business.get('type', ''))
+                if genre != "all":
+                    # 業種マッピング（フロントエンドの選択肢とDBの値を対応）
+                    genre_mapping = {
+                        "ソープ": ["ソープランド", "ソープ"],
+                        "箱ヘル": ["ヘルス", "箱ヘル", "ファッションヘルス"],
+                        "デリヘル": ["デリヘル", "デリバリーヘルス"],
+                        "DC": ["キャバクラ", "DC", "ダンシングクラブ"]
+                    }
+                    
+                    if genre in genre_mapping:
+                        if business_type not in genre_mapping[genre]:
+                            continue
+                    else:
+                        if business_type != genre:
+                            continue
+                
                 # blurred_name処理を適用
                 store_display_info = get_store_display_info(business, can_see_contents)
                 
@@ -123,8 +145,8 @@ async def get_stores(
                     "is_blurred": store_display_info['is_blurred'],
                     "prefecture": business.get('prefecture', '不明'),
                     "city": business.get('city', '不明'), 
-                    "area": business.get('area', '不明'),
-                    "genre": convert_business_type_to_japanese(business.get('type', '')),
+                    "area": business_area,
+                    "genre": business_type,
                     "status": "active" if business.get('in_scope') else "inactive",
                     "last_updated": business.get('last_updated', '2024-01-01'),
                     "util_today": util_today,
