@@ -381,6 +381,7 @@ async def get_store_detail(
             if biz_id == store_id:
                 business = biz
                 print(f"✅ DB店舗データ取得: {biz.get('name', biz.get('Name', 'Unknown'))}")
+                print(f"[DEBUG] Business type data: {biz.get('type')}, Type: {biz.get('Type')}, genre: {biz.get('genre')}")
                 break
         
         # 見つからない場合の詳細ログ
@@ -401,6 +402,7 @@ async def get_store_detail(
         util_today = get_working_rate(db, business_id, 'today')
         util_yesterday = get_working_rate(db, business_id, 'yesterday')
         util_7d = get_working_rate(db, business_id, 'week')
+        util_month = get_working_rate(db, business_id, 'month')
         
         # 履歴データも実際のデータから生成
         history_data = [
@@ -435,7 +437,7 @@ async def get_store_detail(
             "prefecture": business.get('Prefecture', business.get('prefecture', '不明')),
             "city": business.get('City', business.get('city', '不明')),
             "area": business.get('Area', business.get('area', '不明')),
-            "genre": convert_business_type_to_japanese(business.get('Type', business.get('genre', ''))),
+            "genre": convert_business_type_to_japanese(business.get('type', business.get('Type', business.get('genre', '')))),
             "status": "active" if business.get('in_scope') else "inactive",
             "last_updated": business.get('last_updated', '2024-01-01'),
             "util_today": util_today,
@@ -445,7 +447,7 @@ async def get_store_detail(
             # 期間ごとの稼働率履歴を追加
             "history": history_data,
             # テンプレート用のプロパティを追加
-            "working_rate": util_today,
+            "working_rate": util_month,
             "previous_rate": util_yesterday,
             "weekly_rate": util_7d
         }
