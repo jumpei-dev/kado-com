@@ -541,7 +541,7 @@ async def get_store_working_trend(
                 FROM status_history 
                 WHERE business_id = %s
                 AND biz_date >= CURRENT_DATE - INTERVAL '8 weeks'
-                AND biz_date < CURRENT_DATE
+                AND biz_date <= CURRENT_DATE
                 GROUP BY DATE_TRUNC('week', biz_date)
                 ORDER BY week_start ASC
                 """
@@ -567,19 +567,18 @@ async def get_store_working_trend(
                     labels = []
                     data = []
                     
-                    # 8週間分のラベルを生成（最新の週が右端、前日まで）
-                    end_date = datetime.now().date() - timedelta(days=1)  # 前日まで
-                    for i in range(7, -1, -1):  # 8週間前から前日まで
+                    # 8週間分のラベルを生成（最新の週が右端、今日まで）
+                    end_date = datetime.now().date()  # 今日まで
+                    for i in range(7, -1, -1):  # 8週間前から今日まで
                         week_start = end_date - timedelta(weeks=i, days=end_date.weekday())
                         week_end = week_start + timedelta(days=6)
-                        # 週の終了日が前日を超えないように制限
+                        # 週の終了日が今日を超えないように制限
                         if week_end > end_date:
                             week_end = end_date
                         labels.append(f"{week_start.strftime('%m/%d')}-{week_end.strftime('%m/%d')}")
                         data.append(None)  # 初期値はnull
                     
                     # 実際のデータがあれば対応する週に配置
-                    print(f"🔍 取得したデータベース結果: {results}")
                     if results:
                         for row in results:
                             week_start = row['week_start']
@@ -587,7 +586,6 @@ async def get_store_working_trend(
                                 week_start_date = week_start.date()
                             else:
                                 week_start_date = week_start
-                            print(f"🔍 処理中の週開始日: {week_start_date}")
                             
                             # 該当する週のインデックスを見つける
                             for i, label in enumerate(labels):
@@ -595,17 +593,12 @@ async def get_store_working_trend(
                                 # 年を正しく設定
                                 current_year = datetime.now().year
                                 label_start = datetime.strptime(f"{current_year}/{label_start_str}", '%Y/%m/%d').date()
-                                print(f"🔍 ラベル{i}: {label}, 計算された開始日: {label_start}, 比較対象: {week_start_date}")
                                 
                                 if label_start == week_start_date:
                                     data[i] = float(row['working_rate']) if row['working_rate'] else None
-                                    print(f"✅ マッチ! インデックス{i}にデータ設定: {data[i]}")
                                     break
-                            else:
-                                print(f"❌ マッチするラベルが見つかりません: {week_start_date}")
                     
                     data_count = sum(1 for x in data if x is not None)
-                    print(f"✅ 2ヶ月データ最終結果: labels={labels}, data={data}, data_count={data_count}")
                     
                     return JSONResponse(content={
                         "success": True,
