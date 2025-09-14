@@ -218,66 +218,9 @@ def get_time_ago(dt: datetime) -> str:
         return "たった今"
 
 def get_dummy_tweets(count: int = 3) -> List[Dict[str, Any]]:
-    """X APIが利用できない場合のダミーデータ"""
-    now = datetime.now()
-    dummy_tweets = [
-        {
-            "id": "dummy_1",
-            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
-            "content": "【新機能追加】店舗詳細ページに「週間稼働率変化グラフ」を追加しました。一週間の稼働率の推移が一目でわかるようになりました。ぜひご活用ください🙌 #風俗稼働 #稼働com",
-            "timestamp": "1時間前",
-            "source": "Twitter Web App",
-            "image": "https://pbs.twimg.com/media/GHFmnVaWIAA3uwh?format=jpg&name=medium",
-            "replies": "5",
-            "retweets": "28",
-            "likes": "142"
-        },
-        {
-            "id": "dummy_2",
-            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
-            "content": "【お知らせ】ただいまサーバー負荷軽減のためのメンテナンスを行なっております。一部地域でアクセスしづらい状況が発生しておりますが、ご了承ください。11:00には復旧予定です。",
-            "timestamp": "3時間前",
-            "source": "Twitter for iPhone",
-            "image": None,
-            "replies": "3",
-            "retweets": "18",
-            "likes": "95"
-        },
-        {
-            "id": "dummy_3",
-            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
-            "content": "【ご好評いただいています】当サイトの「店舗フィルター機能」が多くのユーザー様にご利用いただいています。エリア、ジャンル、稼働率でピンポイント検索できるので、あなたの希望条件にぴったりの店舗が見つかります！ #風俗求人",
-            "timestamp": "昨日",
-            "source": "Twitter for Android",
-            "image": "https://pbs.twimg.com/media/GGwZSGEXoAAFC3V?format=jpg&name=medium",
-            "replies": "8", 
-            "retweets": "42",
-            "likes": "201"
-        },
-        {
-            "id": "dummy_4",
-            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
-            "content": "【データ更新】本日9:00に全店舗の稼働率データを更新しました。週末に向けて稼働率が上昇している店舗が多いようです。特に渋谷・新宿エリアは要チェック！ #風俗稼働率 #高収入",
-            "timestamp": "2日前",
-            "source": "Twitter Web App",
-            "image": None,
-            "replies": "4",
-            "retweets": "22",
-            "likes": "118"
-        },
-        {
-            "id": "dummy_5",
-            "profile_image": "https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg",
-            "content": "皆様からの貴重なフィードバックをもとに、サイトデザインを一部リニューアルしました！より見やすく、使いやすくなっています。特に店舗カードのデザインは好評です。引き続きご意見お待ちしています！ #サイトリニューアル",
-            "timestamp": "3日前",
-            "source": "Twitter Web App",
-            "image": "https://pbs.twimg.com/media/GGrKLPoXIAAiCDZ?format=jpg&name=medium",
-            "replies": "12",
-            "retweets": "35",
-            "likes": "159"
-        }
-    ]
-    return dummy_tweets[:count]
+    """X APIが利用できない場合のダミーデータ（現在は空の配列を返す）"""
+    # ダミーツイートは削除し、空の配列を返してエラーメッセージを表示させる
+    return []
 
 @router.get("/timeline")
 async def twitter_timeline(request: Request, count: int = 3):
@@ -305,25 +248,12 @@ async def twitter_timeline(request: Request, count: int = 3):
         
     except Exception as e:
         logger.error(f"Error in twitter_timeline endpoint: {e}")
-        # レート制限エラーの場合はローディング表示を返す
-        if "Rate limit" in str(e) or "429" in str(e):
-            return templates.TemplateResponse(
-                "components/twitter_timeline.html",
-                {
-                    "request": request, 
-                    "tweets": [], 
-                    "loading": True, 
-                    "loading_message": "Xポスト取得中...",
-                    "twitter_username": config.get('twitter', {}).get('username', 'kado_admin')
-                }
-            )
-        # その他のエラー時はダミーデータを返す
-        tweets = get_dummy_tweets(count)
+        # X APIエラー時は空の配列を返してエラーメッセージを表示
         return templates.TemplateResponse(
             "components/twitter_timeline.html",
             {
                 "request": request, 
-                "tweets": tweets, 
+                "tweets": [], 
                 "loading": False,
                 "twitter_username": config.get('frontend', {}).get('twitter', {}).get('username', 'kado_admin')
             }
