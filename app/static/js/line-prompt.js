@@ -94,14 +94,14 @@ const createLinePrompt = () => {
   promptDiv.className = 'fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50';
   const lineUrl = lineConfig ? lineConfig.url : "https://line.me/ti/p/fDpRYZH7C2";
   promptDiv.innerHTML = `
-    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full mx-4 relative">
+    <div class="bg-white p-8 pr-12 rounded-2xl shadow-xl max-w-md w-full mx-4 relative">
       <button class="absolute top-4 right-4 text-gray-400 hover:text-gray-600" onclick="hideLinePrompt()">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
       <div class="text-center space-y-4">
-        <h3 class="text-xl font-bold text-gray-900" style="font-size: 1.25rem !important;">店舗名の閲覧には特別なアクセス権限が必要です</h3>
+        <h3 class="text-lg font-bold text-gray-900" style="font-size: 1rem !important; line-height: 1.4; word-break: keep-all; overflow-wrap: break-word;">店舗名の閲覧には<br>特別なアクセス権限が必要です</h3>
         <p class="text-sm text-gray-700">LINEで問い合わせると、より詳細な情報が閲覧できるようになります</p>
         <p class="text-sm text-gray-600">下のボタンからLINEの友だちに追加してください</p>
         <div class="mt-6">

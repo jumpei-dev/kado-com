@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from typing import List, Dict, Any, Optional
 import sys
 import os
-import random
+
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -89,15 +89,13 @@ def get_working_rate(db, business_id: int, period: str) -> float:
         if result and result['working_rate'] is not None:
             return float(result['working_rate'])
         else:
-            # データがない場合はダミー値を返す
-            import random
-            return round(random.uniform(50.0, 90.0), 1)
+            # データがない場合はnullを返す
+            return None
             
     except Exception as e:
         print(f"❌ get_working_rate エラー: {e}")
-        # エラー時はダミー値を返す
-        import random
-        return round(random.uniform(50.0, 90.0), 1)
+        # エラー時はnullを返す
+        return None
 
 # AuthServiceのインスタンス化
 auth_service = AuthService()
@@ -219,13 +217,7 @@ async def get_store_ranking(
         print(f"❌ ランキングデータ取得エラー: {e}")
         raise HTTPException(status_code=500, detail="ランキングデータの取得に失敗しました")
         
-        print(f"🔍 [DEBUG] check_user_permissions結果: {result}")
-        
-        return result
-        
-    except Exception as e:
-        print(f"❌ [DEBUG] check_user_permissions エラー: {e}")
-        return {"logged_in": False, "can_see_contents": False}
+
 
 @router.get("", response_class=HTMLResponse)
 async def get_stores(
@@ -475,54 +467,183 @@ async def get_store_detail(
 async def get_store_working_trend(
     request: Request,
     store_id: str,
+    period: str = Query("7days", description="期間フィルター (7days, 2months)"),
     auth: bool = Depends(require_auth),
     db = Depends(get_database)
 ):
     """店舗の稼働推移データを取得"""
     try:
-        print(f"🔍 稼働推移データ取得: store_id={store_id}")
+        print(f"🔍 稼働推移データ取得: store_id={store_id}, period={period}")
         
         # 実際のstatus_historyテーブルからデータ取得を試行
         if not store_id.startswith("dummy_"):
-            # 実際のDBからデータ取得
-            query = """
-            SELECT 
-                biz_date,
-                working_rate,
-                EXTRACT(DOW FROM biz_date) as day_of_week
-            FROM status_history 
-            WHERE business_id = %s
-            AND biz_date >= CURRENT_DATE - INTERVAL '7 days'
-            ORDER BY biz_date ASC
-            """
+            # 期間に応じてクエリを変更
+            if period == "2months":
+                # 2ヶ月間の週次データ - 前日まで
+                query = """
+                SELECT 
+                    DATE_TRUNC('week', biz_date) as week_start,
+                    AVG(working_rate) as working_rate
+                FROM status_history 
+                WHERE business_id = %s
+                AND biz_date >= CURRENT_DATE - INTERVAL '8 weeks'
+                AND biz_date < CURRENT_DATE
+                GROUP BY DATE_TRUNC('week', biz_date)
+                ORDER BY week_start ASC
+                """
+            else:
+                # 7日間の日次データ（デフォルト）- 前日まで
+                query = """
+                SELECT 
+                    biz_date,
+                    working_rate,
+                    EXTRACT(DOW FROM biz_date) as day_of_week
+                FROM status_history 
+                WHERE business_id = %s
+                AND biz_date >= CURRENT_DATE - INTERVAL '7 days'
+                AND biz_date < CURRENT_DATE
+                ORDER BY biz_date ASC
+                """
             
             try:
                 results = db.fetch_all(query, (int(store_id),))
                 
-                if results:
-                    # 曜日別データに変換
-                    weekday_data = [0] * 7  # 日曜〜土曜
-                    weekday_names = ['日', '月', '火', '水', '木', '金', '土']
+                if period == "2months":
+                    # 2ヶ月間の週次データ処理 - 8週間分のラベルを生成
+                    labels = []
+                    data = []
                     
-                    for row in results:
-                        day_of_week = int(row['day_of_week'])  # 0=日曜, 6=土曜
-                        weekday_data[day_of_week] = float(row['working_rate'])
+                    # 8週間分のラベルを生成（最新の週が右端、前日まで）
+                    end_date = datetime.now().date() - timedelta(days=1)  # 前日まで
+                    for i in range(7, -1, -1):  # 8週間前から前日まで
+                        week_start = end_date - timedelta(weeks=i, days=end_date.weekday())
+                        week_end = week_start + timedelta(days=6)
+                        # 週の終了日が前日を超えないように制限
+                        if week_end > end_date:
+                            week_end = end_date
+                        labels.append(f"{week_start.strftime('%m/%d')}-{week_end.strftime('%m/%d')}")
+                        data.append(None)  # 初期値はnull
                     
-                    print(f"✅ 実際のDBデータを使用: {weekday_data}")
+                    # 実際のデータがあれば対応する週に配置
+                    print(f"🔍 取得したデータベース結果: {results}")
+                    if results:
+                        for row in results:
+                            week_start = row['week_start']
+                            if hasattr(week_start, 'date'):
+                                week_start_date = week_start.date()
+                            else:
+                                week_start_date = week_start
+                            print(f"🔍 処理中の週開始日: {week_start_date}")
+                            
+                            # 該当する週のインデックスを見つける
+                            for i, label in enumerate(labels):
+                                label_start_str = label.split('-')[0]
+                                # 年を正しく設定
+                                current_year = datetime.now().year
+                                label_start = datetime.strptime(f"{current_year}/{label_start_str}", '%Y/%m/%d').date()
+                                print(f"🔍 ラベル{i}: {label}, 計算された開始日: {label_start}, 比較対象: {week_start_date}")
+                                
+                                if label_start == week_start_date:
+                                    data[i] = float(row['working_rate']) if row['working_rate'] else None
+                                    print(f"✅ マッチ! インデックス{i}にデータ設定: {data[i]}")
+                                    break
+                            else:
+                                print(f"❌ マッチするラベルが見つかりません: {week_start_date}")
+                    
+                    data_count = sum(1 for x in data if x is not None)
+                    print(f"✅ 2ヶ月データ最終結果: labels={labels}, data={data}, data_count={data_count}")
+                    
                     return JSONResponse(content={
                         "success": True,
-                        "labels": weekday_names,
-                        "data": weekday_data,
+                        "labels": labels,
+                        "data": data,
                         "store_id": store_id,
-                        "data_source": "database"
+                        "data_source": "database",
+                        "data_count": data_count,
+                        "total_days": len(labels),
+                        "period": period
                     })
+                else:
+                    # 7日間の日次データ処理 - 7日分のラベルを生成
+                    labels = []
+                    data = []
+                    
+                    # 7日分のラベルを生成（最新の日が右端、前日まで）
+                    end_date = datetime.now().date() - timedelta(days=1)  # 前日まで
+                    for i in range(6, -1, -1):  # 7日前から前日まで
+                        date = end_date - timedelta(days=i)
+                        labels.append(date.strftime('%m/%d'))
+                        data.append(None)  # 初期値はnull
+                    
+                    # 実際のデータがあれば対応する日に配置
+                    if results:
+                        for row in results:
+                            biz_date = row['biz_date']
+                            # 該当する日のインデックスを見つける
+                            for i, label in enumerate(labels):
+                                label_date = datetime.strptime(f"{datetime.now().year}/{label}", '%Y/%m/%d').date()
+                                if label_date == biz_date:
+                                    data[i] = float(row['working_rate']) if row['working_rate'] else None
+                                    break
+                    
+                    data_count = sum(1 for x in data if x is not None)
+                    print(f"✅ 7日間データ: labels={labels}, data={data}")
+                
+                return JSONResponse(content={
+                    "success": True,
+                    "labels": labels,
+                    "data": data,
+                    "store_id": store_id,
+                    "data_source": "database",
+                    "data_count": data_count,
+                    "total_days": len(labels),
+                    "period": period
+                })
+                
             except Exception as db_error:
-                print(f"⚠️ DBエラー、ダミーデータにフォールバック: {db_error}")
+                print(f"⚠️ DBエラー、空データを返す: {db_error}")
+                # エラー時は空のデータを返す
+                labels = []
+                data = []
+                
+                return JSONResponse(content={
+                    "success": True,
+                    "labels": labels,
+                    "data": data,
+                    "store_id": store_id,
+                    "data_source": "error_fallback",
+                    "data_count": len(data),
+                    "total_days": len(data),
+                    "period": period,
+                    "error": "データ取得エラーが発生しました"
+                })
         
-        # データが見つからない場合はエラーを返す
-        print(f"❌ 稼働推移データが見つかりません: store_id={store_id}")
-        raise HTTPException(status_code=404, detail="稼働推移データが見つかりません")
+        # データが見つからない場合は空のレスポンスを返す
+        print(f"⚠️ データが見つかりません: store_id={store_id}, period={period}")
+        
+        return JSONResponse(content={
+            "success": False,
+            "labels": [],
+            "data": [],
+            "store_id": store_id,
+            "data_source": "no_data",
+            "data_count": 0,
+            "total_days": 0,
+            "period": period,
+            "message": "データが見つかりませんでした"
+        })
         
     except Exception as e:
         print(f"❌ 稼働推移データ取得エラー: {e}")
-        raise HTTPException(status_code=500, detail="稼働推移データの取得に失敗しました")
+        
+        return JSONResponse(content={
+            "success": False,
+            "labels": [],
+            "data": [],
+            "store_id": store_id,
+            "data_source": "error",
+            "data_count": 0,
+            "total_days": 0,
+            "period": period,
+            "error": "稼働推移データの取得に失敗しました"
+        })
