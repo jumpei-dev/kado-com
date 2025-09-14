@@ -40,7 +40,7 @@
         {% if store.working_rate == 0.0 %}
           -%
         {% else %}
-          {{ store.working_rate }}%
+          {{ store.working_rate|int }}%
         {% endif %}
         </div>
       </div>
@@ -128,10 +128,10 @@
               <span class="text-xs text-gray-600">稼働率</span>
               <span class="text-xs font-medium">
                 {% if related_store.working_rate == 0.0 %}
-                  -%
-                {% else %}
-                  {{ related_store.working_rate }}%
-                {% endif %}
+              -%
+            {% else %}
+              {{ related_store.working_rate|int }}%
+            {% endif %}
               </span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-1.5">

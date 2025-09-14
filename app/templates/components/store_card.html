@@ -85,7 +85,7 @@
         {% if store.working_rate == 0.0 %}
           -%
         {% else %}
-          {{ store.working_rate }}%
+          {{ store.working_rate|int }}%
         {% endif %}
       </div>
       <div class="text-xs">

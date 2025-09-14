@@ -36,7 +36,7 @@ def get_working_rate(db, business_id: int, period: str) -> float:
             """
         elif period == 'month':
             query = """
-            SELECT AVG(working_rate) as working_rate
+            SELECT CEIL(AVG(working_rate)) as working_rate
             FROM status_history 
             WHERE business_id = %s AND biz_date >= DATE_TRUNC('month', CURRENT_DATE)
             AND biz_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
