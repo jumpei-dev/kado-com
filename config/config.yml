@@ -81,18 +81,7 @@ frontend:
     username: "AkariRikaRika"
     display_name: "Elon Musk"
 
-# 🐦 X API設定
-x_api:
-  # API認証情報（secret.ymlから取得）
-  bearer_token: "${SECRET_X_BEARER_TOKEN}"     # Bearer Token
-  api_key: "${SECRET_X_API_KEY}"               # API Key
-  api_secret: "${SECRET_X_API_SECRET}"         # API Secret
-  access_token: "${SECRET_X_ACCESS_TOKEN}"     # Access Token
-  access_token_secret: "${SECRET_X_ACCESS_TOKEN_SECRET}"  # Access Token Secret
-  
-  # タイムライン設定
-  timeline:
-    username: "AkariRikaRika"              # 取得対象ユーザー
+
     max_results: 10                   # 最大取得ツイート数
     exclude_replies: true             # リプライを除外
     exclude_retweets: false           # リツイートを含める

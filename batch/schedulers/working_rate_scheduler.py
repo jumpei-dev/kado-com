@@ -47,7 +47,7 @@ class WorkingRateScheduler:
         logger.info("稼働率計算スケジューラーを開始中...")
         
         # 毎日12時のジョブを追加
-        execution_hour = self.config.get("scheduling.working_rate_calculation_hour", 12)
+        execution_hour = self.config.get("scheduling.history_calculation_hour", 12)
         self.scheduler.add_job(
             func=self._execute_working_rate_calculation,
             trigger=CronTrigger(hour=execution_hour, minute=0),
