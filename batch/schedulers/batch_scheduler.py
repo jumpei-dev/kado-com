@@ -14,7 +14,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from .status_collection_scheduler import StatusCollectionScheduler
+# from .status_collection_scheduler import StatusCollectionScheduler  # GitHub Actionsで実行
 from .working_rate_scheduler import WorkingRateScheduler
 
 try:
@@ -64,7 +64,7 @@ class BatchScheduler:
         self.database = DatabaseManager() if DatabaseManager else None
         
         # 個別スケジューラーの初期化
-        self.status_collection_scheduler = StatusCollectionScheduler()
+        # self.status_collection_scheduler = StatusCollectionScheduler()  # GitHub Actionsで実行
         self.working_rate_scheduler = WorkingRateScheduler()
         
         # シャットダウンハンドラーを設定
@@ -81,15 +81,15 @@ class BatchScheduler:
     def setup_jobs(self):
         """全ジョブのスケジュール設定"""
         try:
-            # ステータス収集ジョブ（2時間間隔、営業時間中のみ）
-            self.scheduler.add_job(
-                self._run_status_collection,
-                IntervalTrigger(hours=2),
-                id='status_collection',
-                name='稼働ステータス収集',
-                max_instances=1,
-                coalesce=True
-            )
+            # ステータス収集ジョブ（GitHub Actionsで実行）
+            # self.scheduler.add_job(
+            #     self._run_status_collection,
+            #     IntervalTrigger(hours=2),
+            #     id='status_collection',
+            #     name='稼働ステータス収集',
+            #     max_instances=1,
+            #     coalesce=True
+            # )
             
             # 稼働率計算ジョブ（毎日12:00）
             self.scheduler.add_job(
@@ -117,23 +117,23 @@ class BatchScheduler:
             logger.error(f"ジョブ設定エラー: {e}")
             raise
     
-    async def _run_status_collection(self):
-        """ステータス収集ジョブの実行"""
-        try:
-            if not should_run_status_collection():
-                logger.debug("ステータス収集: 実行条件を満たしていません")
-                return
-            
-            logger.info("🔄 ステータス収集ジョブを開始")
-            result = await self.status_collection_scheduler.run_status_collection()
-            
-            if result.get('success', False):
-                logger.info(f"✅ ステータス収集完了: {result.get('processed_count', 0)}件処理")
-            else:
-                logger.error(f"❌ ステータス収集失敗: {result.get('errors', [])}")
-                
-        except Exception as e:
-            logger.error(f"ステータス収集ジョブでエラー: {e}")
+    # async def _run_status_collection(self):
+    #     """ステータス収集ジョブの実行（GitHub Actionsで実行）"""
+    #     try:
+    #         if not should_run_status_collection():
+    #             logger.debug("ステータス収集: 実行条件を満たしていません")
+    #             return
+    #         
+    #         logger.info("🔄 ステータス収集ジョブを開始")
+    #         result = await self.status_collection_scheduler.run_status_collection()
+    #         
+    #         if result.get('success', False):
+    #             logger.info(f"✅ ステータス収集完了: {result.get('processed_count', 0)}件処理")
+    #         else:
+    #             logger.error(f"❌ ステータス収集失敗: {result.get('errors', [])}")  
+    #             
+    #     except Exception as e:
+    #         logger.error(f"ステータス収集ジョブでエラー: {e}")
     
     async def _run_working_rate_calculation(self):
         """稼働率計算ジョブの実行"""

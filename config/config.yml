@@ -115,7 +115,7 @@ logging:
 # ⏰ スケジュール設定
 scheduling:
   # 🕐 基本スケジュール設定
-  status_collection_interval: 60  # 稼働状況取得間隔（分）- Phase1対策で60分に変更
+  status_collection_interval: 120  # 稼働状況取得間隔（分）- GitHub Actionsの2時間間隔に統一
   history_calculation_hour: 12     # 稼働率計算実行時刻（12時）
   history_calculation_minute: 0    # 稼働率計算実行分
   
