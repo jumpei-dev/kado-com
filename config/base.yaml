@@ -9,7 +9,7 @@ logging:
 
 scheduling:
   # 🕐 スケジュール設定（全環境統一）
-  status_collection_interval: 30  # 分
+  status_collection_interval: 120  # 分（GitHub Actionsと統一: 2時間間隔）
   history_calculation_hour: 12     # 稼働率計算実行時刻（12時）
   history_calculation_minute: 0    # 稼働率計算実行分
   

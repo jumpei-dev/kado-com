@@ -1,6 +1,15 @@
 """
 バッチ処理の設定管理。
 YAML形式の設定ファイルと環境変数をサポート。
+
+📋 設定の優先順位:
+1. GitHub Actions実行時: .github/workflows/status-collection.yml が適用
+2. ローカル実行時: config/config.yml の設定を使用
+
+⚠️  重要: GitHub Actionsワークフローとの同期を保ってください:
+- ワークフロー: cron '0 */2 * * *' (2時間ごと)
+- config.yml: status_collection_interval: 120分
+- このファイル: SchedulingConfig.status_collection_interval: 120分
 """
 
 import os
@@ -150,8 +159,13 @@ class ScrapingConfig:
 
 @dataclass
 class SchedulingConfig:
-    """スケジューリング設定"""
-    status_collection_interval: int = 120  # 分（2時間間隔）
+    """スケジューリング設定
+    
+    ⚠️  GitHub Actionsワークフローとの同期必須:
+    - status_collection_interval: 120分 = GitHub Actions cron '0 */2 * * *'
+    - config.yml scheduling.status_collection_interval: 120分と統一
+    """
+    status_collection_interval: int = 120  # 分（2時間間隔）- GitHub Actionsと統一
     history_calculation_hour: int = 12    # 稼働率計算実行時刻
     history_calculation_minute: int = 0   # 稼働率計算実行分
     max_concurrent_businesses: int = 5        # 店舗並行処理数
@@ -168,7 +182,7 @@ class SchedulingConfig:
     def from_env(cls) -> 'SchedulingConfig':
         """環境変数から設定を作成する"""
         return cls(
-            status_collection_interval=int(os.getenv('STATUS_COLLECTION_INTERVAL', 30)),
+            status_collection_interval=int(os.getenv('STATUS_COLLECTION_INTERVAL', 120)),  # GitHub Actionsと統一
             history_calculation_hour=int(os.getenv('HISTORY_CALCULATION_HOUR', 12)),
             history_calculation_minute=int(os.getenv('HISTORY_CALCULATION_MINUTE', 0)),
             max_concurrent_businesses=int(os.getenv('MAX_CONCURRENT_BUSINESSES', 5)),
@@ -369,13 +383,21 @@ def load_config_for_environment(environment: str = None) -> BatchConfig:
 Config = BatchConfig
 
 def get_scheduling_config():
-    """既存のget_config()を活用してスケジューリング設定を取得"""
+    """既存のget_config()を活用してスケジューリング設定を取得
+    
+    ⚠️  GitHub Actionsワークフローとの同期:
+    - GitHub Actions: cron '0 */2 * * *' (2時間ごと)
+    - ローカル実行: status_collection_interval: 120分で統一
+    """
     config = get_config()
     config_dict = config.to_dict()
     scheduling = config_dict.get('scheduling', {})
     
+    # デフォルト値を120分（2時間）に設定してGitHub Actionsと統一
+    interval = scheduling.get('status_collection_interval', 120)
+    
     return {
-        'status_cron': f"*/{scheduling.get('status_collection_interval', 30)} * * * *",
+        'status_cron': f"*/{interval} * * * *",
         'working_rate_cron': f"{scheduling.get('history_calculation_minute', 0)} {scheduling.get('history_calculation_hour', 12)} * * *",
         'timezone': 'Asia/Tokyo'
     }

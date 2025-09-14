@@ -76,7 +76,7 @@ Configuration can be provided via:
 ```bash
 export DATABASE_URL="postgresql://user:pass@host:port/db"
 export LOG_LEVEL="INFO"
-export STATUS_COLLECTION_INTERVAL="30"  # minutes
+export STATUS_COLLECTION_INTERVAL="120"  # minutes (GitHub Actionsと統一: 2時間間隔)
 export HISTORY_CALCULATION_INTERVAL="360"  # minutes
 ```
 

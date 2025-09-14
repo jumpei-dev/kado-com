@@ -1,6 +1,15 @@
 # =============================================================================
-# 稼働.com 統合設定ファイル
+# 稼働.com 統合設定ファイル（ローカル開発用デフォルト設定）
 # バッチ処理システム + APIサーバー + フロントエンド
+# =============================================================================
+# 
+# 📋 設定の適用範囲:
+# - ローカル開発環境での実行時に使用されるデフォルト設定
+# - GitHub Actions実行時は .github/workflows/status-collection.yml が優先
+# 
+# ⚠️  重要: GitHub Actionsワークフローとの同期を保ってください:
+# - .github/workflows/status-collection.yml (cron: '0 */2 * * *' = 2時間ごと)
+# - scheduling.status_collection_interval: 120分 (2時間間隔で統一)
 # =============================================================================
 
 # 🌍 環境設定
@@ -114,8 +123,8 @@ logging:
 
 # ⏰ スケジュール設定
 scheduling:
-  # 🕐 基本スケジュール設定
-  status_collection_interval: 120  # 稼働状況取得間隔（分）- GitHub Actionsの2時間間隔に統一
+  # 🕐 基本スケジュール設定（GitHub Actionsワークフローと同期）
+  status_collection_interval: 120  # 稼働状況取得間隔（分）- GitHub Actions: cron '0 */2 * * *' と統一
   history_calculation_hour: 12     # 稼働率計算実行時刻（12時）
   history_calculation_minute: 0    # 稼働率計算実行分
   
