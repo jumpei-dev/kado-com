@@ -287,7 +287,8 @@ class AiohttpHTMLLoader:
         # 強制即時実行モードのチェック
         force_immediate = os.getenv('FORCE_IMMEDIATE', 'false').lower() == 'true'
         if force_immediate:
-            logger.info("⚡ 強制即時実行モード - 待機時間をスキップ")
+            logger.info("⚡ 強制即時実行モード - 全ての待機時間をスキップ")
+            self.last_request_time = time.time()
             return
             
         current_time = time.time()
@@ -307,8 +308,11 @@ class AiohttpHTMLLoader:
             else:
                 self.request_count = 0
                 
-        # ランダム間隔待機
-        if self.config.get('random_intervals', True):
+        # FORCE_IMMEDIATE環境変数が設定されている場合は待機をスキップ
+        if os.getenv('FORCE_IMMEDIATE', 'false').lower() == 'true':
+            logger.info("⚡ 強制即時実行モード - ランダム間隔待機をスキップ")
+        elif self.config.get('random_intervals', True):
+            # ランダム間隔待機
             delay = await self._calculate_random_delay()
             logger.info(f"⏰ ランダム間隔待機: {delay/60:.1f}分")
             await asyncio.sleep(delay)
