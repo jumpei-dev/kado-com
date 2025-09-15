@@ -110,10 +110,16 @@ function loadOverallChart() {
                 console.error('❌ chart_dataが見つかりません');
                 showErrorState('チャートデータの取得に失敗しました');
             }
+            
+            // 初期化フラグをリセット
+            isInitializing = false;
         })
         .catch(error => {
             console.error('❌ 統合API呼び出しエラー:', error);
             showErrorState('ネットワークエラーが発生しました');
+            
+            // 初期化フラグをリセット
+            isInitializing = false;
         });
 }
 
@@ -136,14 +142,54 @@ function renderOverallChart(apiData) {
         overallChart.destroy();
     }
     
-    // APIから返されたデータをそのまま使用
-    const labels = apiData.labels || [];
-    const data = apiData.data || [];
+    // 期間に応じて固定のx軸ラベルを生成
+    let fixedLabels = [];
+    let chartData = [];
     
-    console.log('📊 グラフデータ:', { labels, data });
+    if (currentPeriod === '7days') {
+        // 7日間の固定ラベルを生成
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - i);
+            const label = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
+            fixedLabels.push(label);
+            
+            // APIデータから対応する値を探す
+            const dateStr = date.toISOString().split('T')[0];
+            const apiIndex = (apiData.labels || []).findIndex(l => {
+                // APIのラベルがMM/DD形式の場合とYYYY-MM-DD形式の場合に対応
+                return l === label || l.startsWith(dateStr) || l === dateStr;
+            });
+            chartData.push(apiIndex >= 0 ? (apiData.data || [])[apiIndex] : null);
+        }
+    } else if (currentPeriod === '2months') {
+        // 8週間の固定ラベルを生成
+        const today = new Date();
+        for (let i = 7; i >= 0; i--) {
+            const startDate = new Date(today);
+            startDate.setDate(today.getDate() - (i * 7) - (today.getDay() || 7) + 1); // 週の始まり（月曜日）
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6); // 週の終わり（日曜日）
+            
+            const formatDate = (date) => `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
+            const label = `${formatDate(startDate)}-${formatDate(endDate)}`;
+            fixedLabels.push(label);
+            
+            // APIデータから対応する値を探す（週の開始日で検索）
+            const weekStartStr = startDate.toISOString().split('T')[0];
+            const apiIndex = (apiData.labels || []).findIndex(l => {
+                return l === label || l.startsWith(weekStartStr);
+            });
+            chartData.push(apiIndex >= 0 ? (apiData.data || [])[apiIndex] : null);
+        }
+    }
     
-    // データが空の場合の処理
-    if (labels.length === 0 || data.length === 0) {
+    console.log('📊 固定ラベル:', fixedLabels);
+    console.log('📊 マッピングされたデータ:', chartData);
+    
+    // データが全て空の場合の処理
+    if (chartData.every(d => d === null)) {
         console.warn('⚠️ グラフデータが空です');
         showErrorState('表示するデータがありません');
         return;
@@ -153,10 +199,10 @@ function renderOverallChart(apiData) {
     const config = {
         type: 'line',
         data: {
-            labels: labels,
+            labels: fixedLabels,
             datasets: [{
                 label: '稼働率 (%)',
-                data: data,
+                data: chartData,
                 borderColor: '#3B82F6',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 borderWidth: 3,
@@ -337,39 +383,15 @@ document.addEventListener('htmx:afterSwap', function(event) {
         const isFilterChange = triggerElement && triggerElement.hasAttribute('data-filter-change');
         
         if (isFilterChange) {
-            console.log('📊 フィルター変更検出、チャートデータを確認中...');
-            
-            // 埋め込まれたチャートデータを確認
-            const chartDataScript = event.target.querySelector('script[data-chart-data]');
-            if (chartDataScript) {
-                try {
-                    const chartData = JSON.parse(chartDataScript.textContent);
-                    console.log('📊 埋め込みチャートデータ発見:', chartData);
-                    
-                    if (chartData.success) {
-                        renderOverallChart(chartData);
-                    } else {
-                        console.error('❌ 埋め込みチャートデータエラー:', chartData.error);
-                        showErrorState(chartData.error || 'データの取得に失敗しました');
-                    }
-                } catch (e) {
-                    console.error('❌ チャートデータ解析エラー:', e);
-                    // フォールバック: 通常の初期化
-                    setTimeout(() => {
-                        initOverallChart();
-                    }, 100);
-                }
-            } else {
-                console.log('📊 埋め込みチャートデータなし、通常初期化');
-                setTimeout(() => {
-                    initOverallChart();
-                }, 100);
-            }
-        } else {
-            // 通常のページング等の場合は従来通り
+            console.log('📊 フィルター変更検出、チャートを更新');
+            // フィルター変更時は直接loadOverallChartを呼び出し
             setTimeout(() => {
-                initOverallChart();
+                updateFiltersFromUI();
+                loadOverallChart();
             }, 100);
+        } else {
+            // 通常のページング等の場合は初期化をスキップ
+            console.log('📊 ページング更新のため、グラフ初期化をスキップ');
         }
     }
 });
