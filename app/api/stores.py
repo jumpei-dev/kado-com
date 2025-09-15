@@ -356,6 +356,7 @@ async def get_stores(
                     """
                 else:
                     # 7日間の日次データ（デフォルト）
+                    # JavaScript側と同じ範囲：過去6日間 + 今日 = 7日間
                     query = f"""
                     SELECT 
                         sh.biz_date,
@@ -363,8 +364,8 @@ async def get_stores(
                     FROM status_history sh
                     JOIN business b ON sh.business_id = b.business_id
                     WHERE {where_clause}
-                    AND sh.biz_date >= CURRENT_DATE - INTERVAL '7 days'
-                    AND sh.biz_date < CURRENT_DATE
+                    AND sh.biz_date >= CURRENT_DATE - INTERVAL '6 days'
+                    AND sh.biz_date <= CURRENT_DATE
                     GROUP BY sh.biz_date
                     ORDER BY sh.biz_date ASC
                     """

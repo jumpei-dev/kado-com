@@ -161,12 +161,34 @@ function renderOverallChart(apiData) {
             const label = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
             fixedLabels.push(label);
             
-            // APIデータから対応する値を探す
+            // APIデータから対応する値を探す（より柔軟なマッチング）
             const dateStr = date.toISOString().split('T')[0];
-            const apiIndex = (apiData.labels || []).findIndex(l => {
-                // APIのラベルがMM/DD形式の場合とYYYY-MM-DD形式の場合に対応
-                return l === label || l.startsWith(dateStr) || l === dateStr;
-            });
+            let apiIndex = -1;
+            
+            // 1. 完全一致（MM/DD形式）
+            apiIndex = (apiData.labels || []).findIndex(l => l === label);
+            
+            // 2. 日付文字列での一致（YYYY-MM-DD形式）
+            if (apiIndex < 0) {
+                apiIndex = (apiData.labels || []).findIndex(l => l === dateStr);
+            }
+            
+            // 3. 日付の部分一致
+            if (apiIndex < 0) {
+                apiIndex = (apiData.labels || []).findIndex(l => {
+                    if (typeof l === 'string') {
+                        // YYYY-MM-DD形式から日付を抽出してMM/DD形式に変換
+                        const match = l.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                        if (match) {
+                            const convertedLabel = `${match[2]}/${match[3]}`;
+                            return convertedLabel === label;
+                        }
+                    }
+                    return false;
+                });
+            }
+            
+            console.log(`📅 日付マッピング: ${label} (${dateStr}) -> APIインデックス: ${apiIndex}`);
             chartData.push(apiIndex >= 0 ? (apiData.data || [])[apiIndex] : null);
         }
     } else if (currentPeriod === '2months') {
@@ -182,11 +204,37 @@ function renderOverallChart(apiData) {
             const label = `${formatDate(startDate)}-${formatDate(endDate)}`;
             fixedLabels.push(label);
             
-            // APIデータから対応する値を探す（週の開始日で検索）
+            // APIデータから対応する値を探す（より柔軟な週次マッチング）
             const weekStartStr = startDate.toISOString().split('T')[0];
-            const apiIndex = (apiData.labels || []).findIndex(l => {
-                return l === label || l.startsWith(weekStartStr);
-            });
+            let apiIndex = -1;
+            
+            // 1. 完全一致（MM/DD-MM/DD形式）
+            apiIndex = (apiData.labels || []).findIndex(l => l === label);
+            
+            // 2. 週開始日での一致
+            if (apiIndex < 0) {
+                apiIndex = (apiData.labels || []).findIndex(l => {
+                    if (typeof l === 'string') {
+                        // サーバー側から返される週次ラベルと比較
+                        return l === label || l.startsWith(weekStartStr);
+                    }
+                    return false;
+                });
+            }
+            
+            // 3. 週開始日の日付部分での一致
+            if (apiIndex < 0) {
+                const startDateFormatted = formatDate(startDate);
+                apiIndex = (apiData.labels || []).findIndex(l => {
+                    if (typeof l === 'string' && l.includes('-')) {
+                        const startPart = l.split('-')[0];
+                        return startPart === startDateFormatted;
+                    }
+                    return false;
+                });
+            }
+            
+            console.log(`📅 週次マッピング: ${label} (週開始: ${weekStartStr}) -> APIインデックス: ${apiIndex}`);
             chartData.push(apiIndex >= 0 ? (apiData.data || [])[apiIndex] : null);
         }
     }
@@ -395,14 +443,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (period7daysBtn) {
             period7daysBtn.addEventListener('click', () => {
                 switchPeriod('7days');
-                loadOverallChart();
             });
         }
         
         if (period2monthsBtn) {
             period2monthsBtn.addEventListener('click', () => {
                 switchPeriod('2months');
-                loadOverallChart();
             });
         }
     }, 500);
