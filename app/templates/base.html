@@ -102,6 +102,16 @@
       flex-direction: column;
       min-height: calc(100vh - 1rem);
     }
+    
+    /* HTMXインジケーターの表示制御 */
+    .htmx-indicator {
+      display: none;
+    }
+    
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator {
+      display: flex !important;
+    }
   </style>
 </head>
 <body>

@@ -135,12 +135,23 @@
     </div>
   </div>
   
+    <!-- ローディングインジケーター -->
+    <div id="loading" class="htmx-indicator fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 shadow-lg">
+        <div class="flex flex-col items-center">
+          <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-blue-600 mb-4"></div>
+          <div class="text-gray-700 text-sm font-medium">店舗データを読み込み中...</div>
+        </div>
+      </div>
+    </div>
+
     <!-- メインコンテンツ（ストアリスト） -->
     <div id="store-list" class="grid grid-cols-1 gap-3 mb-8 p-2 bg-gray-50 rounded-lg border border-gray-100"
          hx-get="/api/stores" 
          hx-trigger="load"
          hx-params="area=all,genre=all,period=month,page=1,page_size=30"
-         hx-swap="innerHTML">
+         hx-swap="innerHTML"
+         hx-indicator="#loading">
       <!-- ここにHTMXがAPIから店舗一覧を読み込みます -->
     </div>
 
@@ -155,6 +166,13 @@
       </div>
       <div class="h-64 bg-white p-4 rounded-lg border border-gray-200 relative">
         <canvas id="overallChart" width="100%" height="200"></canvas>
+        <!-- 初期ローディング表示 -->
+        <div id="initial-overall-loading" class="absolute inset-0 flex items-center justify-center bg-white">
+          <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600 mb-3"></div>
+            <div class="text-gray-600 text-sm">全体グラフを初期化中...</div>
+          </div>
+        </div>
       </div>
       <div id="overall-chart-data-info" class="mt-2 text-xs text-center">
         <!-- データ情報がここに表示されます -->

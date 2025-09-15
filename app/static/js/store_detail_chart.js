@@ -17,6 +17,12 @@ function initWorkingRateChart(storeId, initialData = null) {
         return;
     }
     
+    // 初期ローディング表示を非表示にする
+    const initialLoading = document.getElementById('initial-chart-loading');
+    if (initialLoading) {
+        initialLoading.style.display = 'none';
+    }
+    
     // 既存のチャートがあれば破棄
     if (workingRateChart) {
         workingRateChart.destroy();
@@ -191,8 +197,13 @@ function showLoadingState() {
     const chartContainer = document.getElementById('workingRateChart').parentElement;
     const loadingDiv = document.createElement('div');
     loadingDiv.id = 'chart-loading';
-    loadingDiv.className = 'absolute inset-0 flex items-center justify-center bg-white bg-opacity-75';
-    loadingDiv.innerHTML = '<div class="text-gray-500">データを読み込み中...</div>';
+    loadingDiv.className = 'absolute inset-0 flex items-center justify-center bg-white bg-opacity-90';
+    loadingDiv.innerHTML = `
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600 mb-3"></div>
+            <div class="text-gray-600 text-sm">データを読み込み中...</div>
+        </div>
+    `;
     chartContainer.style.position = 'relative';
     chartContainer.appendChild(loadingDiv);
 }
