@@ -201,7 +201,12 @@ function showLoadingState() {
     loadingDiv.innerHTML = `
         <div class="flex flex-col items-center">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600 mb-3"></div>
-            <div class="text-gray-600 text-sm">データを読み込み中...</div>
+            <div class="text-gray-600 text-sm animate-pulse">データを読み込み中...</div>
+            <div class="flex space-x-1 mt-2">
+                <div class="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                <div class="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                <div class="w-1.5 h-1.5 bg-gray-600 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+            </div>
         </div>
     `;
     chartContainer.style.position = 'relative';
