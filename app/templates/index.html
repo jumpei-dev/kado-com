@@ -59,8 +59,9 @@
                         hx-trigger="change"
                         hx-indicator="#loading"
                         hx-include="[name='area'],[name='genre'],[name='period']"
-                        hx-params="area,genre,period,page=1,page_size=30"
+                        hx-params="area,genre,period,page=1,page_size=30,include_chart_data=true"
                         hx-swap="innerHTML"
+                        data-filter-change="true"
                         >
                   <option value="all">すべて</option>
                   <option value="関東">関東</option>
@@ -81,8 +82,9 @@
                         hx-trigger="change"
                         hx-indicator="#loading"
                         hx-include="[name='area'],[name='genre'],[name='period']"
-                        hx-params="area,genre,period,page=1,page_size=30"
+                        hx-params="area,genre,period,page=1,page_size=30,include_chart_data=true"
                         hx-swap="innerHTML"
+                        data-filter-change="true"
                         >
                   <option value="all">すべて</option>
                   <option value="ソープ">ソープ</option>
@@ -101,8 +103,9 @@
                         hx-trigger="change"
                         hx-indicator="#loading"
                         hx-include="[name='area'],[name='genre'],[name='rank'],[name='period']"
-                        hx-params="area,genre,rank,period,page=1,page_size=30"
+                        hx-params="area,genre,rank,period,page=1,page_size=30,include_chart_data=true"
                         hx-swap="innerHTML"
+                        data-filter-change="true"
                         @change="$store.periodFilter.value = $event.target.value">
                   <option value="month" selected>今月</option>
                   <option value="last_month">先月</option>
@@ -140,6 +143,23 @@
          hx-swap="innerHTML">
       <!-- ここにHTMXがAPIから店舗一覧を読み込みます -->
     </div>
+
+    <!-- 稼働推移グラフ -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-gray-900">全体稼働推移</h3>
+        <div class="flex bg-gray-200 rounded-lg p-1">
+          <button id="overall-period-7days" class="px-3 py-1 text-sm font-medium rounded-md bg-white text-gray-900 shadow-sm transition-colors">7日間</button>
+          <button id="overall-period-2months" class="px-3 py-1 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-colors">2ヶ月</button>
+        </div>
+      </div>
+      <div class="h-64 bg-white p-4 rounded-lg border border-gray-200 relative">
+        <canvas id="overallChart" width="100%" height="200"></canvas>
+      </div>
+      <div id="overall-chart-data-info" class="mt-2 text-xs text-center">
+        <!-- データ情報がここに表示されます -->
+      </div>
+    </div>
     
     <!-- Twitter タイムライン（PC・モバイル共通） - 遅延読み込み -->
     <div id="twitter-timeline" class="mb-8"
@@ -173,13 +193,43 @@
         <h2 class="text-lg font-bold text-white mb-2">お店選びでお悩みの方へ</h2>
         <p class="text-white text-sm text-center mb-4">店舗対応、系統も考慮してベストなお店をご紹介します👍</p>
            <p class="text-white text-sm text-center mb-4">データ掲載店舗のリクエストもこちら👇(対応できないお店もございます)</p>
-        <button class="bg-green-500 text-white px-6 py-2 rounded-full flex items-center hover:bg-green-600 transition-colors">
+        <a href="{{ config.line.url or 'https://line.me/ti/p/fDpRYZH7C2' }}" target="_blank" rel="noopener noreferrer" class="bg-green-500 text-white px-6 py-2 rounded-full flex items-center hover:bg-green-600 transition-colors">
           <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
             <path d="M19.365 9.89c.50 0 .866.37.866.877 0 .524-.338.903-.866.903H17.71v1.342h1.655c.53 0 .866.38.866.903 0 .508-.337.878-.866.878H16.82c-.53 0-.866-.37-.866-.878V8.967c0-.507.336-.877.866-.877h3.456c.53 0 .866.37.866.877 0 .508-.337.903-.866.903H17.71v1.342h1.655zm-4.262.903h-1.655v1.342h1.655c.53 0 .866.38.866.903 0 .508-.337.878-.866.878H9.495c-.53 0-.866-.37-.866-.878V8.967c0-.507.336-.877.866-.877h3.456c.53 0 .866.37.866.877 0 .508-.337.903-.866.903zM8.941 14.69c-.506 0-.878-.37-.878-.878V8.967c0-.507.335-.877.865-.877.506 0 .878.37.878.877v4.846c0 .507-.335.877-.865.877zm-3.877 0c-.507 0-.877-.37-.877-.878V8.967c0-.507.37-.877.877-.877s.878.37.878.877v4.846c0 .507-.37.877-.878.877zM24 10.88c0-5.118-5.14-9.28-11.472-9.28C6.194 1.6 1.055 5.763 1.055 10.88c0 4.58 4.063 8.42 9.552 9.143.372.08.877.238 1.006.547.114.278.075.71.037 1.006-.11.63-.53 2.476.837 1.344 1.37-1.13 7.32-4.34 10-7.34 1.84-2.030 2.83-4.090 2.83-6.30V12.3z"/>
           </svg>
           <span>LINE相談する</span>
-        </button>
+        </a>
       </div>
     </div>
 </main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Chart.jsの読み込み完了を待つ
+if (typeof Chart !== 'undefined') {
+    console.log('Chart.js loaded successfully');
+} else {
+    console.error('Chart.js failed to load');
+}
+</script>
+<script src="/static/js/overall_chart.js"></script>
+<script>
+// DOMとChart.jsの両方が準備完了してから初期化
+function initializeChart() {
+    if (typeof Chart !== 'undefined' && typeof initOverallChart === 'function') {
+        console.log('Initializing overall chart...');
+        initOverallChart();
+    } else {
+        console.error('Chart.js or initOverallChart function not available');
+        setTimeout(initializeChart, 100); // 100ms後に再試行
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeChart);
+} else {
+    // DOMが既に読み込まれている場合
+    initializeChart();
+}
+</script>
 {% endblock %}

@@ -27,7 +27,7 @@ function initWorkingRateChart(storeId, initialData = null) {
         // 初期データがある場合はそれを使用
         chartData = {
             daily: initialData.labels.map((label, index) => ({
-                date: getCurrentDateForIndex(index),
+                date: label, // 初期データのラベルをそのまま使用
                 rate: initialData.data[index] || null
             })),
             weekly: [] // 週次データは後で実装
@@ -68,7 +68,7 @@ async function loadWorkingTrendData(storeId, period = '7days') {
                 // 7日間データの場合は日次データとして保存
                 chartData = {
                     daily: data.labels.map((label, index) => ({
-                        date: getCurrentDateForIndex(index),
+                        date: label, // APIから取得したラベルをそのまま使用
                         rate: data.data[index] === 0 ? null : data.data[index]
                     })),
                     weekly: []
