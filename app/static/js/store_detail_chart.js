@@ -313,14 +313,35 @@ function getPeriodData(period) {
 
 // 日付をフォーマットする関数（MM/DD形式）
 function formatDate(dateString) {
+    // APIから既にMM/DD形式で返される場合はそのまま返す
+    if (dateString && dateString.match(/^\d{2}\/\d{2}$/)) {
+        return dateString;
+    }
+    
+    // YYYY-MM-DD形式の場合は変換
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString);
+        return dateString; // 無効な日付の場合は元の文字列を返す
+    }
     return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
 }
 
 // 週の範囲をフォーマットする関数
 function formatWeekRange(startDate, endDate) {
+    // APIから既にMM/DD-MM/DD形式で返される場合はそのまま返す
+    if (typeof startDate === 'string' && startDate.includes('-') && startDate.match(/^\d{2}\/\d{2}-\d{2}\/\d{2}$/)) {
+        return startDate;
+    }
+    
     const start = new Date(startDate);
     const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        console.warn('Invalid date range:', startDate, endDate);
+        return `${startDate}-${endDate}`; // 無効な日付の場合は元の文字列を返す
+    }
+    
     return `${formatDate(startDate)}-${formatDate(endDate)}`;
 }
 
