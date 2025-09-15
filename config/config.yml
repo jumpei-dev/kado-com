@@ -8,8 +8,8 @@
 # - GitHub Actions実行時は .github/workflows/status-collection.yml が優先
 # 
 # ⚠️  重要: GitHub Actionsワークフローとの同期を保ってください:
-# - .github/workflows/status-collection.yml (cron: '0 */2 * * *' = 2時間ごと)
-# - scheduling.status_collection_interval: 120分 (2時間間隔で統一)
+# - .github/workflows/status-collection.yml (cron: '0 */4 * * *' = 4時間ごと)
+# - scheduling.status_collection_interval: 240分 (4時間間隔で統一)
 # =============================================================================
 
 # 🌍 環境設定
@@ -110,7 +110,7 @@ logging:
 # ⏰ スケジュール設定
 scheduling:
   # 🕐 基本スケジュール設定（GitHub Actionsワークフローと同期）
-  status_collection_interval: 120  # 稼働状況取得間隔（分）- GitHub Actions: cron '0 */2 * * *' と統一
+  status_collection_interval: 240  # 稼働状況取得間隔（分）- GitHub Actions: cron '0 */4 * * *' と統一
   history_calculation_hour: 12     # 稼働率計算実行時刻（12時）
   history_calculation_minute: 0    # 稼働率計算実行分
   

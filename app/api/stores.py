@@ -270,6 +270,13 @@ async def get_stores(
             # 期間に応じた稼働率を取得
             avg_working_rate = store_data['avg_working_rate']
             
+            # 期間が「今月」の場合は先月データを取得、それ以外は同じ値を使用
+            if period == "month":
+                last_month_rate = get_working_rate(db, store_data['business_id'], 'last_month')
+                previous_rate = last_month_rate if last_month_rate is not None else avg_working_rate
+            else:
+                previous_rate = avg_working_rate
+            
             stores.append({
                 "id": str(store_data['business_id']),
                 "name": display_info['display_name'],
@@ -287,9 +294,10 @@ async def get_stores(
                 "util_7d": avg_working_rate,
                 # カードテンプレート用のプロパティを追加
                 "working_rate": avg_working_rate,
-                "previous_rate": avg_working_rate,
-                "weekly_rate": avg_working_rate,
-                "rank": idx + 1
+                "previous_rate": previous_rate,
+                "weekly_rate": previous_rate,  # テンプレートとの互換性のため
+                "rank": idx + 1,
+                "current_period": period  # 現在の期間フィルターを追加
             })
         
         # ソート処理

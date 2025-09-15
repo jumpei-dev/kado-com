@@ -89,16 +89,21 @@
         {% endif %}
       </div>
       <div class="text-xs">
-        {% if store.working_rate == 0.0 or store.weekly_rate == 0.0 %}
-          <span class="text-gray-600">-</span>
-        {% elif store.working_rate > store.weekly_rate %}
-          <span class="text-green-600">+{{ (store.working_rate - store.weekly_rate)|round(1) }}%</span>
-        {% elif store.working_rate < store.weekly_rate %}
-          <span class="text-red-600">{{ (store.working_rate - store.weekly_rate)|round(1) }}%</span>
+        {% if store.current_period == "month" %}
+          {# 今月フィルター時のみ先月データとの比較を表示 #}
+          {% if store.working_rate == 0.0 or store.weekly_rate == 0.0 %}
+            <span class="text-gray-600">-</span>
+          {% elif store.working_rate > store.weekly_rate %}
+            <span class="text-green-600">+{{ (store.working_rate - store.weekly_rate)|round(1) }}%</span>
+          {% elif store.working_rate < store.weekly_rate %}
+            <span class="text-red-600">{{ (store.working_rate - store.weekly_rate)|round(1) }}%</span>
+          {% else %}
+            <span class="text-gray-600">±0.0%</span>
+          {% endif %}
         {% else %}
-          <span class="text-gray-600">±0.0%</span>
+          {# 今月以外のフィルター時は比較表記を非表示 #}
+          <span class="text-gray-600">-</span>
         {% endif %}
-
       </div>
     </div>
   </div>

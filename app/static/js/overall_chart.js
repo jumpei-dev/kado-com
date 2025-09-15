@@ -17,6 +17,12 @@ function initOverallChart() {
     isInitializing = true;
     console.log('📊 全体稼働推移グラフを初期化中...');
     
+    // 初期ローディング表示を非表示にする
+    const initialLoading = document.getElementById('initial-overall-loading');
+    if (initialLoading) {
+        initialLoading.style.display = 'none';
+    }
+    
     // 初期フィルター値を取得
     updateFiltersFromUI();
     
@@ -300,32 +306,57 @@ function updateDataInfo(apiData) {
 
 // ローディング状態を表示
 function showLoadingState() {
-    const loading = document.getElementById('chart-loading');
-    const error = document.getElementById('chart-error');
+    const chartContainer = document.getElementById('overallChart').parentElement;
     
-    if (loading) loading.classList.remove('hidden');
-    if (error) error.classList.add('hidden');
+    // 既存のローディング要素を削除
+    const existingLoading = document.getElementById('overall-chart-loading');
+    if (existingLoading) {
+        existingLoading.remove();
+    }
+    
+    // 新しいローディング要素を作成
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'overall-chart-loading';
+    loadingDiv.className = 'absolute inset-0 flex items-center justify-center bg-white bg-opacity-90';
+    loadingDiv.innerHTML = `
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600 mb-3"></div>
+            <div class="text-gray-600 text-sm">グラフデータを読み込み中...</div>
+        </div>
+    `;
+    
+    chartContainer.style.position = 'relative';
+    chartContainer.appendChild(loadingDiv);
 }
 
 // ローディング状態を非表示
 function hideLoadingState() {
-    const loading = document.getElementById('chart-loading');
-    if (loading) loading.classList.add('hidden');
+    const loadingDiv = document.getElementById('overall-chart-loading');
+    if (loadingDiv) {
+        loadingDiv.remove();
+    }
 }
 
 // エラー状態を表示
 function showErrorState(message = 'データの読み込みに失敗しました') {
-    const loading = document.getElementById('chart-loading');
-    const error = document.getElementById('chart-error');
+    const chartContainer = document.getElementById('overallChart').parentElement;
     
-    if (loading) loading.classList.add('hidden');
-    if (error) {
-        error.classList.remove('hidden');
-        const errorText = error.querySelector('p');
-        if (errorText) {
-            errorText.textContent = message;
-        }
-    }
+    // ローディング状態を非表示
+    hideLoadingState();
+    
+    // エラー要素を作成
+    const errorDiv = document.createElement('div');
+    errorDiv.id = 'overall-chart-error';
+    errorDiv.className = 'absolute inset-0 flex items-center justify-center bg-white';
+    errorDiv.innerHTML = `
+        <div class="text-red-500 text-center">
+            <div class="mb-2">⚠️</div>
+            <div>${message}</div>
+        </div>
+    `;
+    
+    chartContainer.style.position = 'relative';
+    chartContainer.appendChild(errorDiv);
     
     // 初期化フラグをリセット
     isInitializing = false;
