@@ -49,3 +49,10 @@
     </nav>
   </div>
 {% endif %}
+
+<!-- 全体稼働推移データをJavaScriptに埋め込み -->
+{% if chart_data %}
+<script data-chart-data type="application/json">
+{{ chart_data | tojson }}
+</script>
+{% endif %}

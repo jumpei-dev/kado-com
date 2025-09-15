@@ -219,7 +219,7 @@ async def get_store_ranking(
         
 
 
-@router.get("", response_class=HTMLResponse)
+@router.get("")
 async def get_stores(
     request: Request,
     sort: str = Query("util_today", description="ソート基準"),
@@ -228,10 +228,12 @@ async def get_stores(
     area: str = Query("all", description="エリアフィルター"),
     genre: str = Query("all", description="業種フィルター"),
     period: str = Query("month", description="期間フィルター"),
+    chart_period: str = Query("7days", description="グラフ期間フィルター (7days, 2months)"),
+    include_chart_data: bool = Query(False, description="全体稼働推移データを含めるか"),
     auth: bool = Depends(require_auth),
     db = Depends(get_database)
 ):
-    """店舗一覧取得 - HTMLレスポンス (ページネーション対応)"""
+    """店舗一覧取得 - HTMLレスポンス (ページネーション対応) + 全体稼働推移データ"""
     
     # ユーザー権限を確認
     user_permissions = await check_user_permissions(request)
@@ -309,23 +311,154 @@ async def get_stores(
         end_idx = min(start_idx + page_size, total_items)
         paged_stores = stores[start_idx:end_idx]
         
-        # HTMLテンプレートをレンダリングして返す
-        return templates.TemplateResponse(
-            "components/stores_list.html", 
-            {
-                "request": request, 
-                "stores": paged_stores,
-                "user_permissions": user_permissions,
-                "pagination": {
-                    "current_page": page,
-                    "total_pages": total_pages,
-                    "total_items": total_items,
-                    "page_size": page_size,
-                    "has_prev": page > 1,
-                    "has_next": page < total_pages
+        # 全体稼働推移データを取得（include_chart_dataがTrueの場合）
+        chart_data = None
+        if include_chart_data:
+            try:
+                print(f"🔍 全体稼働推移データ取得: chart_period={chart_period}, area={area}, genre={genre}")
+                
+                # フィルター条件を構築
+                where_conditions = ["b.in_scope = true"]
+                params = []
+                
+                if area != "all":
+                    where_conditions.append("b.area = %s")
+                    params.append(area)
+                    
+                if genre != "all":
+                    where_conditions.append("b.type = %s")
+                    params.append(genre)
+                
+                where_clause = " AND ".join(where_conditions)
+                
+                # 期間に応じてクエリを変更
+                if chart_period == "2months":
+                    # 2ヶ月間の週次データ
+                    query = f"""
+                    SELECT 
+                        DATE_TRUNC('week', sh.biz_date) as week_start,
+                        AVG(sh.working_rate) as working_rate
+                    FROM status_history sh
+                    JOIN business b ON sh.business_id = b.business_id
+                    WHERE {where_clause}
+                    AND sh.biz_date >= CURRENT_DATE - INTERVAL '8 weeks'
+                    AND sh.biz_date < CURRENT_DATE
+                    GROUP BY DATE_TRUNC('week', sh.biz_date)
+                    ORDER BY week_start ASC
+                    """
+                else:
+                    # 7日間の日次データ（デフォルト）
+                    query = f"""
+                    SELECT 
+                        sh.biz_date,
+                        AVG(sh.working_rate) as working_rate
+                    FROM status_history sh
+                    JOIN business b ON sh.business_id = b.business_id
+                    WHERE {where_clause}
+                    AND sh.biz_date >= CURRENT_DATE - INTERVAL '7 days'
+                    AND sh.biz_date < CURRENT_DATE
+                    GROUP BY sh.biz_date
+                    ORDER BY sh.biz_date ASC
+                    """
+                
+                results = db.execute_query(query, params)
+                
+                if results:
+                    # データを整形
+                    labels = []
+                    data = []
+                    
+                    for row in results:
+                        if chart_period == "2months":
+                            # 週次データの場合
+                            week_start = row["week_start"]
+                            week_end = week_start + timedelta(days=6)
+                            labels.append(f"{week_start.strftime('%m/%d')}-{week_end.strftime('%m/%d')}")
+                        else:
+                            # 日次データの場合
+                            labels.append(row["biz_date"].strftime("%m/%d"))
+                        
+                        working_rate = float(row["working_rate"]) if row["working_rate"] else 0
+                        data.append(round(working_rate, 1))
+                    
+                    chart_data = {
+                        "success": True,
+                        "labels": labels,
+                        "data": data,
+                        "period": chart_period,
+                        "filters": {"area": area, "genre": genre}
+                    }
+                    print(f"✅ 全体稼働推移データ取得完了: {len(results)}件")
+                else:
+                    chart_data = {
+                        "success": True,
+                        "labels": [],
+                        "data": [],
+                        "message": "データが見つかりません"
+                    }
+                    
+            except Exception as e:
+                print(f"❌ 全体稼働推移データ取得エラー: {e}")
+                chart_data = {
+                    "success": False,
+                    "error": "全体稼働推移データの取得に失敗しました",
+                    "details": str(e)
                 }
+        
+        # HTMLテンプレートをレンダリングして返す
+        template_context = {
+            "request": request, 
+            "stores": paged_stores,
+            "user_permissions": user_permissions,
+            "pagination": {
+                "current_page": page,
+                "total_pages": total_pages,
+                "total_items": total_items,
+                "page_size": page_size,
+                "has_prev": page > 1,
+                "has_next": page < total_pages
+            },
+            "filters": {
+                "area": area,
+                "genre": genre,
+                "period": period,
+                "sort": sort,
+                "chart_period": chart_period
             }
-        )
+        }
+        
+        # 全体稼働推移データが含まれる場合は追加
+        if chart_data:
+            template_context["chart_data"] = chart_data
+        
+        # Acceptヘッダーをチェックしてレスポンス形式を決定
+        accept_header = request.headers.get("accept", "")
+        if "application/json" in accept_header:
+            # JSONレスポンスを返す
+            response_data = {
+                "stores": [{
+                    "id": store["id"],
+                    "name": store["name"],
+                    "area": store["area"],
+                    "genre": store["genre"],
+                    "working_rate": store["working_rate"],
+                    "weekly_rate": store["weekly_rate"],
+                    "util_today": store["util_today"]
+                } for store in paged_stores],
+                "pagination": template_context["pagination"],
+                "filters": template_context["filters"]
+            }
+            
+            if chart_data:
+                response_data["chart_data"] = chart_data
+                
+            return JSONResponse(content=response_data)
+        else:
+            # HTMLレスポンスを返す
+            return templates.TemplateResponse(
+                "components/stores_list.html", 
+                template_context
+            )
         
     except Exception as e:
         print(f"❌ データベース接続エラー: {e}")
@@ -516,6 +649,11 @@ async def get_store_detail(
 
 # 古い重複エンドポイントを削除しました
 # 新しい /{store_id}/working-trend エンドポイントを使用してください
+
+# 専用の /overall-working-trend エンドポイントは削除されました
+# 全体稼働推移データは統合された /api/stores エンドポイントから取得してください
+# include_chart_data=true パラメータを使用することで、チャートデータが含まれます
+
 
 @router.get("/{store_id}/working-trend", response_class=JSONResponse)
 async def get_store_working_trend(
