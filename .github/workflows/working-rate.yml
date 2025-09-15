@@ -17,8 +17,8 @@ name: Working Rate Calculation Job
 # トリガー設定
 on:
   schedule:
-    # 毎日正午12時に稼働率計算を実行
-    - cron: '0 12 * * *'
+    # 毎日日本時間正午12時に稼働率計算を実行（UTC 3時）
+    - cron: '0 3 * * *'
   workflow_dispatch:  # 手動実行も可能
     inputs:
       log_level:
