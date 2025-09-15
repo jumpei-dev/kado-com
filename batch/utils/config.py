@@ -103,17 +103,17 @@ class DatabaseConfig:
 class ScrapingConfig:
     """スクレイピング設定"""
     timeout: int = 30
-    max_concurrent: int = 10
-    max_concurrent_businesses: int = 5  # 店舗並行処理数
+    max_concurrent: int = 1  # より安全な設定
+    max_concurrent_businesses: int = 1  # 店舗並行処理数（より安全な設定）
     retry_attempts: int = 3
-    retry_delay: float = 1.0
-    delay_between_requests: float = 1.0
+    retry_delay: float = 20.0  # より安全な設定
+    delay_between_requests: float = 8.0  # より安全な設定
     user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     user_agents: list = None
-    max_parallel_businesses: int = 3
-    min_delay: float = 0.5
-    max_delay: float = 2.0
-    request_interval: float = 1.0
+    max_parallel_businesses: int = 1  # より安全な設定
+    min_delay: float = 5.0  # より安全な設定
+    max_delay: float = 12.0  # より安全な設定
+    request_interval: float = 8.0  # より安全な設定
     use_aiohttp: bool = True
     connection_pooling: bool = True
     keep_alive: bool = True
@@ -168,8 +168,8 @@ class SchedulingConfig:
     status_collection_interval: int = 120  # 分（2時間間隔）- GitHub Actionsと統一
     history_calculation_hour: int = 12    # 稼働率計算実行時刻
     history_calculation_minute: int = 0   # 稼働率計算実行分
-    max_concurrent_businesses: int = 5        # 店舗並行処理数
-    max_concurrent_working_rate: int = 10     # 稼働率計算並行処理数
+    max_concurrent_businesses: int = 1        # 店舗並行処理数（より安全な設定）
+    max_concurrent_working_rate: int = 5     # 稼働率計算並行処理数（より安全な設定）
     health_check_interval: int = 15       # 分
     cleanup_time_hour: int = 2            # 午前2時
     cleanup_time_minute: int = 0
