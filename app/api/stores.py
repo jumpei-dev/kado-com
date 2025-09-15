@@ -687,7 +687,7 @@ async def get_store_working_trend(
                 FROM status_history 
                 WHERE business_id = %s
                 AND biz_date >= CURRENT_DATE - INTERVAL '8 weeks'
-                AND biz_date <= CURRENT_DATE
+                AND biz_date < CURRENT_DATE
                 GROUP BY DATE_TRUNC('week', biz_date)
                 ORDER BY week_start ASC
                 """
@@ -713,8 +713,8 @@ async def get_store_working_trend(
                     labels = []
                     data = []
                     
-                    # 8週間分のラベルを生成（最新の週が右端、今日まで）
-                    end_date = datetime.now().date()  # 今日まで
+                    # 8週間分のラベルを生成（最新の週が右端、前日まで）
+                    end_date = datetime.now().date() - timedelta(days=1)  # 前日まで
                     for i in range(7, -1, -1):  # 8週間前から今日まで
                         week_start = end_date - timedelta(weeks=i, days=end_date.weekday())
                         week_end = week_start + timedelta(days=6)
