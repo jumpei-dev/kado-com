@@ -101,9 +101,8 @@ const createLinePrompt = () => {
         </svg>
       </button>
       <div class="text-center space-y-4">
-        <h3 class="text-lg font-bold text-gray-900" style="font-size: 1rem !important; line-height: 1.4; word-break: keep-all; overflow-wrap: break-word;">店舗名の閲覧には<br>特別なアクセス権限が必要です</h3>
-        <p class="text-sm text-gray-700">LINEで問い合わせると、より詳細な情報が閲覧できるようになります</p>
-        <p class="text-sm text-gray-600">下のボタンからLINEの友だちに追加してください</p>
+        <h3 class="text-lg font-bold text-gray-900" style="font-size: 1rem !important; line-height: 1.4; word-break: keep-all; overflow-wrap: break-word;">店舗名を閲覧するためには<br>ログインが必要です</h3>
+        <p class="text-sm text-gray-700">アカウントの発行については下のボタンから<br>LINEにてお問い合わせください</p>
         <div class="mt-6">
           <a href="${lineUrl}" target="_blank" 
              class="inline-block w-full px-6 py-3 bg-green-500 text-white text-base font-medium rounded-lg hover:bg-green-600 transition-colors text-center">
