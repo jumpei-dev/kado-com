@@ -242,15 +242,16 @@ async def get_stores(
     print(f"🔍 [DEBUG] クッキー: {dict(request.cookies)}")
     
     try:
-        # ランキングAPIを使用してデータを取得
+        # 効率的なページネーション処理のため、必要な分だけ取得
         print("📊 [DEBUG] ランキングAPIから店舗データを取得中...")
+        offset = (page - 1) * page_size
         ranking_data = db.get_store_ranking(
             area=area,
             business_type=genre,
             spec="all",
             period=period,
-            limit=100,  # 十分な数を取得してからページング
-            offset=0
+            limit=page_size + 1,  # 次ページの有無を判定するため+1
+            offset=offset
         )
         print(f"📊 [DEBUG] ランキングデータ取得完了: {len(ranking_data)}件")
         
@@ -300,24 +301,16 @@ async def get_stores(
                 "current_period": period  # 現在の期間フィルターを追加
             })
         
-        # ソート処理
-        if sort == "util_today":
-            stores.sort(key=lambda x: x.get("util_today", 0), reverse=True)
-        elif sort == "name":
-            stores.sort(key=lambda x: x.get("name", ""))
+        # 効率的なページネーション処理（データベースレベルでソート済み）
+        has_next = len(stores) > page_size
+        if has_next:
+            stores = stores[:page_size]  # 余分な1件を削除
         
-        # ページネーション処理
-        total_items = len(stores)
-        total_pages = (total_items + page_size - 1) // page_size  # 切り上げ計算
+        paged_stores = stores
         
-        # ページ番号の範囲チェック
-        if page > total_pages and total_pages > 0:
-            page = total_pages
-            
-        # スライスでページングデータを取得
-        start_idx = (page - 1) * page_size
-        end_idx = min(start_idx + page_size, total_items)
-        paged_stores = stores[start_idx:end_idx]
+        # 総件数は概算（正確な値が必要な場合は別途カウントクエリを実行）
+        total_items = offset + len(paged_stores) + (1 if has_next else 0)
+        total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 1
         
         # 全体稼働推移データを取得（include_chart_dataがTrueの場合）
         chart_data = None
@@ -425,7 +418,7 @@ async def get_stores(
                 "total_items": total_items,
                 "page_size": page_size,
                 "has_prev": page > 1,
-                "has_next": page < total_pages
+                "has_next": has_next
             },
             "filters": {
                 "area": area,
