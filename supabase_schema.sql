@@ -90,6 +90,13 @@ CREATE INDEX IF NOT EXISTS idx_status_history_biz_date ON status_history(biz_dat
 CREATE INDEX IF NOT EXISTS idx_batch_job_results_job_name ON batch_job_results(job_name);
 CREATE INDEX IF NOT EXISTS idx_batch_job_results_started_at ON batch_job_results(started_at);
 
+-- Additional indexes for store list performance
+CREATE INDEX IF NOT EXISTS idx_businesses_area_type ON businesses(area, type);
+CREATE INDEX IF NOT EXISTS idx_businesses_in_scope ON businesses(in_scope) WHERE in_scope = true;
+CREATE INDEX IF NOT EXISTS idx_status_history_biz_date_business_id ON status_history(biz_date, business_id);
+CREATE INDEX IF NOT EXISTS idx_status_business_recorded ON status(business_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_casts_business_active ON casts(business_id, is_active) WHERE is_active = true;
+
 -- RLS (Row Level Security) policies can be added here if needed
 -- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE businesses ENABLE ROW LEVEL SECURITY;

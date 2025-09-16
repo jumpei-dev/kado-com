@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import secrets
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
+from .cache import cache, get_cache_key
 
 # プロジェクトルートをパスに追加
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.absolute()))
@@ -206,43 +207,70 @@ class DatabaseManager:
             return False
     
     # 店舗関連のメソッド
-    def get_businesses(self):
-        """すべてのアクティブな店舗を取得する"""
+    def get_businesses(self, area=None, business_type=None, page=1, per_page=20):
+        """店舗一覧を取得する（最適化版）"""
+        # キャッシュキーを生成
+        cache_key = get_cache_key(
+            "businesses",
+            area=area,
+            business_type=business_type,
+            page=page,
+            per_page=per_page
+        )
+        
+        # キャッシュから取得を試行
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            print(f"📋 [CACHE] キャッシュヒット: {cache_key}")
+            return cached_result
+        
         try:
+            offset = (page - 1) * per_page
+            
+            # 最適化されたクエリ（必要な列のみ取得）
             query = """
-            SELECT business_id, name, area, prefecture, type, capacity, 
-                   open_hour, close_hour, schedule_url, in_scope,
-                   working_type, cast_type, shift_type, media,
-                   blurred_name, updated_at
+            SELECT business_id, name, area, type
             FROM business 
             WHERE in_scope = true
-            ORDER BY name
             """
-            results = self.execute_query(query)
+            params = []
             
-            # 結果を辞書形式に変換してAPIで期待される形式に合わせる
+            # フィルタ条件を追加（複合インデックス最適化）
+            if area and area != 'all' and business_type and business_type != 'all':
+                query += " AND area = %s AND type = %s"
+                params.extend([area, business_type])
+            elif area and area != 'all':
+                query += " AND area = %s"
+                params.append(area)
+            elif business_type and business_type != 'all':
+                query += " AND type = %s"
+                params.append(business_type)
+            
+            # ソートとページネーション（インデックスを活用）
+            query += " ORDER BY business_id LIMIT %s OFFSET %s"
+            params.extend([per_page, offset])
+            
+            results = self.execute_query(query, tuple(params) if params else None)
+            
+            # 結果を辞書形式に変換（軽量化）
             businesses = {}
             for i, row in enumerate(results):
                 businesses[i] = {
                     "Business ID": row["business_id"],
                     "name": row["name"],
                     "blurred_name": row.get("blurred_name") or row["name"],
-                    "area": row["area"], 
-                    "prefecture": row["prefecture"],
+                    "area": row["area"],
                     "type": row["type"],
                     "capacity": row.get("capacity"),
-                    "open_hour": row.get("open_hour"),
-                    "close_hour": row.get("close_hour"), 
-                    "URL": row.get("schedule_url"),
-                    "in_scope": row["in_scope"],
-                    "working_type": row.get("working_type"),
-                    "cast_type": row.get("cast_type"),
-                    "shift_type": row.get("shift_type"),
-                    "media": row.get("media"),
-                    "last_updated": row.get("updated_at", datetime.now().strftime("%Y-%m-%d"))
+                    "in_scope": True
                 }
             
             logger.info(f"✅ データベースから{len(businesses)}件の店舗を取得しました")
+            
+            # 結果をキャッシュに保存（5分間）
+            cache.set(cache_key, businesses, timeout=300)
+            print(f"💾 [CACHE] データをキャッシュに保存: {cache_key}")
+            
             return businesses
             
         except Exception as e:
@@ -257,7 +285,24 @@ class DatabaseManager:
     
 
     def get_store_ranking(self, area="all", business_type="all", spec="all", period="week", limit=20, offset=0):
-        """店舗のランキングを取得する"""
+        """店舗のランキングを取得する（キャッシュ対応）"""
+        # キャッシュキーを生成
+        cache_key = get_cache_key(
+            "store_ranking",
+            area=area,
+            business_type=business_type,
+            spec=spec,
+            period=period,
+            limit=limit,
+            offset=offset
+        )
+        
+        # キャッシュから取得を試行
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            print(f"📋 [CACHE] キャッシュヒット: {cache_key}")
+            return cached_result
+        
         try:
             # WHERE条件を構築
             where_conditions = ["b.in_scope = true"]
@@ -287,6 +332,7 @@ class DatabaseManager:
             else:
                 period_condition = "sh.biz_date >= CURRENT_DATE - INTERVAL '1 day'"
             
+            # Optimized ranking query with proper JOIN conditions
             query = f"""
             SELECT 
                 b.business_id,
@@ -301,7 +347,7 @@ class DatabaseManager:
             LEFT JOIN status_history sh ON b.business_id = sh.business_id AND {period_condition}
             WHERE {where_clause}
             GROUP BY b.business_id, b.name, b.blurred_name, b.area, b.prefecture, b.type, b.cast_type
-            ORDER BY avg_working_rate DESC
+            ORDER BY avg_working_rate DESC, b.business_id ASC
             LIMIT %s OFFSET %s
             """
             
@@ -323,6 +369,11 @@ class DatabaseManager:
                 })
             
             logger.info(f"✅ ランキングデータを{len(ranking)}件取得しました")
+            
+            # 結果をキャッシュに保存（5分間）
+            cache.set(cache_key, ranking, timeout=300)
+            print(f"💾 [CACHE] データをキャッシュに保存: {cache_key}")
+            
             return ranking
             
         except Exception as e:
