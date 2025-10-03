@@ -3,95 +3,54 @@
 {% block title %}ダッシュボード - Scout UI{% endblock %}
 
 {% block content %}
+
 <!-- Header Section -->
 <div class="mb-8">
-    <div class="md:flex md:items-center md:justify-between">
-        <div class="flex-1 min-w-0">
-            <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-                <i class="fas fa-tachometer-alt mr-3 text-primary-500"></i>
-                ダッシュボード
-            </h2>
-            <p class="mt-1 text-sm text-gray-500">
-                店舗の稼働状況とキャスト情報を管理
-            </p>
-            {% if not current_user %}
-            <div class="mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                <i class="fas fa-info-circle mr-1"></i>
-                未ログイン（3日間のデータのみ表示）
-                <a href="/login" class="ml-2 text-yellow-900 underline hover:text-yellow-700">ログイン</a>
-            </div>
-            {% endif %}
-        </div>
-        <div class="mt-4 flex md:mt-0 md:ml-4">
-            <!-- Export Dropdown -->
-            <div class="relative inline-block text-left">
-                <div>
-                    <button type="button" onclick="toggleExportDropdown()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" id="export-menu-button" aria-expanded="true" aria-haspopup="true">
-                        <i class="fas fa-download mr-2"></i>
-                        出力
-                        <i class="fas fa-chevron-down ml-2 -mr-1 h-4 w-4"></i>
-                    </button>
-                </div>
-                <div id="export-dropdown" class="hidden origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10" style="left: auto; right: 0;" role="menu" aria-orientation="vertical" aria-labelledby="export-menu-button" tabindex="-1">
-                    <div class="py-1" role="none">
-                        <a href="#" onclick="exportCSV()" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabindex="-1">
-                            <i class="fas fa-file-csv mr-2"></i>
-                            CSV出力
-                        </a>
-                        <a href="#" onclick="exportSimpleRanking()" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabindex="-1">
-                            <i class="fas fa-trophy mr-2"></i>
-                            簡易ランキング出力
-                        </a>
+    <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+        <i class="fas fa-store mr-3 text-primary-500"></i>
+        稼働店舗一覧
+    </h2>
+</div>
+
+<!-- Unified Controls Section -->
+<div class="mb-6">
+    <div class="flex flex-wrap items-center justify-end gap-4">
+        <!-- Right side: Refresh, Filter and Export buttons -->
+        <div class="flex items-center space-x-3">
+                <button onclick="refreshData()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    表示更新
+                </button>
+                
+                <button onclick="openFilterModal()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-filter mr-2"></i>
+                    フィルター
+                </button>
+                
+                <!-- Export Dropdown -->
+                <div class="relative inline-block text-left" style="position: relative;">
+                    <div>
+                        <button type="button" onclick="toggleExportDropdown()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" id="export-menu-button" aria-expanded="true" aria-haspopup="true">
+                            <i class="fas fa-download mr-2"></i>
+                            出力
+                            <i class="fas fa-chevron-down ml-2 -mr-1 h-4 w-4"></i>
+                        </button>
+                    </div>
+                    <div id="export-dropdown" class="hidden origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 md:right-0 md:left-auto" style="left: auto; right: 0; min-width: 200px;" role="menu" aria-orientation="vertical" aria-labelledby="export-menu-button" tabindex="-1">
+                        <div class="py-1" role="none">
+                            <a href="#" onclick="exportCSV()" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabindex="-1">
+                                <i class="fas fa-file-csv mr-2"></i>
+                                CSV出力
+                            </a>
+                            <a href="#" onclick="exportSimpleRanking()" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabindex="-1">
+                                <i class="fas fa-trophy mr-2"></i>
+                                簡易ランキング出力
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
-            <button onclick="openFilterModal()" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                <i class="fas fa-filter mr-2"></i>
-                フィルター
-            </button>
         </div>
-    </div>
-</div>
-
-
-
-<!-- Controls Section -->
-<div class="bg-white shadow rounded-lg mb-6">
-    <div class="px-6 py-4 border-b border-gray-200">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center space-x-4">
-                <div class="flex items-center space-x-2">
-                    <label class="text-sm font-medium text-gray-700">表示形式:</label>
-                    <select id="view-type" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                        <option value="weekly" {% if current_filters.view_type == 'weekly' %}selected{% endif %}>週ごと</option>
-                        <option value="daily" {% if current_filters.view_type == 'daily' %}selected{% endif %}>日ごと</option>
-                    </select>
-                </div>
-                
-                <div class="flex items-center space-x-2">
-                    <label class="text-sm font-medium text-gray-700">ソート:</label>
-                    <select id="sort-by" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                        <option value="working_rate" {% if current_filters.sort_by == 'working_rate' %}selected{% endif %}>稼働率</option>
-                        <option value="name" {% if current_filters.sort_by == 'name' %}selected{% endif %}>店舗名</option>
-                        <option value="area" {% if current_filters.sort_by == 'area' %}selected{% endif %}>エリア</option>
-                        <option value="cast_count" {% if current_filters.sort_by == 'cast_count' %}selected{% endif %}>キャスト数</option>
-                    </select>
-                    <select id="sort-order" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-                        <option value="desc" {% if current_filters.sort_order == 'desc' %}selected{% endif %}>降順</option>
-                        <option value="asc" {% if current_filters.sort_order == 'asc' %}selected{% endif %}>昇順</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="flex items-center space-x-2">
-                <span class="text-sm text-gray-500" id="result-count">読み込み中...</span>
-                <button onclick="refreshData()" class="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50">
-                    <i class="fas fa-sync-alt mr-1"></i>
-                    更新
-                </button>
-            </div>
-        </div>
-    </div>
 </div>
 
 <!-- Store Grid -->
@@ -99,7 +58,7 @@
     <div class="px-6 py-4 border-b border-gray-200">
         <h3 class="text-lg font-medium text-gray-900">
             <i class="fas fa-th-large mr-2 text-primary-500"></i>
-            店舗一覧
+            稼働率一覧
         </h3>
     </div>
     
@@ -134,6 +93,14 @@
             </div>
             
             <div class="px-6 py-4 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">表示形式</label>
+                    <select id="filter-view-type" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="weekly" {% if current_filters.view_type == 'weekly' %}selected{% endif %}>週ごと</option>
+                        <option value="daily" {% if current_filters.view_type == 'daily' %}selected{% endif %}>日ごと</option>
+                    </select>
+                </div>
+                
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">エリア</label>
                     <select id="filter-area" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -200,25 +167,6 @@
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
         loadStores();
-        
-        // Event listeners for controls
-        document.getElementById('view-type').addEventListener('change', function() {
-            currentFilters.view_type = this.value;
-            currentPage = 1;
-            loadStores();
-        });
-        
-        document.getElementById('sort-by').addEventListener('change', function() {
-            currentFilters.sort_by = this.value;
-            currentPage = 1;
-            loadStores();
-        });
-        
-        document.getElementById('sort-order').addEventListener('change', function() {
-            currentFilters.sort_order = this.value;
-            currentPage = 1;
-            loadStores();
-        });
     });
     
     // Load stores data
@@ -242,7 +190,6 @@
             
             renderStoreGrid(data.stores);
             renderPagination(data.pagination);
-            updateResultCount(data.pagination);
             
         } catch (error) {
             console.error('Error loading stores:', error);
@@ -253,6 +200,16 @@
     // Render store grid
     function renderStoreGrid(stores) {
         const grid = document.getElementById('store-grid');
+        
+        if (!stores || !Array.isArray(stores)) {
+            grid.innerHTML = `
+                <div class="text-center py-12">
+                    <i class="fas fa-exclamation-triangle text-4xl text-red-300 mb-4"></i>
+                    <p class="text-gray-500">店舗データの読み込みに失敗しました</p>
+                </div>
+            `;
+            return;
+        }
         
         if (stores.length === 0) {
             grid.innerHTML = `
@@ -325,6 +282,13 @@
     // Render pagination
     function renderPagination(pagination) {
         const paginationEl = document.getElementById('pagination');
+        
+        // Check if pagination data is valid
+        if (!pagination || typeof pagination !== 'object') {
+            console.error('Invalid pagination data:', pagination);
+            paginationEl.classList.add('hidden');
+            return;
+        }
         
         if (pagination.total_pages <= 1) {
             paginationEl.classList.add('hidden');
@@ -413,15 +377,17 @@
         paginationEl.innerHTML = paginationHTML;
     }
     
-    // Update result count
-    function updateResultCount(pagination) {
-        const countEl = document.getElementById('result-count');
-        countEl.textContent = `${pagination.total_count}件の店舗`;
-    }
+
     
     // Change page
     function changePage(page) {
         currentPage = page;
+        loadStores();
+    }
+    
+    // Refresh data
+    function refreshData() {
+        currentPage = 1;
         loadStores();
     }
     
@@ -435,6 +401,7 @@
     }
     
     function clearFilters() {
+        document.getElementById('filter-view-type').value = 'weekly';
         document.getElementById('filter-area').value = '';
         document.getElementById('filter-business-type').value = '';
         document.getElementById('filter-date-from').value = '';
@@ -442,6 +409,7 @@
     }
     
     function applyFilters() {
+        currentFilters.view_type = document.getElementById('filter-view-type').value;
         currentFilters.area = document.getElementById('filter-area').value;
         currentFilters.business_type = document.getElementById('filter-business-type').value;
         currentFilters.date_from = document.getElementById('filter-date-from').value;
@@ -541,12 +509,7 @@
         }
     }
     
-    // Refresh data
-    function refreshData() {
-        loadStores();
-        showToast('データを更新しました', 'success');
-    }
-    
+
     // View store detail (placeholder)
     function viewStoreDetail(storeId) {
         showToast(`店舗ID: ${storeId} の詳細表示機能は今後実装予定です`, 'info');

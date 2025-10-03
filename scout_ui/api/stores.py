@@ -56,7 +56,7 @@ class FilterOptions(BaseModel):
 async def get_stores(
     request: Request,
     page: int = Query(1, ge=1, description="ページ番号"),
-    page_size: int = Query(20, ge=1, le=100, description="1ページあたりの件数"),
+    page_size: int = Query(30, ge=1, le=100, description="1ページあたりの件数"),
     area: Optional[str] = Query(None, description="エリアフィルター"),
     business_type: Optional[str] = Query(None, description="業種フィルター"),
     date_from: Optional[str] = Query(None, description="開始日 (YYYY-MM-DD)"),
@@ -65,7 +65,8 @@ async def get_stores(
     sort_order: str = Query("desc", description="ソート順序 (asc/desc)"),
     view_type: str = Query("weekly", description="表示タイプ (weekly/daily)"),
     search: Optional[str] = Query(None, description="検索キーワード"),
-    current_user: dict = Depends(get_current_user_optional)
+    current_user: dict = Depends(get_current_user_optional),
+    db: Session = Depends(get_db_session)
 ):
     """
     Get paginated list of stores with filtering and sorting
@@ -77,85 +78,98 @@ async def get_stores(
         logger.info(f"Getting stores list for user: {user_name} (logged_in: {is_logged_in})")
         
         # 未ログイン時は3日間のデータのみ表示するため、データを制限
-        data_limit_days = 3 if not is_logged_in else None
+        # データベースから実際の店舗データを取得
+        from scout_ui.models.store import Business, StatusHistory
+        from sqlalchemy import desc, asc
         
-        # モックデータを生成（実際のデータベース接続の代わり）
-        import random
-        areas = ["銀座", "新宿", "渋谷", "六本木", "池袋", "赤坂", "青山", "表参道", "恵比寿", "品川"]
-        business_types = ["クラブ", "ラウンジ", "スナック", "キャバクラ", "ガールズバー"]
-        store_names = [
-            "エレガンス", "プレミアム", "ハーモニー", "ロイヤル", "スタイル", "グレース", "シャルム", "ビューティー",
-            "ラグジュアリー", "クラシック", "モダン", "エクセレント", "パーフェクト", "スペシャル", "デラックス",
-            "プラチナ", "ゴールド", "シルバー", "ダイヤモンド", "パール", "ルビー", "サファイア", "エメラルド",
-            "トパーズ", "アメジスト", "オパール", "ガーネット", "アクアマリン", "ペリドット", "ムーンストーン"
-        ]
+        logger.info(f"Getting stores list for user: {user_name} (logged_in: {is_logged_in})")
         
-        mock_stores = []
-        # 未ログイン時は3日間のデータのみ、ログイン時は全データ
-        total_stores = 15 if not is_logged_in else 50
-        
-        for i in range(total_stores):
-            area = random.choice(areas)
-            business_type = random.choice(business_types)
-            name_suffix = random.choice(store_names)
-            working_rate = round(random.uniform(0.3, 0.95), 2)
-            cast_count = random.randint(8, 35)
-            active_cast_count = int(cast_count * working_rate)
-            
-            # 未ログイン時は最近3日間のデータのみ
-            if not is_logged_in:
-                # 3日以内のランダムな日時を生成
-                days_ago = random.randint(0, 2)
-                hours_ago = random.randint(0, 23)
-                last_updated = datetime.now() - timedelta(days=days_ago, hours=hours_ago)
-            else:
-                # ログイン時は過去30日間のランダムな日時
-                days_ago = random.randint(0, 30)
-                hours_ago = random.randint(0, 23)
-                last_updated = datetime.now() - timedelta(days=days_ago, hours=hours_ago)
-            
-            mock_stores.append({
-                "id": i + 1,
-                "name": f"{area}{business_type} {name_suffix}",
-                "area": area,
-                "business_type": business_type,
-                "working_rate": working_rate,
-                "cast_count": cast_count,
-                "active_cast_count": active_cast_count,
-                "last_updated": last_updated,
-                "avg_rating": round(random.uniform(3.0, 5.0), 1)
-            })
+        # ベースクエリを構築
+        query = db.query(Business).filter(Business.in_scope == True)
         
         # フィルタリング適用
-        filtered_stores = mock_stores
         if area:
-            filtered_stores = [s for s in filtered_stores if s["area"] == area]
+            query = query.filter(Business.area == area)
         if business_type:
-            filtered_stores = [s for s in filtered_stores if s["business_type"] == business_type]
+            query = query.filter(Business.type == business_type)
         if search:
-            filtered_stores = [s for s in filtered_stores if search.lower() in s["name"].lower()]
+            query = query.filter(Business.name.ilike(f"%{search}%"))
+        
+        # 全件数を取得
+        total_count = query.count()
         
         # ソート適用
-        reverse = sort_order == "desc"
         if sort_by == "working_rate":
-            filtered_stores.sort(key=lambda x: x["working_rate"], reverse=reverse)
+            # 最新の稼働率でソート（サブクエリを使用）
+            from sqlalchemy import func
+            latest_rates = db.query(
+                StatusHistory.business_id,
+                func.max(StatusHistory.biz_date).label('latest_date')
+            ).group_by(StatusHistory.business_id).subquery()
+            
+            working_rates = db.query(
+                StatusHistory.business_id,
+                StatusHistory.working_rate
+            ).join(
+                latest_rates,
+                (StatusHistory.business_id == latest_rates.c.business_id) &
+                (StatusHistory.biz_date == latest_rates.c.latest_date)
+            ).subquery()
+            
+            query = query.outerjoin(
+                working_rates,
+                Business.business_id == working_rates.c.business_id
+            )
+            
+            if sort_order == "desc":
+                query = query.order_by(desc(working_rates.c.working_rate))
+            else:
+                query = query.order_by(asc(working_rates.c.working_rate))
         elif sort_by == "name":
-            filtered_stores.sort(key=lambda x: x["name"], reverse=reverse)
+            if sort_order == "desc":
+                query = query.order_by(desc(Business.name))
+            else:
+                query = query.order_by(asc(Business.name))
         elif sort_by == "area":
-            filtered_stores.sort(key=lambda x: x["area"], reverse=reverse)
-        elif sort_by == "cast_count":
-            filtered_stores.sort(key=lambda x: x["cast_count"], reverse=reverse)
+            if sort_order == "desc":
+                query = query.order_by(desc(Business.area))
+            else:
+                query = query.order_by(asc(Business.area))
         
         # ページネーション
-        total_count = len(filtered_stores)
         total_pages = (total_count + page_size - 1) // page_size
         start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paged_stores = filtered_stores[start_idx:end_idx]
+        end_idx = min(start_idx + page_size, total_count)
+        paged_stores = query.offset(start_idx).limit(page_size).all()
+        
+        # 各店舗の最新稼働率を取得
+        stores_with_rates = []
+        for store in paged_stores:
+            # 最新の稼働率を取得
+            latest_rate = db.query(StatusHistory).filter(
+                StatusHistory.business_id == store.business_id
+            ).order_by(desc(StatusHistory.biz_date)).first()
+            
+            working_rate = float(latest_rate.working_rate) if latest_rate else 0.0
+            last_updated = latest_rate.biz_date if latest_rate else store.updated_at
+            
+            stores_with_rates.append({
+                "id": store.business_id,
+                "name": store.name,
+                "area": store.area,
+                "business_type": store.type,
+                "working_rate": working_rate,
+                "cast_count": store.capacity or 0,
+                "active_cast_count": int((store.capacity or 0) * working_rate) if store.capacity else 0,
+                "last_updated": last_updated,
+                "avg_rating": 4.0  # デフォルト値
+            })
+        
+        filtered_stores = stores_with_rates
         
         # レスポンス形式に変換
         stores_data = []
-        for store in paged_stores:
+        for store in stores_with_rates:
             stores_data.append({
                 "id": store["id"],
                 "name": store["name"],
@@ -164,7 +178,7 @@ async def get_stores(
                 "working_rate": store["working_rate"],
                 "cast_count": store["cast_count"],
                 "active_cast_count": store["active_cast_count"],
-                "last_updated": store["last_updated"].isoformat(),
+                "last_updated": store["last_updated"].isoformat() if store["last_updated"] else None,
                 "status": "active" if store["working_rate"] > 0.5 else "inactive",
                 "avg_rating": store["avg_rating"]
             })

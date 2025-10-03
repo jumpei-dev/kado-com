@@ -62,6 +62,20 @@
             background-color: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(4px);
         }
+        
+        /* Mobile dropdown positioning fix */
+        @media (max-width: 768px) {
+            #export-dropdown {
+                right: 0 !important;
+                left: auto !important;
+                transform: translateX(0) !important;
+                min-width: 200px !important;
+            }
+            
+            .relative {
+                position: relative !important;
+            }
+        }
     </style>
     
     {% block extra_head %}{% endblock %}
@@ -75,15 +89,10 @@
                     <div class="flex-shrink-0">
                         <h1 class="text-xl font-bold text-gray-900">
                             <i class="fas fa-search mr-2 text-primary-500"></i>
-                            Scout UI
+                            稼働.com
                         </h1>
                     </div>
-                    <div class="hidden md:ml-6 md:flex md:space-x-8">
-                        <a href="/dashboard" class="{% if request.url.path == '/dashboard' %}border-primary-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
-                            <i class="fas fa-tachometer-alt mr-2"></i>
-                            ダッシュボード
-                        </a>
-                    </div>
+
                 </div>
                 
                 <div class="flex items-center space-x-4">
