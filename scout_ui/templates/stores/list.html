@@ -1,0 +1,637 @@
+{% extends "base.html" %}
+
+{% block title %}店舗一覧 - Scout UI{% endblock %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="mb-8">
+    <div class="md:flex md:items-center md:justify-between">
+        <div class="flex-1 min-w-0">
+            <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+                <i class="fas fa-store mr-3 text-primary-500"></i>
+                店舗一覧
+            </h2>
+            <p class="mt-1 text-sm text-gray-500">
+                全店舗の詳細情報と稼働状況
+            </p>
+        </div>
+        <div class="mt-4 flex md:mt-0 md:ml-4">
+            <button onclick="exportCSV()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <i class="fas fa-download mr-2"></i>
+                CSV出力
+            </button>
+            <button onclick="exportRanking()" class="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <i class="fas fa-trophy mr-2"></i>
+                ランキング出力
+            </button>
+            <button onclick="openFilterModal()" class="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                <i class="fas fa-filter mr-2"></i>
+                フィルター
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Controls Section -->
+<div class="bg-white shadow rounded-lg mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">表示形式:</label>
+                    <select id="view-type" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="grid" {% if current_filters.view_type == 'grid' %}selected{% endif %}>グリッド</option>
+                        <option value="table" {% if current_filters.view_type == 'table' %}selected{% endif %}>テーブル</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">ソート:</label>
+                    <select id="sort-by" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="working_rate" {% if current_filters.sort_by == 'working_rate' %}selected{% endif %}>稼働率</option>
+                        <option value="name" {% if current_filters.sort_by == 'name' %}selected{% endif %}>店舗名</option>
+                        <option value="area" {% if current_filters.sort_by == 'area' %}selected{% endif %}>エリア</option>
+                        <option value="cast_count" {% if current_filters.sort_by == 'cast_count' %}selected{% endif %}>キャスト数</option>
+                        <option value="avg_rating" {% if current_filters.sort_by == 'avg_rating' %}selected{% endif %}>評価</option>
+                    </select>
+                    <select id="sort-order" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="desc" {% if current_filters.sort_order == 'desc' %}selected{% endif %}>降順</option>
+                        <option value="asc" {% if current_filters.sort_order == 'asc' %}selected{% endif %}>昇順</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm font-medium text-gray-700">表示件数:</label>
+                    <select id="page-size" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="10" {% if current_filters.page_size == 10 %}selected{% endif %}>10件</option>
+                        <option value="20" {% if current_filters.page_size == 20 %}selected{% endif %}>20件</option>
+                        <option value="50" {% if current_filters.page_size == 50 %}selected{% endif %}>50件</option>
+                        <option value="100" {% if current_filters.page_size == 100 %}selected{% endif %}>100件</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <span class="text-sm text-gray-500" id="result-count">読み込み中...</span>
+                <button onclick="refreshData()" class="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-sync-alt mr-1"></i>
+                    更新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Store List -->
+<div class="bg-white shadow rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">
+            <i class="fas fa-list mr-2 text-primary-500"></i>
+            店舗データ
+        </h3>
+    </div>
+    
+    <div id="store-content" class="p-6">
+        <div class="flex items-center justify-center py-12">
+            <div class="loading mr-3"></div>
+            <span class="text-gray-500">データを読み込み中...</span>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    <div id="pagination" class="px-6 py-4 border-t border-gray-200 hidden">
+        <!-- Pagination will be inserted here -->
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div id="filter-modal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-backdrop fixed inset-0" onclick="closeFilterModal()"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-screen overflow-y-auto">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        <i class="fas fa-filter mr-2 text-primary-500"></i>
+                        フィルター設定
+                    </h3>
+                    <button onclick="closeFilterModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">エリア</label>
+                    <select id="filter-area" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">すべてのエリア</option>
+                        {% for area in filter_options.areas %}
+                        <option value="{{ area }}" {% if current_filters.area == area %}selected{% endif %}>{{ area }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">業種</label>
+                    <select id="filter-business-type" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="">すべての業種</option>
+                        {% for business_type in filter_options.business_types %}
+                        <option value="{{ business_type }}" {% if current_filters.business_type == business_type %}selected{% endif %}>{{ business_type }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">稼働率</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">最小値(%)</label>
+                            <input type="number" id="filter-min-rate" min="0" max="100" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" value="{{ current_filters.min_working_rate or '' }}">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">最大値(%)</label>
+                            <input type="number" id="filter-max-rate" min="0" max="100" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" value="{{ current_filters.max_working_rate or '' }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">期間</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">開始日</label>
+                            <input type="date" id="filter-date-from" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" value="{{ current_filters.date_from }}">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">終了日</label>
+                            <input type="date" id="filter-date-to" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" value="{{ current_filters.date_to }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button onclick="clearFilters()" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    クリア
+                </button>
+                <button onclick="applyFilters()" class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
+                    適用
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPage = {{ current_filters.page|default(1) }};
+    let currentFilters = {
+        area: '{{ current_filters.area|default("") }}',
+        business_type: '{{ current_filters.business_type|default("") }}',
+        date_from: '{{ current_filters.date_from|default("") }}',
+        date_to: '{{ current_filters.date_to|default("") }}',
+        min_working_rate: '{{ current_filters.min_working_rate|default("") }}',
+        max_working_rate: '{{ current_filters.max_working_rate|default("") }}',
+        sort_by: '{{ current_filters.sort_by|default("working_rate") }}',
+        sort_order: '{{ current_filters.sort_order|default("desc") }}',
+        view_type: '{{ current_filters.view_type|default("grid") }}',
+        page_size: {{ current_filters.page_size|default(20) }}
+    };
+    
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStores();
+        
+        // Event listeners for controls
+        document.getElementById('view-type').addEventListener('change', function() {
+            currentFilters.view_type = this.value;
+            currentPage = 1;
+            loadStores();
+        });
+        
+        document.getElementById('sort-by').addEventListener('change', function() {
+            currentFilters.sort_by = this.value;
+            currentPage = 1;
+            loadStores();
+        });
+        
+        document.getElementById('sort-order').addEventListener('change', function() {
+            currentFilters.sort_order = this.value;
+            currentPage = 1;
+            loadStores();
+        });
+        
+        document.getElementById('page-size').addEventListener('change', function() {
+            currentFilters.page_size = parseInt(this.value);
+            currentPage = 1;
+            loadStores();
+        });
+    });
+    
+    // Load stores data
+    async function loadStores() {
+        try {
+            const params = new URLSearchParams({
+                page: currentPage,
+                page_size: currentFilters.page_size,
+                ...currentFilters
+            });
+            
+            // Remove empty values
+            for (let [key, value] of params.entries()) {
+                if (!value) {
+                    params.delete(key);
+                }
+            }
+            
+            const response = await fetch(`/api/stores/list?${params}`);
+            const data = await response.json();
+            
+            if (currentFilters.view_type === 'table') {
+                renderStoreTable(data.stores);
+            } else {
+                renderStoreGrid(data.stores);
+            }
+            
+            renderPagination(data.pagination);
+            updateResultCount(data.pagination);
+            
+        } catch (error) {
+            console.error('Error loading stores:', error);
+            showToast('店舗データの読み込みに失敗しました', 'error');
+        }
+    }
+    
+    // Render store grid
+    function renderStoreGrid(stores) {
+        const content = document.getElementById('store-content');
+        
+        if (stores.length === 0) {
+            content.innerHTML = `
+                <div class="text-center py-12">
+                    <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">条件に一致する店舗が見つかりませんでした</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const gridHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                ${stores.map(store => `
+                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-start justify-between mb-3">
+                            <h4 class="text-lg font-medium text-gray-900 truncate pr-2">${store.name}</h4>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+                                store.working_rate > 0.7 ? 'bg-green-100 text-green-800' :
+                                store.working_rate > 0.4 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                            }">
+                                ${(store.working_rate * 100).toFixed(1)}%
+                            </span>
+                        </div>
+                        
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <div class="flex items-center">
+                                <i class="fas fa-map-marker-alt w-4 text-gray-400"></i>
+                                <span class="ml-2 truncate">${store.area}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-building w-4 text-gray-400"></i>
+                                <span class="ml-2 truncate">${store.business_type}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-users w-4 text-gray-400"></i>
+                                <span class="ml-2">${store.active_cast_count}/${store.cast_count} キャスト</span>
+                            </div>
+                            ${store.last_updated ? `
+                                <div class="flex items-center">
+                                    <i class="fas fa-clock w-4 text-gray-400"></i>
+                                    <span class="ml-2">${new Date(store.last_updated).toLocaleDateString('ja-JP')}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="mt-4 flex items-center justify-between">
+                            <div class="flex items-center">
+                                ${Array.from({length: 5}, (_, i) => `
+                                    <i class="fas fa-star text-sm ${
+                                        i < Math.floor(store.avg_rating) ? 'text-yellow-400' : 'text-gray-300'
+                                    }"></i>
+                                `).join('')}
+                                <span class="ml-1 text-xs text-gray-500">(${store.avg_rating})</span>
+                            </div>
+                            <button onclick="viewStoreDetail(${store.id})" class="text-primary-600 hover:text-primary-700 text-sm font-medium">
+                                詳細 <i class="fas fa-arrow-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        content.innerHTML = gridHTML;
+    }
+    
+    // Render store table
+    function renderStoreTable(stores) {
+        const content = document.getElementById('store-content');
+        
+        if (stores.length === 0) {
+            content.innerHTML = `
+                <div class="text-center py-12">
+                    <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">条件に一致する店舗が見つかりませんでした</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const tableHTML = `
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">店舗名</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">エリア</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">業種</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">稼働率</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">キャスト数</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">評価</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最終更新</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${stores.map(store => `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">${store.name}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">${store.area}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">${store.business_type}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                        store.working_rate > 0.7 ? 'bg-green-100 text-green-800' :
+                                        store.working_rate > 0.4 ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-red-100 text-red-800'
+                                    }">
+                                        ${(store.working_rate * 100).toFixed(1)}%
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">${store.active_cast_count}/${store.cast_count}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        ${Array.from({length: 5}, (_, i) => `
+                                            <i class="fas fa-star text-sm ${
+                                                i < Math.floor(store.avg_rating) ? 'text-yellow-400' : 'text-gray-300'
+                                            }"></i>
+                                        `).join('')}
+                                        <span class="ml-1 text-xs text-gray-500">(${store.avg_rating})</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">
+                                        ${store.last_updated ? new Date(store.last_updated).toLocaleDateString('ja-JP') : '-'}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button onclick="viewStoreDetail(${store.id})" class="text-primary-600 hover:text-primary-900">
+                                        詳細
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        content.innerHTML = tableHTML;
+    }
+    
+    // Render pagination (same as dashboard)
+    function renderPagination(pagination) {
+        const paginationEl = document.getElementById('pagination');
+        
+        if (pagination.total_pages <= 1) {
+            paginationEl.classList.add('hidden');
+            return;
+        }
+        
+        paginationEl.classList.remove('hidden');
+        
+        const paginationHTML = `
+            <div class="flex items-center justify-between">
+                <div class="flex-1 flex justify-between sm:hidden">
+                    <button onclick="changePage(${pagination.page - 1})" 
+                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${
+                                !pagination.has_prev ? 'opacity-50 cursor-not-allowed' : ''
+                            }" 
+                            ${!pagination.has_prev ? 'disabled' : ''}>
+                        前へ
+                    </button>
+                    <button onclick="changePage(${pagination.page + 1})" 
+                            class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 ${
+                                !pagination.has_next ? 'opacity-50 cursor-not-allowed' : ''
+                            }" 
+                            ${!pagination.has_next ? 'disabled' : ''}>
+                        次へ
+                    </button>
+                </div>
+                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-700">
+                            <span class="font-medium">${pagination.start_idx}</span>
+                            から
+                            <span class="font-medium">${pagination.end_idx}</span>
+                            件目（全
+                            <span class="font-medium">${pagination.total_count}</span>
+                            件中）
+                        </p>
+                    </div>
+                    <div>
+                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                            <button onclick="changePage(${pagination.page - 1})" 
+                                    class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${
+                                        !pagination.has_prev ? 'opacity-50 cursor-not-allowed' : ''
+                                    }" 
+                                    ${!pagination.has_prev ? 'disabled' : ''}>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            
+                            ${Array.from({length: Math.min(pagination.total_pages, 7)}, (_, i) => {
+                                let pageNum;
+                                if (pagination.total_pages <= 7) {
+                                    pageNum = i + 1;
+                                } else if (pagination.page <= 4) {
+                                    pageNum = i + 1;
+                                } else if (pagination.page >= pagination.total_pages - 3) {
+                                    pageNum = pagination.total_pages - 6 + i;
+                                } else {
+                                    pageNum = pagination.page - 3 + i;
+                                }
+                                
+                                const isCurrentPage = pageNum === pagination.page;
+                                const buttonClass = isCurrentPage 
+                                    ? 'z-10 bg-primary-50 border-primary-500 text-primary-600' 
+                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50';
+                                
+                                return `
+                                    <button onclick="changePage(${pageNum})" 
+                                            class="relative inline-flex items-center px-4 py-2 border text-sm font-medium ${buttonClass}">
+                                        ${pageNum}
+                                    </button>
+                                `;
+                            }).join('')}
+                            
+                            <button onclick="changePage(${pagination.page + 1})" 
+                                    class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 ${
+                                        !pagination.has_next ? 'opacity-50 cursor-not-allowed' : ''
+                                    }" 
+                                    ${!pagination.has_next ? 'disabled' : ''}>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        paginationEl.innerHTML = paginationHTML;
+    }
+    
+    // Update result count
+    function updateResultCount(pagination) {
+        const countEl = document.getElementById('result-count');
+        countEl.textContent = `${pagination.total_count}件の店舗`;
+    }
+    
+    // Change page
+    function changePage(page) {
+        currentPage = page;
+        loadStores();
+    }
+    
+    // Filter modal functions
+    function openFilterModal() {
+        document.getElementById('filter-modal').classList.remove('hidden');
+    }
+    
+    function closeFilterModal() {
+        document.getElementById('filter-modal').classList.add('hidden');
+    }
+    
+    function clearFilters() {
+        document.getElementById('filter-area').value = '';
+        document.getElementById('filter-business-type').value = '';
+        document.getElementById('filter-date-from').value = '';
+        document.getElementById('filter-date-to').value = '';
+        document.getElementById('filter-min-rate').value = '';
+        document.getElementById('filter-max-rate').value = '';
+    }
+    
+    function applyFilters() {
+        currentFilters.area = document.getElementById('filter-area').value;
+        currentFilters.business_type = document.getElementById('filter-business-type').value;
+        currentFilters.date_from = document.getElementById('filter-date-from').value;
+        currentFilters.date_to = document.getElementById('filter-date-to').value;
+        currentFilters.min_working_rate = document.getElementById('filter-min-rate').value;
+        currentFilters.max_working_rate = document.getElementById('filter-max-rate').value;
+        
+        currentPage = 1;
+        loadStores();
+        closeFilterModal();
+    }
+    
+    // Export CSV
+    async function exportCSV() {
+        try {
+            const params = new URLSearchParams(currentFilters);
+            
+            // Remove empty values
+            for (let [key, value] of params.entries()) {
+                if (!value) {
+                    params.delete(key);
+                }
+            }
+            
+            const response = await fetch(`/api/stores/export/csv?${params}`);
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `stores_export_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showToast('CSVファイルをダウンロードしました', 'success');
+            } else {
+                throw new Error('Export failed');
+            }
+        } catch (error) {
+            console.error('Error exporting CSV:', error);
+            showToast('CSVエクスポートに失敗しました', 'error');
+        }
+    }
+    
+    // Export ranking
+    async function exportRanking() {
+        try {
+            const params = new URLSearchParams(currentFilters);
+            
+            // Remove empty values
+            for (let [key, value] of params.entries()) {
+                if (!value) {
+                    params.delete(key);
+                }
+            }
+            
+            const response = await fetch(`/api/stores/export/ranking?${params}`);
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `stores_ranking_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showToast('ランキングCSVファイルをダウンロードしました', 'success');
+            } else {
+                throw new Error('Ranking export failed');
+            }
+        } catch (error) {
+            console.error('Error exporting ranking:', error);
+            showToast('ランキングエクスポートに失敗しました', 'error');
+        }
+    }
+    
+    // Refresh data
+    function refreshData() {
+        loadStores();
+        showToast('データを更新しました', 'success');
+    }
+    
+    // View store detail (placeholder)
+    function viewStoreDetail(storeId) {
+        showToast(`店舗ID: ${storeId} の詳細表示機能は今後実装予定です`, 'info');
+    }
+</script>
+{% endblock %}

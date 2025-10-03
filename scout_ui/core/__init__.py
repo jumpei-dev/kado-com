@@ -1,0 +1,1 @@
+"""Core package for Scout UI application"""

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}ログイン - Scout UI{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <div>
+            <div class="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-primary-100">
+                <i class="fas fa-search text-primary-600 text-xl"></i>
+            </div>
+            <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                Scout UIにログイン
+            </h2>
+            <p class="mt-2 text-center text-sm text-gray-600">
+                スカウト向け店舗管理システム
+            </p>
+        </div>
+        
+        <form class="mt-8 space-y-6" method="post" action="/api/auth/login/form">
+            {% if error %}
+            <div class="bg-red-50 border border-red-200 rounded-md p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-circle text-red-400"></i>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-red-800">{{ error }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="rounded-md shadow-sm -space-y-px">
+                <div>
+                    <label for="username" class="sr-only">ユーザー名</label>
+                    <input id="username" name="username" type="text" required 
+                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm" 
+                           placeholder="ユーザー名">
+                </div>
+                <div>
+                    <label for="password" class="sr-only">パスワード</label>
+                    <input id="password" name="password" type="password" required 
+                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm" 
+                           placeholder="パスワード">
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <input id="remember-me" name="remember-me" type="checkbox" 
+                           class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                    <label for="remember-me" class="ml-2 block text-sm text-gray-900">
+                        ログイン状態を保持
+                    </label>
+                </div>
+            </div>
+            
+            <div>
+                <button type="submit" 
+                        class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <i class="fas fa-sign-in-alt text-primary-500 group-hover:text-primary-400"></i>
+                    </span>
+                    ログイン
+                </button>
+            </div>
+            
+            <div class="text-center">
+                <div class="text-sm text-gray-600">
+                    <p class="mb-2">デモ用アカウント:</p>
+                    <p class="font-mono text-xs bg-gray-100 p-2 rounded">
+                        ユーザー名: admin<br>
+                        パスワード: admin123
+                    </p>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // フォーム送信時のローディング表示
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const button = this.querySelector('button[type="submit"]');
+        const originalText = button.innerHTML;
+        
+        button.disabled = true;
+        button.innerHTML = '<div class="loading mr-2"></div>ログイン中...';
+        
+        // エラーが発生した場合に備えて、5秒後にボタンを復元
+        setTimeout(() => {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }, 5000);
+    });
+    
+    // エンターキーでフォーム送信
+    document.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            document.querySelector('form').submit();
+        }
+    });
+</script>
+{% endblock %}

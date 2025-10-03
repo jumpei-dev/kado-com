@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Scout UI - スカウト向け店舗管理システム{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        secondary: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            500: '#64748b',
+                            600: '#475569',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <style>
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-search mr-2 text-primary-500"></i>
+                            Scout UI
+                        </h1>
+                    </div>
+                    <div class="hidden md:ml-6 md:flex md:space-x-8">
+                        <a href="/dashboard" class="{% if request.url.path == '/dashboard' %}border-primary-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            <i class="fas fa-tachometer-alt mr-2"></i>
+                            ダッシュボード
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    {% if user %}
+                        <div class="flex items-center space-x-3">
+                            <span class="text-sm text-gray-700">
+                                <i class="fas fa-user mr-1"></i>
+                                {{ user.username }}
+                            </span>
+                            <form method="post" action="/auth/logout" class="inline">
+                                <button type="submit" class="text-sm text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-sign-out-alt mr-1"></i>
+                                    ログアウト
+                                </button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <a href="/auth/login" class="text-sm text-primary-600 hover:text-primary-700">
+                            <i class="fas fa-sign-in-alt mr-1"></i>
+                            ログイン
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <div class="text-center text-sm text-gray-500">
+                <p>&copy; 2024 Scout UI. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+            <div class="loading"></div>
+            <span class="text-gray-700">読み込み中...</span>
+        </div>
+    </div>
+    
+    <!-- Base JavaScript -->
+    <script>
+        // Toast notification function
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = {
+                'success': 'bg-green-500',
+                'error': 'bg-red-500',
+                'warning': 'bg-yellow-500',
+                'info': 'bg-blue-500'
+            }[type] || 'bg-blue-500';
+            
+            toast.className = `${bgColor} text-white px-4 py-2 rounded-lg shadow-lg fade-in`;
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+        
+        // Loading overlay functions
+        function showLoading() {
+            document.getElementById('loading-overlay').classList.remove('hidden');
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+        
+        // CSRF token helper (if needed)
+        function getCSRFToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        }
+        
+        // API request helper
+        async function apiRequest(url, options = {}) {
+            showLoading();
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                showToast('エラーが発生しました: ' + error.message, 'error');
+                throw error;
+            } finally {
+                hideLoading();
+            }
+        }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
