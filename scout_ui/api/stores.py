@@ -16,6 +16,7 @@ from scout_ui.utils.filters import (
     apply_sorting,
     paginate_stores
 )
+from scout_ui.utils.business_type_utils import convert_business_type_to_japanese
 from scout_ui.models.store import StoreView
 from scout_ui.utils.csv_export import generate_csv_response
 
@@ -182,7 +183,7 @@ async def get_stores(
                 "id": store["id"],
                 "name": store["name"],
                 "area": store["area"],
-                "business_type": store["business_type"],
+                "business_type": convert_business_type_to_japanese(store["business_type"]),
                 "working_rate": store["working_rate"],  # Noneの場合はそのまま（フロントエンドで「-」表示）
                 "cast_count": store["cast_count"],
                 "active_cast_count": store["active_cast_count"],

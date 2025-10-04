@@ -14,6 +14,7 @@ from scout_ui.utils.filters import (
     apply_sorting,
     paginate_stores
 )
+from scout_ui.utils.business_type_utils import convert_business_type_to_japanese
 from scout_ui.models.store import StoreView
 
 logger = logging.getLogger(__name__)
@@ -230,7 +231,7 @@ async def get_recent_stores(
                 id=business.business_id,
                 name=business.name,
                 area=business.area,
-                business_type=business.type,
+                business_type=convert_business_type_to_japanese(business.type),
                 working_rate=store_data['working_rate'],
                 cast_count=store_data['cast_count'],
                 last_updated=store_data['last_updated'],
@@ -347,7 +348,7 @@ async def get_top_stores(
                 id=business.business_id,
                 name=business.name,
                 area=business.area,
-                business_type=business.type,
+                business_type=convert_business_type_to_japanese(business.type),
                 working_rate=store_data['working_rate'],
                 cast_count=store_data['cast_count'],
                 last_updated=store_data['last_updated'],
@@ -457,7 +458,7 @@ async def get_dashboard_stores(
                 id=business.business_id,
                 name=business.name,
                 area=business.area,
-                business_type=business.type,
+                business_type=convert_business_type_to_japanese(business.type),
                 working_rate=store_data['working_rate'],
                 cast_count=store_data['cast_count'],
                 last_updated=store_data['last_updated'],
