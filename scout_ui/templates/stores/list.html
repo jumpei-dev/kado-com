@@ -385,8 +385,18 @@
                     </div>
                     <div class="flex justify-between">
                         <span>稼働率:</span>
-                        <span class="font-semibold ${store.working_rate >= 70 ? 'text-green-600' : store.working_rate >= 40 ? 'text-yellow-600' : 'text-red-600'}">
-                            ${(store.working_rate * 100).toFixed(1)}%
+                        <span class="font-semibold ${
+                            store.working_rate === null || store.working_rate === undefined 
+                                ? 'text-gray-500' 
+                                : store.working_rate >= 0.7 ? 'text-green-600' 
+                                : store.working_rate >= 0.4 ? 'text-yellow-600' 
+                                : 'text-red-600'
+                        }">
+                            ${
+                                store.working_rate === null || store.working_rate === undefined 
+                                    ? '-' 
+                                    : (store.working_rate * 100).toFixed(1) + '%'
+                            }
                         </span>
                     </div>
                     <div class="flex justify-between">
@@ -459,9 +469,17 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${escapeHtml(store.business_type)}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="text-sm font-semibold ${
-                                        store.working_rate >= 70 ? 'text-green-600' : store.working_rate >= 40 ? 'text-yellow-600' : 'text-red-600'
+                                        store.working_rate === null || store.working_rate === undefined 
+                                            ? 'text-gray-500' 
+                                            : store.working_rate >= 0.7 ? 'text-green-600' 
+                                            : store.working_rate >= 0.4 ? 'text-yellow-600' 
+                                            : 'text-red-600'
                                     }">
-                                        ${(store.working_rate * 100).toFixed(1)}%
+                                        ${
+                                            store.working_rate === null || store.working_rate === undefined 
+                                                ? '-' 
+                                                : (store.working_rate * 100).toFixed(1) + '%'
+                                        }
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

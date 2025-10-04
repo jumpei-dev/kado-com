@@ -14,7 +14,8 @@
 
 <!-- Unified Controls Section -->
 <div class="mb-6">
-    <div class="flex flex-wrap items-center justify-end gap-4">
+    <!-- Desktop Controls (hidden on mobile) -->
+    <div class="hidden md:flex flex-wrap items-center justify-end gap-4">
         <!-- Right side: Refresh, Filter and Export buttons -->
         <div class="flex items-center space-x-3">
                 <button onclick="refreshData()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
@@ -25,6 +26,11 @@
                 <button onclick="openFilterModal()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
                     <i class="fas fa-filter mr-2"></i>
                     フィルター
+                </button>
+                
+                <button onclick="openUserGuide()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <i class="fas fa-question-circle mr-2"></i>
+                    使い方ガイド
                 </button>
                 
                 <!-- Export Dropdown -->
@@ -49,8 +55,44 @@
                         </div>
                     </div>
                 </div>
+        </div>
+    </div>
+    
+    <!-- Mobile Hamburger Menu (visible only on mobile) -->
+    <div class="md:hidden flex justify-end">
+        <div class="relative">
+            <button onclick="toggleMobileMenu()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500" id="mobile-menu-button">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <!-- Mobile Menu Dropdown -->
+            <div id="mobile-menu" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50" role="menu">
+                <div class="py-1" role="none">
+                    <button onclick="refreshData(); toggleMobileMenu();" class="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        表示更新
+                    </button>
+                    <button onclick="openFilterModal(); toggleMobileMenu();" class="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
+                        <i class="fas fa-filter mr-2"></i>
+                        フィルター
+                    </button>
+                    <button onclick="openUserGuide(); toggleMobileMenu();" class="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
+                        <i class="fas fa-question-circle mr-2"></i>
+                        使い方ガイド
+                    </button>
+                    <div class="border-t border-gray-100"></div>
+                    <button onclick="exportCSV(); toggleMobileMenu();" class="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
+                        <i class="fas fa-file-csv mr-2"></i>
+                        CSV出力
+                    </button>
+                    <button onclick="exportSimpleRanking(); toggleMobileMenu();" class="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
+                        <i class="fas fa-trophy mr-2"></i>
+                        簡易ランキング出力
+                    </button>
+                </div>
             </div>
         </div>
+    </div>
 </div>
 
 <!-- Store Grid -->
@@ -58,9 +100,23 @@
 
     
     <div id="store-grid" class="p-6">
-        <div class="flex items-center justify-center py-12">
+        <div id="loading-indicator" class="flex items-center justify-center py-12">
             <div class="loading mr-3"></div>
             <span class="text-gray-500">データを読み込み中...</span>
+        </div>
+        <div id="stores-table-container" class="hidden overflow-x-auto">
+            <table class="min-w-full border-collapse border border-gray-300">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20">店舗名</th>
+                        <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">エリア</th>
+                        <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">業種</th>
+                        <th id="date-headers"></th>
+                    </tr>
+                </thead>
+                <tbody id="stores-table-body">
+                </tbody>
+            </table>
         </div>
     </div>
     
@@ -69,6 +125,8 @@
         <!-- Pagination will be inserted here -->
     </div>
 </div>
+
+
 
 <!-- Filter Modal -->
 <div id="filter-modal" class="fixed inset-0 z-50 hidden">
@@ -159,6 +217,30 @@
         view_type: 'weekly'
     };
     
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+    
+    // Update store count display
+    function updateStoreCount(total) {
+        const countElement = document.querySelector('.text-2xl.font-bold');
+        if (countElement) {
+            countElement.innerHTML = `
+                <i class="fas fa-store mr-3 text-primary-500"></i>
+                稼働率一覧 (${total}件)
+            `;
+        }
+    }
+    
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
         loadStores();
@@ -169,7 +251,7 @@
         try {
             const params = new URLSearchParams({
                 page: currentPage,
-                page_size: 20,
+                limit: 20,
                 ...currentFilters
             });
             
@@ -180,11 +262,16 @@
                 }
             }
             
-            const response = await fetch(`/api/stores/list?${params}`);
+            const response = await fetch(`/api/dashboard/stores?${params}`);
             const data = await response.json();
             
-            renderStoreGrid(data.stores);
-            renderPagination(data.pagination);
+            if (data.success) {
+                renderStoreGrid(data.stores);
+                renderPagination(data.pagination);
+                updateStoreCount(data.pagination.total);
+            } else {
+                throw new Error(data.message || '店舗データの取得に失敗しました');
+            }
             
         } catch (error) {
             console.error('Error loading stores:', error);
@@ -192,86 +279,89 @@
         }
     }
     
-    // Render store grid
+    // Render store grid with date-based working rates
     function renderStoreGrid(stores) {
-        const grid = document.getElementById('store-grid');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const tableContainer = document.getElementById('stores-table-container');
+        const tableBody = document.getElementById('stores-table-body');
+        
+        // Hide loading indicator and show table
+        loadingIndicator.classList.add('hidden');
+        tableContainer.classList.remove('hidden');
         
         if (!stores || !Array.isArray(stores)) {
-            grid.innerHTML = `
-                <div class="text-center py-12">
-                    <i class="fas fa-exclamation-triangle text-4xl text-red-300 mb-4"></i>
-                    <p class="text-gray-500">店舗データの読み込みに失敗しました</p>
-                </div>
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="10" class="text-center py-12 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                        <p>店舗データの読み込みに失敗しました</p>
+                    </td>
+                </tr>
             `;
             return;
         }
         
         if (stores.length === 0) {
-            grid.innerHTML = `
-                <div class="text-center py-12">
-                    <i class="fas fa-search text-4xl text-gray-300 mb-4"></i>
-                    <p class="text-gray-500">条件に一致する店舗が見つかりませんでした</p>
-                </div>
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="10" class="text-center py-12 text-gray-500">
+                        <i class="fas fa-search text-4xl mb-4"></i>
+                        <p>条件に一致する店舗が見つかりませんでした</p>
+                    </td>
+                </tr>
             `;
             return;
         }
         
-        // Generate date headers (sample dates)
-        const dates = ['9/20', '9/21', '9/22', '9/23', '9/24', '9/25'];
+        // Generate date headers (last 7 days)
+        const dates = [];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            dates.push(date);
+        }
         
-        const gridHTML = `
-            <div class="overflow-x-auto">
-                <table class="min-w-full border-collapse border border-gray-300">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">店舗名</th>
-                            <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">エリア</th>
-                            <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">業種</th>
-                            ${dates.map(date => `
-                                <th class="border border-gray-300 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-20">${date}</th>
-                            `).join('')}
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        ${stores.map(store => {
-                            // Generate sample working rates for each date
-                            const dailyRates = dates.map(() => {
-                                const baseRate = store.working_rate;
-                                const variation = (Math.random() - 0.5) * 0.2; // ±10% variation
-                                return Math.max(0, Math.min(1, baseRate + variation));
-                            });
-                            
-                            return `
-                                <tr class="hover:bg-gray-50">
-                                    <td class="border border-gray-300 px-4 py-3 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10">
-                                        <div class="flex items-center">
-                                            <span class="truncate max-w-32" title="${store.name}">${store.name}</span>
-                                        </div>
-                                    </td>
-                                    <td class="border border-gray-300 px-4 py-3 text-sm text-gray-500">${store.area}</td>
-                                    <td class="border border-gray-300 px-4 py-3 text-sm text-gray-500">${store.business_type}</td>
-                                    ${dailyRates.map(rate => {
-                                        const percentage = (rate * 100).toFixed(0);
-                                        const colorClass = rate > 0.7 ? 'bg-green-100 text-green-800' :
-                                                          rate > 0.4 ? 'bg-yellow-100 text-yellow-800' :
-                                                          'bg-red-100 text-red-800';
-                                        return `
-                                            <td class="border border-gray-300 px-2 py-3 text-center">
-                                                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ${colorClass}">
-                                                    ${percentage}%
-                                                </span>
-                                            </td>
-                                        `;
-                                    }).join('')}
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
+        // Update date headers
+        const dateHeadersEl = document.getElementById('date-headers');
+        if (dateHeadersEl) {
+            dateHeadersEl.outerHTML = dates.map(date => {
+                const monthDay = `${date.getMonth() + 1}/${date.getDate()}`;
+                return `<th class="border border-gray-300 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">${monthDay}</th>`;
+            }).join('');
+        }
         
-        grid.innerHTML = gridHTML;
+        // Render store rows
+        tableBody.innerHTML = stores.map(store => {
+            // Use actual daily rates from API or show "ー％" if no data
+            const dateColumns = dates.map(date => {
+                const dateStr = date.toISOString().split('T')[0];
+                let displayValue;
+                
+                if (store.daily_rates && store.daily_rates[dateStr] !== null && store.daily_rates[dateStr] !== undefined) {
+                    const rate = Math.round(store.daily_rates[dateStr] * 100);
+                    displayValue = `${rate}%`;
+                } else {
+                    displayValue = 'ー％';
+                }
+                
+                return `<td class="border border-gray-300 px-4 py-3 text-center text-sm">${displayValue}</td>`;
+            }).join('');
+            
+            return `
+                <tr class="hover:bg-gray-50">
+                    <td class="border border-gray-300 px-4 py-3 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10">
+                        ${escapeHtml(store.name || 'かまくら御殿')}
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3 text-sm text-gray-500">
+                        ${escapeHtml(store.area || '東京')}
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3 text-sm text-gray-500">
+                        ${escapeHtml(store.business_type || 'ソープ')}
+                    </td>
+                    ${dateColumns}
+                </tr>
+            `;
+        }).join('');
     }
     
     // Render pagination
@@ -505,9 +595,32 @@
     }
     
 
+
+
     // View store detail (placeholder)
     function viewStoreDetail(storeId) {
         showToast(`店舗ID: ${storeId} の詳細表示機能は今後実装予定です`, 'info');
     }
+    
+    // Open user guide
+    function openUserGuide() {
+        window.open('/data_guide', '_blank');
+    }
+    
+    // Toggle mobile menu
+    function toggleMobileMenu() {
+        const menu = document.getElementById('mobile-menu');
+        menu.classList.toggle('hidden');
+    }
+    
+    // Close mobile menu when clicking outside
+    document.addEventListener('click', function(event) {
+        const menu = document.getElementById('mobile-menu');
+        const button = document.getElementById('mobile-menu-button');
+        
+        if (!button.contains(event.target) && !menu.contains(event.target)) {
+            menu.classList.add('hidden');
+        }
+    });
 </script>
 {% endblock %}

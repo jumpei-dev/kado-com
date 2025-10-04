@@ -28,7 +28,7 @@ class StoreListItem(BaseModel):
     name: str
     area: str
     business_type: str
-    working_rate: float
+    working_rate: Optional[float]  # Noneの場合は「-」で表示
     cast_count: int
     last_updated: Optional[datetime]
     status: str
@@ -150,8 +150,16 @@ async def get_stores(
                 StatusHistory.business_id == store.business_id
             ).order_by(desc(StatusHistory.biz_date)).first()
             
-            working_rate = float(latest_rate.working_rate) if latest_rate else 0.0
+            # status_historyがない場合はNoneを設定（UIで「-」表示）
+            working_rate = float(latest_rate.working_rate) if latest_rate else None
             last_updated = latest_rate.biz_date if latest_rate else store.updated_at
+            
+            # キャスト数を実際のcastsテーブルから取得
+            from scout_ui.models.store import Cast
+            actual_cast_count = db.query(Cast).filter(
+                Cast.business_id == store.business_id,
+                Cast.is_active == True
+            ).count()
             
             stores_with_rates.append({
                 "id": store.business_id,
@@ -159,8 +167,8 @@ async def get_stores(
                 "area": store.area,
                 "business_type": store.type,
                 "working_rate": working_rate,
-                "cast_count": store.capacity or 0,
-                "active_cast_count": int((store.capacity or 0) * working_rate) if store.capacity else 0,
+                "cast_count": actual_cast_count,
+                "active_cast_count": int(actual_cast_count * working_rate) if working_rate is not None and actual_cast_count else 0,
                 "last_updated": last_updated,
                 "avg_rating": 4.0  # デフォルト値
             })
@@ -175,11 +183,11 @@ async def get_stores(
                 "name": store["name"],
                 "area": store["area"],
                 "business_type": store["business_type"],
-                "working_rate": store["working_rate"],
+                "working_rate": store["working_rate"],  # Noneの場合はそのまま（フロントエンドで「-」表示）
                 "cast_count": store["cast_count"],
                 "active_cast_count": store["active_cast_count"],
                 "last_updated": store["last_updated"].isoformat() if store["last_updated"] else None,
-                "status": "active" if store["working_rate"] > 0.5 else "inactive",
+                "status": "active" if store["working_rate"] is not None and store["working_rate"] > 0.5 else "inactive",
                 "avg_rating": store["avg_rating"]
             })
         

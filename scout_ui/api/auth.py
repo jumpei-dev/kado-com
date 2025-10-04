@@ -182,7 +182,7 @@ async def get_current_user_info(
     Get current user information
     """
     try:
-        current_user = get_current_user(request, db)
+        current_user = get_current_user(request)
         if not current_user:
             raise HTTPException(status_code=401, detail="認証が必要です")
             

@@ -151,6 +151,184 @@ async def check_user_permissions(request: Request) -> dict:
         }
 
 
+@router.get("/businesses", response_class=JSONResponse)
+async def get_businesses(
+    request: Request,
+    limit: int = Query(50, description="取得件数", ge=1, le=100),
+    offset: int = Query(0, description="オフセット", ge=0),
+    area: str = Query("all", description="エリアフィルター"),
+    type: str = Query("all", description="業種フィルター"),
+    auth: bool = Depends(require_auth),
+    db = Depends(get_database)
+):
+    """businessテーブルの情報を取得するAPI"""
+    try:
+        # フィルター条件を構築
+        where_conditions = ["in_scope = true"]
+        params = []
+        
+        if area != "all":
+            where_conditions.append("area = %s")
+            params.append(area)
+            
+        if type != "all":
+            where_conditions.append("type = %s")
+            params.append(type)
+        
+        where_clause = " AND ".join(where_conditions)
+        
+        # 総件数を取得
+        count_query = f"SELECT COUNT(*) FROM businesses WHERE {where_clause}"
+        count_result = db.fetch_one(count_query, params)
+        total_count = count_result[0] if count_result else 0
+        
+        # データを取得
+        query = f"""
+        SELECT 
+            business_id,
+            name,
+            area,
+            prefecture,
+            type,
+            capacity,
+            open_hour,
+            close_hour,
+            schedule_url,
+            in_scope,
+            created_at,
+            updated_at
+        FROM businesses 
+        WHERE {where_clause}
+        ORDER BY business_id
+        LIMIT %s OFFSET %s
+        """
+        
+        params.extend([limit, offset])
+        results = db.fetch_all(query, params)
+        
+        businesses = []
+        for row in results:
+            businesses.append({
+                "business_id": row[0],
+                "name": row[1],
+                "area": row[2],
+                "prefecture": row[3],
+                "type": row[4],
+                "capacity": row[5],
+                "open_hour": str(row[6]) if row[6] else None,
+                "close_hour": str(row[7]) if row[7] else None,
+                "schedule_url": row[8],
+                "in_scope": row[9],
+                "created_at": row[10].isoformat() if row[10] else None,
+                "updated_at": row[11].isoformat() if row[11] else None
+            })
+        
+        return {
+            "success": True,
+            "data": businesses,
+            "pagination": {
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+                "has_more": offset + limit < total_count
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@router.get("/status-history", response_class=JSONResponse)
+async def get_status_history(
+    request: Request,
+    business_id: Optional[int] = Query(None, description="ビジネスIDフィルター"),
+    start_date: Optional[str] = Query(None, description="開始日 (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="終了日 (YYYY-MM-DD)"),
+    limit: int = Query(50, description="取得件数", ge=1, le=100),
+    offset: int = Query(0, description="オフセット", ge=0),
+    auth: bool = Depends(require_auth),
+    db = Depends(get_database)
+):
+    """status_historyテーブルの情報を取得するAPI"""
+    try:
+        # フィルター条件を構築
+        where_conditions = []
+        params = []
+        
+        if business_id is not None:
+            where_conditions.append("sh.business_id = %s")
+            params.append(business_id)
+            
+        if start_date:
+            where_conditions.append("sh.biz_date >= %s")
+            params.append(start_date)
+            
+        if end_date:
+            where_conditions.append("sh.biz_date <= %s")
+            params.append(end_date)
+        
+        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+        
+        # 総件数を取得
+        count_query = f"SELECT COUNT(*) FROM status_history sh WHERE {where_clause}"
+        count_result = db.fetch_one(count_query, params)
+        total_count = count_result[0] if count_result else 0
+        
+        # データを取得（businessテーブルとJOIN）
+        query = f"""
+        SELECT 
+            sh.id,
+            sh.business_id,
+            b.name as business_name,
+            b.area,
+            b.type,
+            sh.biz_date,
+            sh.working_rate,
+            sh.created_at,
+            sh.updated_at
+        FROM status_history sh
+        LEFT JOIN businesses b ON sh.business_id = b.business_id
+        WHERE {where_clause}
+        ORDER BY sh.biz_date DESC, sh.business_id
+        LIMIT %s OFFSET %s
+        """
+        
+        params.extend([limit, offset])
+        results = db.fetch_all(query, params)
+        
+        status_history = []
+        for row in results:
+            status_history.append({
+                "id": row[0],
+                "business_id": row[1],
+                "business_name": row[2],
+                "area": row[3],
+                "type": row[4],
+                "biz_date": row[5].isoformat() if row[5] else None,
+                "working_rate": float(row[6]) if row[6] else 0.0,
+                "created_at": row[7].isoformat() if row[7] else None,
+                "updated_at": row[8].isoformat() if row[8] else None
+            })
+        
+        return {
+            "success": True,
+            "data": status_history,
+            "pagination": {
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+                "has_more": offset + limit < total_count
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
 @router.get("/ranking", response_class=JSONResponse)
 async def get_store_ranking(
     request: Request,

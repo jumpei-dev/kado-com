@@ -20,7 +20,7 @@ class User(Base):
 
 class Business(Base):
     """店舗・事業所情報テーブル"""
-    __tablename__ = "businesses"
+    __tablename__ = "business"
     
     business_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
@@ -45,7 +45,7 @@ class Cast(Base):
     __tablename__ = "casts"
     
     cast_id = Column(String(50), primary_key=True, index=True)
-    business_id = Column(Integer, ForeignKey("businesses.business_id", ondelete="CASCADE"), nullable=False, index=True)
+    business_id = Column(Integer, ForeignKey("business.business_id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     profile_url = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True, index=True)
@@ -62,7 +62,7 @@ class Status(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     cast_id = Column(String(50), ForeignKey("casts.cast_id", ondelete="CASCADE"), nullable=False, index=True)
-    business_id = Column(Integer, ForeignKey("businesses.business_id", ondelete="CASCADE"), nullable=False, index=True)
+    business_id = Column(Integer, ForeignKey("business.business_id", ondelete="CASCADE"), nullable=False, index=True)
     is_working = Column(Boolean, nullable=False)
     is_on_shift = Column(Boolean, nullable=False)
     recorded_at = Column(DateTime, nullable=False, index=True)
@@ -73,15 +73,13 @@ class Status(Base):
     business = relationship("Business", back_populates="status_records")
 
 class StatusHistory(Base):
-    """稼働率計算用ステータス履歴テーブル"""
+    """稼働率履歴テーブル"""
     __tablename__ = "status_history"
     
-    id = Column(Integer, primary_key=True, index=True)
-    business_id = Column(Integer, ForeignKey("businesses.business_id", ondelete="CASCADE"), nullable=False, index=True)
-    biz_date = Column(Date, nullable=False, index=True)
+    business_id = Column(Integer, ForeignKey("business.business_id", ondelete="CASCADE"), nullable=False, index=True, primary_key=True)
+    biz_date = Column(Date, nullable=False, index=True, primary_key=True)
     working_rate = Column(DECIMAL(5, 4), nullable=False)
-    created_at = Column(DateTime, default=func.current_timestamp())
-    updated_at = Column(DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
+    is_dummy = Column(Boolean, default=False)
     
     # Relationships
     business = relationship("Business", back_populates="status_history")
