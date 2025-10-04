@@ -388,42 +388,25 @@ async def get_dashboard_stores(
             current_user = None
             logger.info("Getting dashboard stores for anonymous user")
         
-        from scout_ui.models.store import Business, StatusHistory, Cast
-        from sqlalchemy import desc
+        # フィルターを構築
+        filters = {
+            'area': area,
+            'business_type': business_type,
+            'date_from': date_from,
+            'date_to': date_to
+        }
         
-        # ベースクエリを構築
-        query = db.query(Business).filter(Business.in_scope == True)
+        # apply_filters関数を使用してフィルタリング済みのStoreViewオブジェクトを取得
+        store_views = await apply_filters(db, filters)
         
-        # フィルタリング適用
-        if area:
-            query = query.filter(Business.area == area)
-        if business_type:
-            query = query.filter(Business.type == business_type)
-        
-        businesses = query.all()
-        
-        # 各店舗のデータを取得
+        # StoreViewオブジェクトをstores_data形式に変換
         stores_data = []
-        for business in businesses:
-            # 最新の稼働率を取得
-            latest_rate = db.query(StatusHistory).filter(
-                StatusHistory.business_id == business.business_id
-            ).order_by(desc(StatusHistory.biz_date)).first()
-            
-            working_rate = float(latest_rate.working_rate) if latest_rate else None
-            last_updated = None  # StatusHistoryにはcreated_atがないため
-            
-            # キャスト数を取得
-            cast_count = db.query(Cast).filter(
-                Cast.business_id == business.business_id,
-                Cast.is_active == True
-            ).count()
-            
+        for store_view in store_views:
             stores_data.append({
-                'business': business,
-                'working_rate': working_rate,
-                'cast_count': cast_count,
-                'last_updated': last_updated,
+                'business': store_view.business,
+                'working_rate': store_view.working_rate,
+                'cast_count': store_view.active_cast_count + store_view.inactive_cast_count,
+                'last_updated': store_view.last_updated,
                 'daily_rates': {}  # 空の辞書として設定
             })
         

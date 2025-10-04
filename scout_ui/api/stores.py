@@ -79,130 +79,55 @@ async def get_stores(
         logger.info(f"Getting stores list for user: {user_name} (logged_in: {is_logged_in})")
         
         # 未ログイン時は3日間のデータのみ表示するため、データを制限
-        # データベースから実際の店舗データを取得
-        from scout_ui.models.store import Business, StatusHistory
-        from sqlalchemy import desc, asc
-        
         logger.info(f"Getting stores list for user: {user_name} (logged_in: {is_logged_in})")
         
-        # ベースクエリを構築
-        query = db.query(Business).filter(Business.in_scope == True)
-        
-        # フィルタリング適用
+        # フィルターを構築
+        filters = {}
         if area:
-            query = query.filter(Business.area == area)
+            filters['area'] = area
         if business_type:
-            query = query.filter(Business.type == business_type)
+            filters['business_type'] = business_type
+        if date_from:
+            filters['date_from'] = date_from
+        if date_to:
+            filters['date_to'] = date_to
         if search:
-            query = query.filter(Business.name.ilike(f"%{search}%"))
+            filters['search'] = search
         
-        # 全件数を取得
-        total_count = query.count()
+        # apply_filters関数を使用してフィルタリング済みのStoreViewを取得
+        filtered_stores = apply_filters(db, filters)
         
         # ソート適用
-        if sort_by == "working_rate":
-            # 最新の稼働率でソート（サブクエリを使用）
-            from sqlalchemy import func
-            latest_rates = db.query(
-                StatusHistory.business_id,
-                func.max(StatusHistory.biz_date).label('latest_date')
-            ).group_by(StatusHistory.business_id).subquery()
-            
-            working_rates = db.query(
-                StatusHistory.business_id,
-                StatusHistory.working_rate
-            ).join(
-                latest_rates,
-                (StatusHistory.business_id == latest_rates.c.business_id) &
-                (StatusHistory.biz_date == latest_rates.c.latest_date)
-            ).subquery()
-            
-            query = query.outerjoin(
-                working_rates,
-                Business.business_id == working_rates.c.business_id
-            )
-            
-            if sort_order == "desc":
-                query = query.order_by(desc(working_rates.c.working_rate))
-            else:
-                query = query.order_by(asc(working_rates.c.working_rate))
-        elif sort_by == "name":
-            if sort_order == "desc":
-                query = query.order_by(desc(Business.name))
-            else:
-                query = query.order_by(asc(Business.name))
-        elif sort_by == "area":
-            if sort_order == "desc":
-                query = query.order_by(desc(Business.area))
-            else:
-                query = query.order_by(asc(Business.area))
+        sorted_stores = apply_sorting(filtered_stores, sort_by, sort_order)
         
         # ページネーション
-        total_pages = (total_count + page_size - 1) // page_size
-        start_idx = (page - 1) * page_size
-        end_idx = min(start_idx + page_size, total_count)
-        paged_stores = query.offset(start_idx).limit(page_size).all()
+        paginated_result = paginate_stores(sorted_stores, page, page_size)
         
-        # 各店舗の最新稼働率を取得
-        stores_with_rates = []
-        for store in paged_stores:
-            # 最新の稼働率を取得
-            latest_rate = db.query(StatusHistory).filter(
-                StatusHistory.business_id == store.business_id
-            ).order_by(desc(StatusHistory.biz_date)).first()
-            
-            # status_historyがない場合はNoneを設定（UIで「-」表示）
-            working_rate = float(latest_rate.working_rate) if latest_rate else None
-            last_updated = latest_rate.biz_date if latest_rate else store.updated_at
-            
-            # キャスト数を実際のcastsテーブルから取得
-            from scout_ui.models.store import Cast
-            actual_cast_count = db.query(Cast).filter(
-                Cast.business_id == store.business_id,
-                Cast.is_active == True
-            ).count()
-            
-            stores_with_rates.append({
+        # StoreViewからStoreListItem形式に変換
+        stores_data = []
+        for store in paginated_result['stores']:
+            stores_data.append({
                 "id": store.business_id,
                 "name": store.name,
                 "area": store.area,
-                "business_type": store.type,
-                "working_rate": working_rate,
-                "cast_count": actual_cast_count,
-                "active_cast_count": int(actual_cast_count * working_rate) if working_rate is not None and actual_cast_count else 0,
-                "last_updated": last_updated,
-                "avg_rating": 4.0  # デフォルト値
-            })
-        
-        filtered_stores = stores_with_rates
-        
-        # レスポンス形式に変換
-        stores_data = []
-        for store in stores_with_rates:
-            stores_data.append({
-                "id": store["id"],
-                "name": store["name"],
-                "area": store["area"],
-                "business_type": convert_business_type_to_japanese(store["business_type"]),
-                "working_rate": store["working_rate"],  # Noneの場合はそのまま（フロントエンドで「-」表示）
-                "cast_count": store["cast_count"],
-                "active_cast_count": store["active_cast_count"],
-                "last_updated": store["last_updated"].isoformat() if store["last_updated"] else None,
-                "status": "active" if store["working_rate"] is not None and store["working_rate"] > 0.5 else "inactive",
-                "avg_rating": store["avg_rating"]
+                "business_type": convert_business_type_to_japanese(store.business_type),
+                "working_rate": store.working_rate,
+                "cast_count": store.cast_count,
+                "last_updated": store.last_updated.isoformat() if store.last_updated else None,
+                "status": "active" if store.working_rate is not None and store.working_rate > 0.5 else "inactive",
+                "address": store.address,
+                "phone": store.phone
             })
         
         return {
             "stores": stores_data,
             "pagination": {
-                "page": page,
-                "page_size": page_size,
-                "total_count": total_count,
-                "total_pages": total_pages,
-                "has_next": page < total_pages,
-                "has_prev": page > 1,
-                "start_idx": start_idx + 1 if paged_stores else 0,
-                "end_idx": min(end_idx, total_count)
+                "page": paginated_result['page'],
+                "page_size": paginated_result['page_size'],
+                "total_count": paginated_result['total_count'],
+                "total_pages": paginated_result['total_pages'],
+                "has_next": paginated_result['has_next'],
+                "has_prev": paginated_result['has_prev']
             }
         }
             
