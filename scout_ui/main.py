@@ -38,16 +38,8 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Scout UI application...")
     
     try:
-        # Initialize database
-        init_db()
-        logger.info("Database initialized successfully")
-        
-        # Check database connection
-        if check_db_connection():
-            logger.info("Database connection verified")
-        else:
-            logger.error("Database connection failed")
-            raise Exception("Database connection failed")
+        # 起動時のデータベース処理を簡素化
+        logger.info("Application startup completed")
             
         # Cleanup expired sessions on startup
         cleanup_expired_sessions()

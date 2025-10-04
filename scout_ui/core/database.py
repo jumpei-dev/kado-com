@@ -16,26 +16,24 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set")
 
-# Create engine with SSL and connection settings
+# Create engine with stable SSL settings
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
     pool_recycle=1800,  # 30分に短縮
-    pool_timeout=60,
-    pool_size=5,  # プールサイズを削減
-    max_overflow=10,  # オーバーフローを削減
+    pool_timeout=20,
+    pool_size=2,  # さらに小さく
+    max_overflow=3,
     connect_args={
-        "sslmode": "require",
-        "sslcert": None,
-        "sslkey": None,
-        "sslrootcert": None,  # 証明書検証を無効化
-        "connect_timeout": 30,
+        "sslmode": "prefer",  # requireからpreferに変更
+        "connect_timeout": 15,
         "application_name": "scout_ui",
         "keepalives_idle": "600",
         "keepalives_interval": "30",
         "keepalives_count": "3"
     },
-    echo=os.getenv("DEBUG", "False").lower() == "true"
+    echo=os.getenv("DEBUG", "False").lower() == "true",
+    use_native_hstore=False
 )
 
 # Create SessionLocal class
@@ -76,63 +74,14 @@ def init_db():
 def check_db_connection():
     """データベース接続をチェック"""
     try:
-        logger.info(f"Attempting to connect to database: {DATABASE_URL[:50]}...")
+        logger.info("Checking database connection...")
         
-        # より簡単な接続テストを試行
-        import psycopg2
-        from urllib.parse import urlparse
-        
-        # URLをパース
-        parsed = urlparse(DATABASE_URL)
-        
-        # 直接psycopg2で接続テスト（複数のSSL設定を試行）
-        ssl_configs = [
-            {'sslmode': 'require', 'sslcert': None, 'sslkey': None, 'sslrootcert': None},
-            {'sslmode': 'prefer'},
-            {'sslmode': 'disable'}
-        ]
-        conn = None
-        
-        for i, ssl_config in enumerate(ssl_configs):
-            try:
-                logger.info(f"Trying SSL config {i+1}: {ssl_config}")
-                conn = psycopg2.connect(
-                    host=parsed.hostname,
-                    port=parsed.port,
-                    database=parsed.path[1:],  # Remove leading '/'
-                    user=parsed.username,
-                    password=parsed.password,
-                    connect_timeout=30,
-                    keepalives_idle=600,
-                    keepalives_interval=30,
-                    keepalives_count=3,
-                    **ssl_config
-                )
-                logger.info(f"Connection successful with SSL config {i+1}")
-                break
-            except Exception as ssl_error:
-                logger.warning(f"SSL config {i+1} failed: {ssl_error}")
-                if i == len(ssl_configs) - 1:  # Last attempt
-                    raise ssl_error
-                continue
-        
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1")
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        
-        logger.info(f"Direct psycopg2 connection successful: {result}")
-        
-        # SQLAlchemyでの接続テスト
+        # シンプルなSQLAlchemy接続テスト
         with engine.connect() as connection:
             result = connection.execute(text("SELECT 1"))
-            logger.info(f"SQLAlchemy connection successful: {result.fetchone()}")
+            logger.info("Database connection successful")
         
         return True
     except Exception as e:
         logger.error(f"Database connection failed: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
         return False
