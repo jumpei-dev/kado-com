@@ -107,7 +107,7 @@ async def get_stores(
         stores_data = []
         for store in paginated_result['stores']:
             stores_data.append({
-                "id": store.business_id,
+                "id": store.id,
                 "name": store.name,
                 "area": store.area,
                 "business_type": convert_business_type_to_japanese(store.business_type),
@@ -115,8 +115,8 @@ async def get_stores(
                 "cast_count": store.cast_count,
                 "last_updated": store.last_updated.isoformat() if store.last_updated else None,
                 "status": "active" if store.working_rate is not None and store.working_rate > 0.5 else "inactive",
-                "address": store.address,
-                "phone": store.phone
+                "address": None,  # StoreViewには住所情報がない
+                "phone": None     # StoreViewには電話番号情報がない
             })
         
         return {

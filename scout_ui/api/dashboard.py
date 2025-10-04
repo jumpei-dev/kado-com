@@ -403,9 +403,9 @@ async def get_dashboard_stores(
         stores_data = []
         for store_view in store_views:
             stores_data.append({
-                'business': store_view.business,
+                'store_view': store_view,
                 'working_rate': store_view.working_rate,
-                'cast_count': store_view.active_cast_count + store_view.inactive_cast_count,
+                'cast_count': store_view.cast_count,
                 'last_updated': store_view.last_updated,
                 'daily_rates': {}  # 空の辞書として設定
             })
@@ -436,12 +436,12 @@ async def get_dashboard_stores(
         # レスポンス形式に変換
         response_data = []
         for store_data in paginated_stores:
-            business = store_data['business']
+            store_view = store_data['store_view']
             response_data.append(StoreData(
-                id=business.business_id,
-                name=business.name,
-                area=business.area,
-                business_type=convert_business_type_to_japanese(business.type),
+                id=store_view.id,
+                name=store_view.name,
+                area=store_view.area,
+                business_type=convert_business_type_to_japanese(store_view.business_type),
                 working_rate=store_data['working_rate'],
                 cast_count=store_data['cast_count'],
                 last_updated=store_data['last_updated'],
