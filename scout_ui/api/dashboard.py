@@ -624,13 +624,18 @@ async def get_dashboard_filter_options(
     db: Session = Depends(get_db_session)
 ):
     """
-    Get available filter options for dashboard
+    Get available filter options for dashboard (dynamic from business table)
     """
     try:
-        logger.info(f"Getting filter options for user: {current_user['username']}")
+        # Optional authentication - allow access without login
+        try:
+            current_user = get_current_user(request)
+            logger.info(f"Getting filter options for user: {current_user['username']}")
+        except HTTPException:
+            logger.info("Getting filter options for anonymous user")
         
-        # Get filter options
-        filter_options = get_filter_options()
+        # Get filter options from database
+        filter_options = get_filter_options(db)
         
         return {
             "success": True,

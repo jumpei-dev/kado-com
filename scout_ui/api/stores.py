@@ -264,16 +264,18 @@ async def get_store_detail(
 @router.get("/filter-options")
 async def get_filter_options_endpoint(
     request: Request,
+    current_user: dict = Depends(get_current_user_optional),
     db: Session = Depends(get_db_session)
 ):
     """
     Get available filter options for stores
     """
     try:
-        logger.info(f"Getting filter options for user: {current_user['username']}")
+        user_info = current_user['username'] if current_user else 'anonymous'
+        logger.info(f"Getting filter options for user: {user_info}")
         
-        # Get filter options
-        filter_options = get_filter_options()
+        # Get filter options with database session
+        filter_options = get_filter_options(db=db)
         
         # Add sort and view type options
         sort_options = [

@@ -124,6 +124,7 @@ async def dashboard_page(
     try:
         # Get initial data for dashboard
         from scout_ui.utils.filters import get_filter_options
+        from scout_ui.core.database import get_db_session
         
         # Default filters
         current_filters = {
@@ -137,8 +138,9 @@ async def dashboard_page(
             'view_type': 'weekly'
         }
         
-        # Get filter options
-        filter_options = get_filter_options()
+        # Get filter options from database
+        db = get_db_session()
+        filter_options = get_filter_options(db)
         
         # Get basic stats (placeholder)
         stats = {
@@ -172,6 +174,7 @@ async def stores_page(
     try:
         # Get initial data for stores page
         from scout_ui.utils.filters import get_filter_options
+        from scout_ui.core.database import get_db_session
         
         # Default filters
         current_filters = {
@@ -188,8 +191,9 @@ async def stores_page(
             'view_type': 'grid'
         }
         
-        # Get filter options
-        filter_options = get_filter_options()
+        # Get filter options with database session
+        db = get_db_session()
+        filter_options = get_filter_options(db=db)
         
         return templates.TemplateResponse(
             "stores/list.html",

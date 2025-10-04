@@ -241,8 +241,53 @@
         }
     }
     
+    // Load filter options from API
+    async function loadFilterOptions() {
+        try {
+            const response = await fetch('/api/dashboard/filter-options');
+            const data = await response.json();
+            
+            if (data.success) {
+                const filterOptions = data.filter_options;
+                
+                // Update area filter
+                const areaSelect = document.getElementById('filter-area');
+                if (areaSelect) {
+                    // Clear existing options except "すべてのエリア"
+                    areaSelect.innerHTML = '<option value="">すべてのエリア</option>';
+                    
+                    // Add dynamic options
+                    filterOptions.areas.forEach(area => {
+                        const option = document.createElement('option');
+                        option.value = area.value || area;
+                        option.textContent = area.label || area;
+                        areaSelect.appendChild(option);
+                    });
+                }
+                
+                // Update business type filter
+                const businessTypeSelect = document.getElementById('filter-business-type');
+                if (businessTypeSelect) {
+                    // Clear existing options except "すべての業種"
+                    businessTypeSelect.innerHTML = '<option value="">すべての業種</option>';
+                    
+                    // Add dynamic options
+                    filterOptions.business_types.forEach(businessType => {
+                        const option = document.createElement('option');
+                        option.value = businessType.value || businessType;
+                        option.textContent = businessType.label || businessType;
+                        businessTypeSelect.appendChild(option);
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error loading filter options:', error);
+        }
+    }
+    
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
+        loadFilterOptions();
         loadStores();
     });
     

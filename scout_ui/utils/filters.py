@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func, desc, asc
 from scout_ui.models.store import Business, StatusHistory, Cast, StoreView
 from scout_ui.core.database import get_db_session
+from scout_ui.utils.business_type_utils import convert_business_type_to_japanese
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
 import logging
@@ -108,13 +109,32 @@ async def apply_filters(
         logger.error(f"Error applying filters: {str(e)}")
         raise
 
-def get_filter_options() -> Dict[str, List[str]]:
-    """フィルターオプションを取得"""
+def get_filter_options(db: Session = None) -> Dict[str, List[str]]:
+    """フィルターオプションを取得（businessテーブルから動的に取得）"""
     try:
-        # モックデータを返す（実際のデータベース接続の代わり）
+        if db is None:
+            db = get_db_session()
+        
+        # businessテーブルからDISTINCT値を取得
+        areas_query = db.query(Business.area).filter(Business.in_scope == True).distinct().order_by(Business.area)
+        areas_raw = [area[0] for area in areas_query.all() if area[0]]
+        # エリアもvalue/label形式に統一
+        areas = [{
+            "value": area,
+            "label": area
+        } for area in areas_raw]
+        
+        types_query = db.query(Business.type).filter(Business.in_scope == True).distinct().order_by(Business.type)
+        business_types_raw = [btype[0] for btype in types_query.all() if btype[0]]
+        # 業種を日本語に変換
+        business_types = [{
+            "value": btype,
+            "label": convert_business_type_to_japanese(btype)
+        } for btype in business_types_raw]
+        
         return {
-            "areas": ["銀座", "新宿", "渋谷", "六本木", "池袋", "赤坂", "青山"],
-            "business_types": ["クラブ", "ラウンジ", "スナック", "キャバクラ"],
+            "areas": areas,
+            "business_types": business_types,
             "view_types": ["weekly", "daily"],
             "sort_options": [
                 {"value": "working_rate", "label": "稼働率"},
@@ -131,7 +151,23 @@ def get_filter_options() -> Dict[str, List[str]]:
         
     except Exception as e:
         logger.error(f"Error getting filter options: {str(e)}")
-        raise
+        # エラー時はフォールバック値を返す
+        return {
+            "areas": [],
+            "business_types": [],
+            "view_types": ["weekly", "daily"],
+            "sort_options": [
+                {"value": "working_rate", "label": "稼働率"},
+                {"value": "name", "label": "店舗名"},
+                {"value": "area", "label": "エリア"},
+                {"value": "cast_count", "label": "キャスト数"},
+                {"value": "last_updated", "label": "最終更新日"}
+            ],
+            "sort_orders": [
+                {"value": "desc", "label": "降順"},
+                {"value": "asc", "label": "昇順"}
+            ]
+        }
 
 async def apply_sorting(
     stores: List[StoreView],
