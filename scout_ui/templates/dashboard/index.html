@@ -108,8 +108,8 @@
             <table class="min-w-full border-collapse border border-gray-300">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20">店舗名</th>
-                        <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">エリア</th>
+                        <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20" style="min-width: 120px; max-width: 200px;">店舗名</th>
+                        <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="min-width: 80px; max-width: 120px;">エリア</th>
                         <th class="border border-gray-300 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">業種</th>
                         <th id="date-headers"></th>
                     </tr>
@@ -350,10 +350,14 @@
             return `
                 <tr class="hover:bg-gray-50">
                     <td class="border border-gray-300 px-4 py-3 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10">
-                        ${escapeHtml(store.name || 'かまくら御殿')}
+                        <div style="min-width: 120px; max-width: 200px; word-wrap: break-word; line-height: 1.2;">
+                            ${escapeHtml(store.name || 'かまくら御殿')}
+                        </div>
                     </td>
                     <td class="border border-gray-300 px-4 py-3 text-sm text-gray-500">
-                        ${escapeHtml(store.area || '東京')}
+                        <div style="min-width: 80px; max-width: 120px; word-wrap: break-word; line-height: 1.2;">
+                            ${escapeHtml(store.area || '東京')}
+                        </div>
                     </td>
                     <td class="border border-gray-300 px-4 py-3 text-sm text-gray-500">
                         ${escapeHtml(store.business_type || 'ソープ')}
