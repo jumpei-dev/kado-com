@@ -73,10 +73,7 @@
             
             <div class="flex items-center justify-end space-x-2 mt-2 lg:mt-0">
                 <span class="text-sm text-gray-500" id="result-count">読み込み中...</span>
-                <button onclick="refreshData()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500">
-                    <i class="fas fa-sync-alt mr-2"></i>
-                    表示更新
-                </button>
+
             </div>
         </div>
     </div>
@@ -591,6 +588,48 @@
         paginationHtml += '</div>';
         
         container.innerHTML = paginationHtml;
+    }
+    
+    // Apply filters
+    function applyFilters() {
+        currentFilters.area = document.getElementById('filter-area').value;
+        currentFilters.business_type = document.getElementById('filter-business-type').value;
+        currentFilters.date_from = document.getElementById('filter-date-from').value;
+        currentFilters.date_to = document.getElementById('filter-date-to').value;
+        currentFilters.min_working_rate = document.getElementById('filter-min-working-rate').value;
+        currentFilters.max_working_rate = document.getElementById('filter-max-working-rate').value;
+        
+        currentPage = 1;
+        loadStores();
+        closeFilterModal();
+    }
+    
+    // Clear filters
+    function clearFilters() {
+        document.getElementById('filter-area').value = '';
+        document.getElementById('filter-business-type').value = '';
+        document.getElementById('filter-date-from').value = '';
+        document.getElementById('filter-date-to').value = '';
+        document.getElementById('filter-min-working-rate').value = '';
+        document.getElementById('filter-max-working-rate').value = '';
+        
+        currentFilters.area = '';
+        currentFilters.business_type = '';
+        currentFilters.date_from = '';
+        currentFilters.date_to = '';
+        currentFilters.min_working_rate = '';
+        currentFilters.max_working_rate = '';
+        
+        currentPage = 1;
+        loadStores();
+    }
+    
+    // Close filter modal
+    function closeFilterModal() {
+        const modal = document.getElementById('filter-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
     }
     
     // Go to page

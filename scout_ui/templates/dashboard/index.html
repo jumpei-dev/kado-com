@@ -68,10 +68,7 @@
             <!-- Mobile Menu Dropdown -->
             <div id="mobile-menu" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50" role="menu">
                 <div class="py-1" role="none">
-                    <button onclick="refreshData(); toggleMobileMenu();" class="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
-                        <i class="fas fa-sync-alt mr-2"></i>
-                        表示更新
-                    </button>
+
                     <button onclick="openFilterModal(); toggleMobileMenu();" class="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
                         <i class="fas fa-filter mr-2"></i>
                         フィルター
@@ -571,6 +568,15 @@
         document.getElementById('filter-business-type').value = '';
         document.getElementById('filter-date-from').value = '';
         document.getElementById('filter-date-to').value = '';
+        
+        currentFilters.view_type = 'weekly';
+        currentFilters.area = '';
+        currentFilters.business_type = '';
+        currentFilters.date_from = '';
+        currentFilters.date_to = '';
+        
+        currentPage = 1;
+        loadStores();
     }
     
     function applyFilters() {
