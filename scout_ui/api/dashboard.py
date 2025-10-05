@@ -629,6 +629,65 @@ async def get_dashboard_filter_options(
         logger.error(f"Error getting filter options: {e}")
         raise HTTPException(status_code=500, detail="フィルターオプションの取得に失敗しました")
 
+@router.get("/date-range")
+async def get_data_date_range(
+    request: Request,
+    db: Session = Depends(get_db_session),
+    area: Optional[str] = Query(None, description="エリアフィルター"),
+    business_type: Optional[str] = Query(None, description="業種フィルター")
+):
+    """
+    Get the actual date range of available data
+    """
+    try:
+        # Optional authentication - allow access without login
+        try:
+            current_user = get_current_user(request)
+            logger.info(f"Getting data date range for user: {current_user.username}")
+        except HTTPException:
+            current_user = None
+            logger.info("Getting data date range for anonymous user")
+        
+        from scout_ui.models.store import StatusHistory
+        from sqlalchemy import func, and_
+        
+        # ベースクエリを構築
+        query = db.query(
+            func.min(StatusHistory.biz_date).label('min_date'),
+            func.max(StatusHistory.biz_date).label('max_date')
+        )
+        
+        # フィルタリング適用
+        filters = []
+        if area:
+            filters.append(StatusHistory.area == area)
+        if business_type:
+            filters.append(StatusHistory.type == business_type)
+        
+        if filters:
+            query = query.filter(and_(*filters))
+        
+        result = query.first()
+        
+        # 常に今日（10/4）から過去7日間を返す
+        from datetime import date, timedelta
+        today = date.today()
+        dates = []
+        for i in range(7):
+            date_obj = today - timedelta(days=i)
+            dates.append(date_obj.isoformat())
+        
+        return {
+            "success": True,
+            "min_date": (today - timedelta(days=6)).isoformat(),
+            "max_date": today.isoformat(),
+            "dates": dates
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting data date range: {e}")
+        raise HTTPException(status_code=500, detail="データ期間の取得に失敗しました")
+
 @router.post("/refresh")
 async def refresh_dashboard_data(
     request: Request,

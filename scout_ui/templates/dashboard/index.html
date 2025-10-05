@@ -337,7 +337,7 @@
             const data = await response.json();
             
             if (data.success) {
-                renderStoreGrid(data.stores);
+                await renderStoresGrid(data.stores);
                 renderPagination(data.pagination);
                 updateStoreCount(data.pagination.total);
             } else {
@@ -350,8 +350,32 @@
         }
     }
     
+    // Get dynamic date range from API
+    async function getDynamicDateRange() {
+        try {
+            const response = await fetch('/api/dashboard/date-range');
+            const data = await response.json();
+            
+            if (data.success && data.dates) {
+                return data.dates; // 文字列のまま返す
+            }
+        } catch (error) {
+            console.error('Error getting date range:', error);
+        }
+        
+        // Fallback to default date range (last 7 days)
+        const dates = [];
+        const today = new Date();
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(today.getDate() - i);
+            dates.push(date.toISOString().split('T')[0]); // 文字列形式で返す
+        }
+        return dates;
+    }
+    
     // Render store grid with date-based working rates
-    function renderStoreGrid(stores) {
+    async function renderStoresGrid(stores) {
         const loadingIndicator = document.getElementById('loading-indicator');
         const tableContainer = document.getElementById('stores-table-container');
         const tableBody = document.getElementById('stores-table-body');
@@ -384,18 +408,16 @@
             return;
         }
         
-        // Generate date headers (last 7 days, newest first)
-        const dates = [];
-        for (let i = 0; i <= 6; i++) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            dates.push(date);
-        }
+        // Get dynamic date range from API
+        const dates = await getDynamicDateRange();
+        
+        // Period display removed as requested
         
         // Update date headers
         const dateHeadersEl = document.getElementById('date-headers');
         if (dateHeadersEl) {
-            dateHeadersEl.outerHTML = dates.map(date => {
+            dateHeadersEl.outerHTML = dates.map(dateStr => {
+                const date = new Date(dateStr);
                 const monthDay = `${date.getMonth() + 1}/${date.getDate()}`;
                 return `<th class="border border-gray-300 px-2 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-size: 10px;">${monthDay}</th>`;
             }).join('');
@@ -404,8 +426,8 @@
         // Render store rows
         tableBody.innerHTML = stores.map(store => {
             // Use actual daily rates from API or show "ー％" if no data
-            const dateColumns = dates.map(date => {
-                const dateStr = date.toISOString().split('T')[0];
+            const dateColumns = dates.map(dateStr => {
+                // dateStr is already in YYYY-MM-DD format from API
                 let displayValue;
                 
                 if (store.daily_rates && store.daily_rates[dateStr] !== null && store.daily_rates[dateStr] !== undefined) {
