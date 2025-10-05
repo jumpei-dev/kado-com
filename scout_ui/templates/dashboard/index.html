@@ -228,10 +228,10 @@
     }
     
     // Update store count display with period
-    function updateStoreCount(total) {
+    async function updateStoreCount(total) {
         const countElement = document.querySelector('.text-2xl.font-bold');
         if (countElement) {
-            const period = getPeriodText();
+            const period = await getPeriodText();
             countElement.innerHTML = `
                 <i class="fas fa-store mr-3 text-primary-500"></i>
                 稼働率一覧 (${period})
@@ -239,32 +239,27 @@
         }
     }
     
-    // Get period text based on current filters
-    function getPeriodText() {
-        const viewType = currentFilters.view_type;
-        const today = new Date();
-        
-        if (viewType === 'weekly') {
-            // 今週の期間を計算
-            const startOfWeek = new Date(today);
-            const day = startOfWeek.getDay();
-            const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // 月曜日を週の始まりとする
-            startOfWeek.setDate(diff);
+    // Get period text based on actual data range
+    async function getPeriodText() {
+        try {
+            const response = await fetch('/api/dashboard/date-range');
+            const data = await response.json();
             
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(startOfWeek.getDate() + 6);
-            
-            const formatDate = (date) => {
-                return `${date.getMonth() + 1}/${date.getDate()}`;
-            };
-            
-            return `${formatDate(startOfWeek)} - ${formatDate(endOfWeek)}`;
-        } else if (viewType === 'daily') {
-            // 今日の日付
-            return `${today.getMonth() + 1}/${today.getDate()}`;
+            if (data.success && data.min_date && data.max_date) {
+                const minDate = new Date(data.min_date);
+                const maxDate = new Date(data.max_date);
+                
+                const formatDate = (date) => {
+                    return `${date.getMonth() + 1}/${date.getDate()}`;
+                };
+                
+                return `${formatDate(minDate)} - ${formatDate(maxDate)}`;
+            }
+        } catch (error) {
+            console.error('Error getting period text:', error);
         }
         
-        return '今週';
+        return 'データなし';
     }
     
     // Load filter options from API

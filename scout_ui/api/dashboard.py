@@ -637,7 +637,7 @@ async def get_data_date_range(
     business_type: Optional[str] = Query(None, description="業種フィルター")
 ):
     """
-    Get the actual date range of available data
+    Get the default date range (previous week from yesterday)
     """
     try:
         # Optional authentication - allow access without login
@@ -648,39 +648,27 @@ async def get_data_date_range(
             current_user = None
             logger.info("Getting data date range for anonymous user")
         
-        from scout_ui.models.store import StatusHistory
-        from sqlalchemy import func, and_
-        
-        # ベースクエリを構築
-        query = db.query(
-            func.min(StatusHistory.biz_date).label('min_date'),
-            func.max(StatusHistory.biz_date).label('max_date')
-        )
-        
-        # フィルタリング適用
-        filters = []
-        if area:
-            filters.append(StatusHistory.area == area)
-        if business_type:
-            filters.append(StatusHistory.type == business_type)
-        
-        if filters:
-            query = query.filter(and_(*filters))
-        
-        result = query.first()
-        
-        # 常に今日（10/4）から過去7日間を返す
         from datetime import date, timedelta
+        
+        # 前日までの1週間をデフォルトとして設定
         today = date.today()
+        yesterday = today - timedelta(days=1)
+        week_ago = yesterday - timedelta(days=6)  # 7日間（yesterday含む）
+        
+        min_date = week_ago
+        max_date = yesterday
+        
+        # 日付リストを生成（最新日から過去へ）
         dates = []
-        for i in range(7):
-            date_obj = today - timedelta(days=i)
-            dates.append(date_obj.isoformat())
+        current_date = max_date
+        while current_date >= min_date:
+            dates.append(current_date.isoformat())
+            current_date -= timedelta(days=1)
         
         return {
             "success": True,
-            "min_date": (today - timedelta(days=6)).isoformat(),
-            "max_date": today.isoformat(),
+            "min_date": min_date.isoformat(),
+            "max_date": max_date.isoformat(),
             "dates": dates
         }
         
