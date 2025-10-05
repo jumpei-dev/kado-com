@@ -456,7 +456,12 @@ async def get_dashboard_stores(
                 "page": page,
                 "limit": limit,
                 "total": total_count,
-                "pages": (total_count + limit - 1) // limit
+                "total_pages": (total_count + limit - 1) // limit,
+                "total_count": total_count,
+                "has_prev": page > 1,
+                "has_next": page < (total_count + limit - 1) // limit,
+                "start_idx": (page - 1) * limit + 1 if total_count > 0 else 0,
+                "end_idx": min(page * limit, total_count)
             }
         }
         
