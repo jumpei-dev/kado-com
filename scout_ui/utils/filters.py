@@ -266,3 +266,89 @@ def get_date_range_options() -> List[Dict[str, Any]]:
             "date_to": today.isoformat()
         }
     ]
+
+
+def get_weekly_options():
+    """Get weekly period options for filtering (10月W1, W2, W3 format)"""
+    today = datetime.now().date()
+    options = []
+    
+    # Generate options for the past 12 weeks
+    for i in range(12):
+        # Calculate the start of the week (Monday)
+        days_since_monday = today.weekday()
+        week_start = today - timedelta(days=days_since_monday + (i * 7))
+        week_end = week_start + timedelta(days=6)
+        
+        # Get the month and week number within that month
+        month = week_start.month
+        year = week_start.year
+        
+        # Calculate week number within the month
+        first_day_of_month = week_start.replace(day=1)
+        first_monday = first_day_of_month + timedelta(days=(7 - first_day_of_month.weekday()) % 7)
+        if first_monday > week_start:
+            first_monday -= timedelta(days=7)
+        
+        week_num = ((week_start - first_monday).days // 7) + 1
+        
+        # Format label as "10月W1" style
+        label = f"{month}月W{week_num}"
+        
+        # If week spans across months, use the month of the majority of days
+        if week_start.month != week_end.month:
+            # Use the month that has more days in this week
+            mid_week = week_start + timedelta(days=3)
+            month = mid_week.month
+            
+            # Recalculate week number for the correct month
+            first_day_of_month = mid_week.replace(day=1)
+            first_monday = first_day_of_month + timedelta(days=(7 - first_day_of_month.weekday()) % 7)
+            if first_monday > mid_week:
+                first_monday -= timedelta(days=7)
+            
+            week_num = ((mid_week - first_monday).days // 7) + 1
+            label = f"{month}月W{week_num}"
+        
+        options.append({
+            'label': label,
+            'value': f"{year}-{month:02d}-W{week_num}",
+            'date_from': week_start.isoformat(),
+            'date_to': week_end.isoformat(),
+            'year': year,
+            'month': month,
+            'week': week_num
+        })
+    
+    return options
+
+
+def parse_weekly_period(weekly_period):
+    """Parse weekly period value and return date_from and date_to"""
+    if not weekly_period:
+        return None, None
+    
+    try:
+        # Parse format: "2024-10-W1"
+        parts = weekly_period.split('-')
+        if len(parts) != 3 or not parts[2].startswith('W'):
+            return None, None
+        
+        year = int(parts[0])
+        month = int(parts[1])
+        week_num = int(parts[2][1:])  # Remove 'W' prefix
+        
+        # Calculate the first Monday of the month
+        first_day_of_month = datetime(year, month, 1).date()
+        first_monday = first_day_of_month + timedelta(days=(7 - first_day_of_month.weekday()) % 7)
+        if first_monday > first_day_of_month:
+            first_monday -= timedelta(days=7)
+        
+        # Calculate the start and end of the specified week
+        week_start = first_monday + timedelta(days=(week_num - 1) * 7)
+        week_end = week_start + timedelta(days=6)
+        
+        return week_start.isoformat(), week_end.isoformat()
+        
+    except (ValueError, IndexError):
+        return None, None

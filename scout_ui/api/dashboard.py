@@ -373,6 +373,8 @@ async def get_dashboard_stores(
     business_type: Optional[str] = Query(None, description="業種フィルター"),
     date_from: Optional[str] = Query(None, description="開始日 (YYYY-MM-DD)"),
     date_to: Optional[str] = Query(None, description="終了日 (YYYY-MM-DD)"),
+    period_type: Optional[str] = Query(None, description="期間タイプ (custom/weekly)"),
+    weekly_period: Optional[str] = Query(None, description="週ごと期間 (YYYY-MM-WN)"),
     sort_by: str = Query("working_rate", description="ソート基準"),
     sort_order: str = Query("desc", description="ソート順序")
 ):
@@ -387,6 +389,14 @@ async def get_dashboard_stores(
         except HTTPException:
             current_user = None
             logger.info("Getting dashboard stores for anonymous user")
+        
+        # 週ごとフィルターの処理
+        if period_type == 'weekly' and weekly_period:
+            from scout_ui.utils.filters import parse_weekly_period
+            weekly_date_from, weekly_date_to = parse_weekly_period(weekly_period)
+            if weekly_date_from and weekly_date_to:
+                date_from = weekly_date_from
+                date_to = weekly_date_to
         
         # フィルターを構築
         filters = {
@@ -597,11 +607,18 @@ async def get_dashboard_overview(
     Get complete dashboard overview data
     """
     try:
-        logger.info(f"Getting dashboard overview for user: {current_user['username']}")
+        # Optional authentication - allow access without login
+        try:
+            current_user = get_current_user(request)
+            logger.info(f"Getting dashboard overview for user: {current_user.username}")
+        except HTTPException:
+            current_user = None
+            logger.info("Getting dashboard overview for anonymous user")
         
         # Get stats
         stats_response = await get_dashboard_stats(
-            current_user=current_user,
+            request=request,
+            db=db,
             date_from=date_from,
             date_to=date_to,
             area=area,
@@ -610,7 +627,8 @@ async def get_dashboard_overview(
         
         # Get recent stores
         recent_response = await get_recent_stores(
-            current_user=current_user,
+            request=request,
+            db=db,
             limit=5,
             area=area,
             business_type=business_type
@@ -618,7 +636,8 @@ async def get_dashboard_overview(
         
         # Get top stores
         top_response = await get_top_stores(
-            current_user=current_user,
+            request=request,
+            db=db,
             limit=5,
             sort_by="working_rate",
             area=area,
@@ -712,6 +731,36 @@ async def get_data_date_range(
         logger.error(f"Error getting data date range: {e}")
         raise HTTPException(status_code=500, detail="データ期間の取得に失敗しました")
 
+@router.get("/weekly-options")
+async def get_weekly_options(
+    request: Request,
+    db: Session = Depends(get_db_session)
+):
+    """
+    Get weekly period options for filtering
+    """
+    try:
+        # Optional authentication - allow access without login
+        try:
+            current_user = get_current_user(request)
+            logger.info(f"Getting weekly options for user: {current_user.username}")
+        except HTTPException:
+            current_user = None
+            logger.info("Getting weekly options for anonymous user")
+        
+        from scout_ui.utils.filters import get_weekly_options
+        
+        weekly_options = get_weekly_options()
+        
+        return {
+            "success": True,
+            "weekly_options": weekly_options
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting weekly options: {e}")
+        raise HTTPException(status_code=500, detail="週ごとオプションの取得に失敗しました")
+
 @router.post("/refresh")
 async def refresh_dashboard_data(
     request: Request,
@@ -721,7 +770,13 @@ async def refresh_dashboard_data(
     Refresh dashboard data (trigger data update if needed)
     """
     try:
-        logger.info(f"Refreshing dashboard data for user: {current_user['username']}")
+        # Optional authentication - allow access without login
+        try:
+            current_user = get_current_user(request)
+            logger.info(f"Refreshing dashboard data for user: {current_user.username}")
+        except HTTPException:
+            current_user = None
+            logger.info("Refreshing dashboard data for anonymous user")
         
         # This could trigger background tasks to update data
         # For now, just return success

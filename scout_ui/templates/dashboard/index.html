@@ -180,7 +180,7 @@
             </div>
             
             <div class="px-6 py-4 space-y-4">
-                <div>
+                <div class="hidden">
                     <label class="block text-sm font-medium text-gray-700 mb-2">表示形式</label>
                     <select id="filter-view-type" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
                         <option value="weekly" {% if current_filters.view_type == 'weekly' %}selected{% endif %}>週ごと</option>
@@ -210,7 +210,24 @@
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">期間</label>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="mb-3 hidden">
+                        <label class="block text-xs text-gray-500 mb-1">期間タイプ</label>
+                        <select id="filter-period-type" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <option value="custom">カスタム期間</option>
+                            <option value="weekly">週ごと</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 週ごとフィルター -->
+                    <div id="weekly-filter" class="mb-3 hidden">
+                        <label class="block text-xs text-gray-500 mb-1">週選択</label>
+                        <select id="filter-weekly-period" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <option value="">週を選択</option>
+                        </select>
+                    </div>
+                    
+                    <!-- カスタム期間フィルター -->
+                    <div id="custom-date-filter" class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="block text-xs text-gray-500 mb-1">開始日</label>
                             <input type="date" id="filter-date-from" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" value="{{ current_filters.date_from }}">
@@ -248,7 +265,9 @@
         date_to: '',
         sort_by: 'working_rate',
         sort_order: 'desc',
-        view_type: 'weekly'
+        view_type: 'weekly',
+        period_type: 'custom',
+        weekly_period: ''
     };
     
     // Helper function to escape HTML
@@ -346,8 +365,49 @@
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
         loadFilterOptions();
+        loadWeeklyOptions();
+        setupPeriodTypeToggle();
         loadStores();
     });
+    
+    // Setup period type toggle
+    function setupPeriodTypeToggle() {
+        const periodTypeSelect = document.getElementById('filter-period-type');
+        const weeklyFilter = document.getElementById('weekly-filter');
+        const customDateFilter = document.getElementById('custom-date-filter');
+        
+        periodTypeSelect.addEventListener('change', function() {
+            if (this.value === 'weekly') {
+                weeklyFilter.classList.remove('hidden');
+                customDateFilter.classList.add('hidden');
+            } else {
+                weeklyFilter.classList.add('hidden');
+                customDateFilter.classList.remove('hidden');
+            }
+        });
+    }
+    
+    // Load weekly options
+    async function loadWeeklyOptions() {
+        try {
+            const response = await fetch('/api/dashboard/weekly-options');
+            const data = await response.json();
+            
+            if (data.success) {
+                const weeklySelect = document.getElementById('filter-weekly-period');
+                weeklySelect.innerHTML = '<option value="">週を選択</option>';
+                
+                data.weekly_options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option.value;
+                    optionElement.textContent = option.label;
+                    weeklySelect.appendChild(optionElement);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading weekly options:', error);
+        }
+    }
     
     // Load stores data
     async function loadStores() {
@@ -380,6 +440,27 @@
             console.error('Error loading stores:', error);
             showToast('店舗データの読み込みに失敗しました', 'error');
         }
+    }
+    
+    // Helper function to get week number and month for a date
+    function getWeekInfo(dateStr) {
+        const date = new Date(dateStr);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        
+        // Get the first day of the month
+        const firstDayOfMonth = new Date(year, date.getMonth(), 1);
+        const firstDayWeekday = firstDayOfMonth.getDay(); // 0 = Sunday, 1 = Monday, ...
+        
+        // Calculate which week of the month this date falls into
+        const dayOfMonth = date.getDate();
+        const weekNumber = Math.ceil((dayOfMonth + firstDayWeekday) / 7);
+        
+        return {
+            month: month,
+            week: weekNumber,
+            monthName: `${month}月`
+        };
     }
     
     // Get dynamic date range from API or filters
@@ -471,11 +552,22 @@
             // Add new date headers
             dates.forEach(dateStr => {
                 const date = new Date(dateStr);
-                const monthDay = `${date.getMonth() + 1}/${date.getDate()}`;
+                let headerText;
+                
+                // Check if weekly filter is active
+                if (currentFilters.period_type === 'weekly' && currentFilters.weekly_period) {
+                    // For weekly view, show week format like "10月W1"
+                    const weekInfo = getWeekInfo(dateStr);
+                    headerText = `${weekInfo.monthName}W${weekInfo.week}`;
+                } else {
+                    // For daily view, show month/day format
+                    headerText = `${date.getMonth() + 1}/${date.getDate()}`;
+                }
+                
                 const th = document.createElement('th');
                 th.className = 'date-header border border-gray-300 px-2 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider';
                 th.style.fontSize = '10px';
-                th.textContent = monthDay;
+                th.textContent = headerText;
                 headerRow.appendChild(th);
             });
         }
@@ -645,12 +737,20 @@
         document.getElementById('filter-view-type').value = 'weekly';
         document.getElementById('filter-area').value = '';
         document.getElementById('filter-business-type').value = '';
+        document.getElementById('filter-period-type').value = 'custom';
+        document.getElementById('filter-weekly-period').value = '';
         document.getElementById('filter-date-from').value = '';
         document.getElementById('filter-date-to').value = '';
+        
+        // Show/hide appropriate filters
+        document.getElementById('weekly-filter').classList.add('hidden');
+        document.getElementById('custom-date-filter').classList.remove('hidden');
         
         currentFilters.view_type = 'weekly';
         currentFilters.area = '';
         currentFilters.business_type = '';
+        currentFilters.period_type = 'custom';
+        currentFilters.weekly_period = '';
         currentFilters.date_from = '';
         currentFilters.date_to = '';
         
@@ -662,8 +762,17 @@
         currentFilters.view_type = document.getElementById('filter-view-type').value;
         currentFilters.area = document.getElementById('filter-area').value;
         currentFilters.business_type = document.getElementById('filter-business-type').value;
-        currentFilters.date_from = document.getElementById('filter-date-from').value;
-        currentFilters.date_to = document.getElementById('filter-date-to').value;
+        currentFilters.period_type = document.getElementById('filter-period-type').value;
+        
+        if (currentFilters.period_type === 'weekly') {
+            currentFilters.weekly_period = document.getElementById('filter-weekly-period').value;
+            currentFilters.date_from = '';
+            currentFilters.date_to = '';
+        } else {
+            currentFilters.date_from = document.getElementById('filter-date-from').value;
+            currentFilters.date_to = document.getElementById('filter-date-to').value;
+            currentFilters.weekly_period = '';
+        }
         
         currentPage = 1;
         loadStores();
