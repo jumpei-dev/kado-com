@@ -22,8 +22,8 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=300,  # 5分に短縮してSSL接続の問題を回避
     pool_timeout=60,  # タイムアウトを延長
-    pool_size=3,  # プールサイズを削減
-    max_overflow=5,  # オーバーフローを削減
+    pool_size=10,  # プールサイズを増加
+    max_overflow=20,  # オーバーフローを増加
     connect_args={
         "connect_timeout": 15,
         "application_name": "scout_ui",

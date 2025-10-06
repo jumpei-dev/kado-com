@@ -108,7 +108,7 @@
                         <th class="border border-gray-300 px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20" style="min-width: 120px; max-width: 200px; font-size: 10px;">店舗名</th>
                         <th class="border border-gray-300 px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="min-width: 50px; max-width: 60px; font-size: 10px;">エリア</th>
                         <th class="border border-gray-300 px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style="min-width: 50px; max-width: 60px; font-size: 10px;">業種</th>
-                        <th id="date-headers"></th>
+                        <!-- Date headers will be inserted here dynamically -->
                     </tr>
                 </thead>
                 <tbody id="stores-table-body">
@@ -345,8 +345,24 @@
         }
     }
     
-    // Get dynamic date range from API
+    // Get dynamic date range from API or filters
     async function getDynamicDateRange() {
+        // If filters have date range specified, use that
+        if (currentFilters.date_from && currentFilters.date_to) {
+            const dates = [];
+            const startDate = new Date(currentFilters.date_from);
+            const endDate = new Date(currentFilters.date_to);
+            
+            // Generate date range from start to end (reverse order for display)
+            const currentDate = new Date(endDate);
+            while (currentDate >= startDate) {
+                dates.push(currentDate.toISOString().split('T')[0]);
+                currentDate.setDate(currentDate.getDate() - 1);
+            }
+            
+            return dates;
+        }
+        
         try {
             const response = await fetch('/api/dashboard/date-range');
             const data = await response.json();
@@ -409,13 +425,22 @@
         // Period display removed as requested
         
         // Update date headers
-        const dateHeadersEl = document.getElementById('date-headers');
-        if (dateHeadersEl) {
-            dateHeadersEl.outerHTML = dates.map(dateStr => {
+        const headerRow = document.querySelector('thead tr');
+        if (headerRow) {
+            // Remove existing date headers
+            const existingDateHeaders = headerRow.querySelectorAll('.date-header');
+            existingDateHeaders.forEach(header => header.remove());
+            
+            // Add new date headers
+            dates.forEach(dateStr => {
                 const date = new Date(dateStr);
                 const monthDay = `${date.getMonth() + 1}/${date.getDate()}`;
-                return `<th class="border border-gray-300 px-2 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style="font-size: 10px;">${monthDay}</th>`;
-            }).join('');
+                const th = document.createElement('th');
+                th.className = 'date-header border border-gray-300 px-2 py-1 text-center text-xs font-medium text-gray-500 uppercase tracking-wider';
+                th.style.fontSize = '10px';
+                th.textContent = monthDay;
+                headerRow.appendChild(th);
+            });
         }
         
         // Render store rows
@@ -426,7 +451,7 @@
                 let displayValue;
                 
                 if (store.daily_rates && store.daily_rates[dateStr] !== null && store.daily_rates[dateStr] !== undefined) {
-                    const rate = Math.round(store.daily_rates[dateStr] * 100);
+                    const rate = Math.round(store.daily_rates[dateStr]);
                     displayValue = `${rate}%`;
                 } else {
                     displayValue = 'ー％';

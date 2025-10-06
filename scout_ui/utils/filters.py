@@ -68,9 +68,14 @@ async def apply_filters(
                     except ValueError:
                         pass
                 
-                latest_status = status_query.order_by(StatusHistory.biz_date.desc()).first()
-                if latest_status:
-                    latest_working_rate = float(latest_status.working_rate)
+                # 期間内の平均稼働率を計算
+                status_records = status_query.all()
+                if status_records:
+                    working_rates = [float(record.working_rate) for record in status_records]
+                    latest_working_rate = sum(working_rates) / len(working_rates)
+                else:
+                    # 期間内にデータがない場合はNoneを設定（店舗は表示する）
+                    latest_working_rate = None
             else:
                 # 日付フィルターがない場合は最新の稼働率を取得
                 latest_status = db.query(StatusHistory).filter(

@@ -402,12 +402,43 @@ async def get_dashboard_stores(
         # StoreViewオブジェクトをstores_data形式に変換
         stores_data = []
         for store_view in store_views:
+            # 期間フィルターが適用されている場合、daily_ratesを設定
+            daily_rates = {}
+            if date_from or date_to:
+                from scout_ui.models.store import StatusHistory
+                from datetime import datetime
+                
+                # 期間内の稼働率データを取得
+                status_query = db.query(StatusHistory).filter(
+                    StatusHistory.business_id == store_view.id
+                )
+                
+                if date_from:
+                    try:
+                        date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+                        status_query = status_query.filter(StatusHistory.biz_date >= date_from_obj)
+                    except ValueError:
+                        pass
+                
+                if date_to:
+                    try:
+                        date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+                        status_query = status_query.filter(StatusHistory.biz_date <= date_to_obj)
+                    except ValueError:
+                        pass
+                
+                # 日付別稼働率データを構築
+                status_records = status_query.all()
+                for record in status_records:
+                    date_str = record.biz_date.strftime('%Y-%m-%d')
+                    daily_rates[date_str] = float(record.working_rate)
+            
             stores_data.append({
                 'store_view': store_view,
                 'working_rate': store_view.working_rate,
                 'cast_count': store_view.cast_count,
                 'last_updated': store_view.last_updated,
-                'daily_rates': {}  # 空の辞書として設定
+                'daily_rates': daily_rates
             })
         
         # ソート処理
