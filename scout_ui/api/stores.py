@@ -241,71 +241,145 @@ async def export_csv(
     date_to: Optional[str] = Query(None, description="終了日 (YYYY-MM-DD)"),
     sort_by: str = Query("working_rate", description="ソート項目"),
     sort_order: str = Query("desc", description="ソート順序"),
-    view_type: str = Query("weekly", description="表示タイプ"),
-    search: Optional[str] = Query(None, description="検索キーワード"),
+    current_user: dict = Depends(get_current_user_optional),
     db: Session = Depends(get_db_session)
 ):
     """
-    Export stores data as CSV
+    Export dashboard stores data as CSV - same logic as dashboard /stores endpoint
     """
     try:
-        logger.info(f"Exporting CSV for user: {current_user['username']}")
+        username = current_user['username'] if current_user else 'anonymous'
+        logger.info(f"Exporting CSV for user: {username}")
         
-        async with get_db_session() as db:
-            # Apply filters to get StoreView objects
-            filters = {
-                'area': area,
-                'business_type': business_type,
-                'date_from': date_from,
-                'date_to': date_to,
-                'view_type': view_type,
-                'search': search
-            }
+        # Use the same filtering logic as dashboard /stores endpoint
+        filters = {
+            'area': area,
+            'business_type': business_type,
+            'date_from': date_from,
+            'date_to': date_to
+        }
+        
+        # Apply filters to get StoreView objects (same as dashboard)
+        store_views = await apply_filters(db, filters)
+        
+        # Convert StoreView objects to stores_data format (same as dashboard)
+        stores_data = []
+        for store_view in store_views:
+            # Get daily rates if date filters are applied (same logic as dashboard)
+            daily_rates = {}
+            if date_from or date_to:
+                from scout_ui.models.store import StatusHistory
+                
+                # Get working rate data within the period
+                status_query = db.query(StatusHistory).filter(
+                    StatusHistory.business_id == store_view.id
+                )
+                
+                if date_from:
+                    try:
+                        date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+                        status_query = status_query.filter(StatusHistory.biz_date >= date_from_obj)
+                    except ValueError:
+                        pass
+                
+                if date_to:
+                    try:
+                        date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+                        status_query = status_query.filter(StatusHistory.biz_date <= date_to_obj)
+                    except ValueError:
+                        pass
+                
+                # Build daily rate data
+                status_records = status_query.all()
+                for record in status_records:
+                    date_str = record.biz_date.strftime('%Y-%m-%d')
+                    daily_rates[date_str] = float(record.working_rate)
             
-            stores = await apply_filters(db, filters)
-            
-            # Apply sorting
-            sort_options = {
-                'sort_by': sort_by,
-                'sort_order': sort_order
-            }
-            
-            sorted_stores = await apply_sorting(stores, sort_options)
-            
-            # Generate CSV content
-            output = io.StringIO()
-            writer = csv.writer(output)
-            
-            # Write header
-            writer.writerow([
-                'ID', '店舗名', 'エリア', '業種', '稼働率', 
-                '作成日時', '更新日時', 'ステータス'
-            ])
-            
-            # Write data rows
-            for store in sorted_stores:
-                writer.writerow([
-                    store.id,
-                    store.name,
-                    store.area,
-                    store.business_type,
-                    store.working_rate or 0.0,
-                    store.created_at.strftime('%Y-%m-%d %H:%M:%S') if store.created_at else '',
-                    store.last_updated.strftime('%Y-%m-%d %H:%M:%S') if store.last_updated else '',
-                    'アクティブ' if (store.working_rate or 0) > 0 else '非アクティブ'
-                ])
-            
-            # Create response
-            csv_content = output.getvalue()
-            output.close()
-            
-            filename = f"stores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            
-            return StreamingResponse(
-                io.BytesIO(csv_content.encode('utf-8-sig')),
-                media_type="text/csv",
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            stores_data.append({
+                'store_view': store_view,
+                'working_rate': store_view.working_rate,
+                'cast_count': store_view.cast_count,
+                'last_updated': store_view.last_updated,
+                'daily_rates': daily_rates
+            })
+        
+        # Apply sorting (same logic as dashboard)
+        if sort_by == "working_rate":
+            reverse_order = sort_order == "desc"
+            stores_data.sort(
+                key=lambda x: (x['working_rate'] is None, -(x['working_rate'] or 0) if reverse_order else (x['working_rate'] or 0))
             )
+        elif sort_by == "cast_count":
+            stores_data.sort(
+                key=lambda x: x['cast_count'],
+                reverse=(sort_order == "desc")
+            )
+        elif sort_by == "last_updated":
+            stores_data.sort(
+                key=lambda x: x['last_updated'] or datetime.min,
+                reverse=(sort_order == "desc")
+            )
+        
+        # Get date range (same as dashboard)
+        from datetime import date, timedelta
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        week_ago = yesterday - timedelta(days=6)  # 7日間（yesterday含む）
+        
+        # Generate date list (latest to oldest)
+        dates = []
+        current_date = yesterday
+        while current_date >= week_ago:
+            dates.append(current_date)
+            current_date -= timedelta(days=1)
+        
+        # Generate CSV content (ダッシュボードと同じ形式)
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header with date columns (same as dashboard grid)
+        header = ['店舗名', 'エリア', '業種']
+        for date_obj in dates:
+            header.append(f"{date_obj.month}/{date_obj.day}")
+        writer.writerow(header)
+        
+        # Write data rows
+        for store_data in stores_data:
+            store_view = store_data['store_view']
+            daily_rates = store_data.get('daily_rates', {})
+            
+            # Convert business type to Japanese (same as dashboard)
+            business_type_jp = convert_business_type_to_japanese(store_view.business_type)
+            
+            # Build row data
+            row = [
+                store_view.name,
+                store_view.area,
+                business_type_jp
+            ]
+            
+            # Add daily rates for each date
+            for date_obj in dates:
+                date_str = date_obj.strftime('%Y-%m-%d')
+                if daily_rates and date_str in daily_rates and daily_rates[date_str] is not None:
+                    rate = round(daily_rates[date_str])
+                    row.append(f"{rate}%")
+                else:
+                    row.append("ー%")
+            
+            writer.writerow(row)
+        
+        # Create response
+        csv_content = output.getvalue()
+        output.close()
+        
+        filename = f"dashboard_stores_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        return StreamingResponse(
+            io.BytesIO(csv_content.encode('utf-8-sig')),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
             
     except Exception as e:
         logger.error(f"Error exporting CSV: {e}")

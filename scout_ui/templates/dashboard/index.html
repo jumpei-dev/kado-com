@@ -23,10 +23,7 @@
                     フィルター
                 </button>
                 
-                <button onclick="openUserGuide()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-                    <i class="fas fa-question-circle mr-2"></i>
-                    使い方ガイド
-                </button>
+
                 
                 <!-- Export Dropdown -->
                 <div class="relative inline-block text-left" style="position: relative;">
@@ -42,6 +39,10 @@
                             <a href="#" onclick="exportCSV()" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabindex="-1">
                                 <i class="fas fa-file-csv mr-2"></i>
                                 CSV出力
+                            </a>
+                            <a href="#" onclick="exportCurrentGridCSV()" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabindex="-1">
+                                <i class="fas fa-table mr-2"></i>
+                                表示中データをCSV出力
                             </a>
                             <a href="#" onclick="exportSimpleRanking()" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem" tabindex="-1">
                                 <i class="fas fa-trophy mr-2"></i>
@@ -68,10 +69,7 @@
                         <i class="fas fa-filter mr-2"></i>
                         フィルター
                     </button>
-                    <button onclick="openUserGuide(); toggleMobileMenu();" class="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
-                        <i class="fas fa-question-circle mr-2"></i>
-                        使い方ガイド
-                    </button>
+
                     <div class="border-t border-gray-100"></div>
                     <button onclick="exportCSV(); toggleMobileMenu();" class="text-gray-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">
                         <i class="fas fa-file-csv mr-2"></i>
@@ -726,6 +724,82 @@
         }
     }
     
+    // Export current grid data as CSV
+    async function exportCurrentGridCSV() {
+        // Close dropdown
+        document.getElementById('export-dropdown').classList.add('hidden');
+        
+        try {
+            // Get current displayed data
+            const tableBody = document.getElementById('stores-table-body');
+            const headerRow = document.querySelector('thead tr');
+            
+            if (!tableBody || !headerRow) {
+                throw new Error('テーブルデータが見つかりません');
+            }
+            
+            // Get headers
+            const headers = [];
+            const headerCells = headerRow.querySelectorAll('th');
+            headerCells.forEach(cell => {
+                headers.push(cell.textContent.trim());
+            });
+            
+            // Get data rows
+            const rows = [];
+            const dataRows = tableBody.querySelectorAll('tr');
+            
+            dataRows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const rowData = [];
+                
+                cells.forEach(cell => {
+                    // Get text content, handling nested divs
+                    const textContent = cell.textContent.trim();
+                    rowData.push(textContent);
+                });
+                
+                if (rowData.length > 0) {
+                    rows.push(rowData);
+                }
+            });
+            
+            // Generate CSV content with BOM for Excel compatibility
+            let csvContent = '\uFEFF'; // BOM for UTF-8
+            
+            // Add headers
+            csvContent += headers.map(header => `"${header.replace(/"/g, '""')}"`).join(',') + '\n';
+            
+            // Add data rows
+            rows.forEach(row => {
+                csvContent += row.map(cell => {
+                    // Clean up cell content
+                    let cleanCell = cell.replace(/"/g, '""');
+                    // Remove extra whitespace and line breaks
+                    cleanCell = cleanCell.replace(/\s+/g, ' ').trim();
+                    return `"${cleanCell}"`;
+                }).join(',') + '\n';
+            });
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `dashboard_grid_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showToast('表示中のデータをCSVでダウンロードしました', 'success');
+            
+        } catch (error) {
+            console.error('Error exporting current grid CSV:', error);
+            showToast('CSVエクスポートに失敗しました', 'error');
+        }
+    }
+    
     // Export Simple Ranking
     async function exportSimpleRanking() {
         // Close dropdown
@@ -769,10 +843,7 @@
         showToast(`店舗ID: ${storeId} の詳細表示機能は今後実装予定です`, 'info');
     }
     
-    // Open user guide
-    function openUserGuide() {
-        window.open('/data_guide', '_blank');
-    }
+
     
     // Toggle mobile menu
     function toggleMobileMenu() {

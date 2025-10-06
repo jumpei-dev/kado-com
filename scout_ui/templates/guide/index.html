@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}使い方ガイド - 稼働.com{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Header Section -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold leading-7 text-gray-900 sm:text-4xl">
+            <i class="fas fa-question-circle mr-3 text-primary-500"></i>
+            稼働.com 使い方ガイド
+        </h1>
+        <p class="mt-4 text-lg text-gray-600">
+            店舗稼働率管理システムの効果的な使用方法をご案内します。
+        </p>
+    </div>
+
+    <!-- Navigation -->
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">目次</h2>
+            <nav class="space-y-2">
+                <a href="#overview" class="block text-primary-600 hover:text-primary-800">1. システム概要</a>
+                <a href="#dashboard" class="block text-primary-600 hover:text-primary-800">2. ダッシュボードの使い方</a>
+                <a href="#filters" class="block text-primary-600 hover:text-primary-800">3. フィルター機能</a>
+                <a href="#export" class="block text-primary-600 hover:text-primary-800">4. データ出力機能</a>
+                <a href="#faq" class="block text-primary-600 hover:text-primary-800">5. よくある質問</a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Content Sections -->
+    <div class="space-y-8">
+        <!-- システム概要 -->
+        <section id="overview" class="bg-white shadow rounded-lg">
+            <div class="px-6 py-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">
+                    <i class="fas fa-info-circle mr-2 text-primary-500"></i>
+                    1. システム概要
+                </h2>
+                <div class="prose max-w-none">
+                    <p class="text-gray-700 mb-4">
+                        稼働.comは、店舗の稼働率を効率的に管理・分析するためのダッシュボードシステムです。
+                        リアルタイムで店舗の稼働状況を把握し、データに基づいた意思決定をサポートします。
+                    </p>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">主な機能</h3>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1">
+                        <li>店舗別稼働率の一覧表示</li>
+                        <li>エリア・業種別のフィルタリング</li>
+                        <li>期間指定による分析</li>
+                        <li>CSV・ランキング形式でのデータ出力</li>
+                        <li>モバイル対応のレスポンシブデザイン</li>
+                    </ul>
+                </div>
+        </section>
+
+        <!-- ダッシュボードの使い方 -->
+        <section id="dashboard" class="bg-white shadow rounded-lg">
+            <div class="px-6 py-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">
+                    <i class="fas fa-tachometer-alt mr-2 text-primary-500"></i>
+                    2. ダッシュボードの使い方
+                </h2>
+                <div class="prose max-w-none">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">稼働率一覧テーブル</h3>
+                    <p class="text-gray-700 mb-4">
+                        メインのテーブルには以下の情報が表示されます：
+                    </p>
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <ul class="list-disc list-inside text-gray-700 space-y-2">
+                            <li><strong>店舗名</strong>: 店舗の名称</li>
+                            <li><strong>エリア</strong>: 店舗の所在地域</li>
+                            <li><strong>業種</strong>: 店舗の業種カテゴリ</li>
+                            <li><strong>稼働率</strong>: 現在の稼働率（パーセンテージ）</li>
+                            <li><strong>日別データ</strong>: 各日の稼働率（横スクロールで確認）</li>
+                        </ul>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- フィルター機能 -->
+        <section id="filters" class="bg-white shadow rounded-lg">
+            <div class="px-6 py-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">
+                    <i class="fas fa-filter mr-2 text-primary-500"></i>
+                    3. フィルター機能
+                </h2>
+                <div class="prose max-w-none">
+                    <p class="text-gray-700 mb-4">
+                        「フィルター」ボタンをクリックして、データを絞り込むことができます。
+                    </p>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">利用可能なフィルター</h3>
+                    <div class="space-y-4">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-900 mb-2">エリアフィルター</h4>
+                            <p class="text-gray-700">特定の地域の店舗のみを表示します。複数エリアの比較に便利です。</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-900 mb-2">業種フィルター</h4>
+                            <p class="text-gray-700">特定の業種の店舗のみを表示します。業種別の傾向分析に活用できます。</p>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-semibold text-gray-900 mb-2">期間指定</h4>
+                            <p class="text-gray-700">開始日と終了日を指定して、特定期間のデータを表示します。</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- データ出力機能 -->
+        <section id="export" class="bg-white shadow rounded-lg">
+            <div class="px-6 py-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">
+                    <i class="fas fa-download mr-2 text-primary-500"></i>
+                    4. データ出力機能
+                </h2>
+                <div class="prose max-w-none">
+                    <p class="text-gray-700 mb-4">
+                        「出力」ボタンから、データを外部ファイルとして保存できます。
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                                <i class="fas fa-file-csv mr-2 text-green-600"></i>
+                                CSV出力
+                            </h3>
+                            <p class="text-gray-700 mb-2">表示中のデータをCSV形式で出力します。</p>
+                            <ul class="list-disc list-inside text-gray-700 text-sm space-y-1">
+                                <li>Excel等での詳細分析に最適</li>
+                                <li>フィルター条件が反映されます</li>
+                                <li>日別データも含まれます</li>
+                            </ul>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                                <i class="fas fa-trophy mr-2 text-yellow-600"></i>
+                                簡易ランキング出力
+                            </h3>
+                            <p class="text-gray-700 mb-2">稼働率順のランキング形式で出力します。</p>
+                            <div class="bg-white p-3 rounded border mb-2">
+                                <p class="text-sm text-gray-600 mb-2"><strong>出力フォーマット例：</strong></p>
+                                <div class="font-mono text-sm text-gray-800">
+                                    【エリア】【業種】<br>
+                                    【期間】平均稼働率ランキング<br>
+                                    <span class="text-yellow-500 font-bold">1位🥇</span> 【店舗名】：～%<br>
+                                    <span class="text-gray-400 font-bold">2位🥈</span> 【店舗名】：～%<br>
+                                    <span class="text-yellow-600 font-bold">3位🥉</span> 【店舗名】：～%<br>
+                                    4. 【店舗名】：～%<br>
+                                    5. 【店舗名】：～%<br>
+                                    6. 【店舗名】：～%
+                                </div>
+                            </div>
+                            <ul class="list-disc list-inside text-gray-700 text-sm space-y-1">
+                                <li>上位店舗の把握に便利</li>
+                                <li>レポート作成に活用可能</li>
+                                <li>見やすい形式で整理されます</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+
+        <!-- よくある質問 -->
+        <section id="faq" class="bg-white shadow rounded-lg">
+            <div class="px-6 py-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">
+                    <i class="fas fa-question mr-2 text-primary-500"></i>
+                    5. よくある質問
+                </h2>
+                <div class="prose max-w-none">
+                    <div class="space-y-4">
+                        <div class="border-l-4 border-primary-500 pl-4">
+                            <h3 class="font-semibold text-gray-900 mb-2">Q: データはどのくらいの頻度で更新されますか？</h3>
+                            <p class="text-gray-700">A: データは1日ごとの更新です。最新の情報を確認したい場合は、ページを再読み込みしてください。</p>
+                        </div>
+                        <div class="border-l-4 border-primary-500 pl-4">
+                            <h3 class="font-semibold text-gray-900 mb-2">Q: 稼働率はどのように計算されていますか？</h3>
+                            <p class="text-gray-700">A: 定期的に稼働データを取得し、「仕事についているキャスト数 ÷ シフト中のキャスト数 × 100」で計算しています。</p>
+                        </div>
+                        <div class="border-l-4 border-primary-500 pl-4">
+                            <h3 class="font-semibold text-gray-900 mb-2">Q: ー％と表示されています。</h3>
+                            <p class="text-gray-700">A: 該当する期間/店のデータがない可能性があります。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+    </div>
+
+    <!-- Back to Top Button -->
+    <div class="mt-8 text-center">
+        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <i class="fas fa-arrow-up mr-2"></i>
+            トップに戻る
+        </button>
+    </div>
+
+    <!-- Back to Dashboard -->
+    <div class="mt-4 text-center">
+        <a href="/" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+            <i class="fas fa-arrow-left mr-2"></i>
+            ダッシュボードに戻る
+        </a>
+    </div>
+</div>
+
+<style>
+/* Smooth scrolling for anchor links */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Custom styles for better readability */
+.prose h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.prose p {
+    margin-bottom: 1rem;
+}
+
+.prose ul {
+    margin-bottom: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .prose {
+        font-size: 0.9rem;
+    }
+    
+    h1 {
+        font-size: 1.8rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
