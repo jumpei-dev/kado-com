@@ -20,16 +20,17 @@ if not DATABASE_URL:
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
-    pool_recycle=300,  # 5分に短縮してSSL接続の問題を回避
-    pool_timeout=60,  # タイムアウトを延長
-    pool_size=10,  # プールサイズを増加
-    max_overflow=20,  # オーバーフローを増加
+    pool_recycle=180,  # 3分に短縮してSSL接続の問題を回避
+    pool_timeout=30,  # タイムアウトを短縮
+    pool_size=5,  # プールサイズを削減
+    max_overflow=10,  # オーバーフローを削減
     connect_args={
-        "connect_timeout": 15,
+        "connect_timeout": 10,
         "application_name": "scout_ui",
-        "keepalives_idle": "30",  # keepalive間隔を短縮
-        "keepalives_interval": "10",  # keepalive間隔を短縮
-        "keepalives_count": "5"  # keepalive回数を増加
+        "keepalives_idle": "600",  # keepalive間隔を延長
+        "keepalives_interval": "30",  # keepalive間隔を延長
+        "keepalives_count": "3",  # keepalive回数を削減
+        "sslmode": "require"  # SSL接続を明示的に要求
     },
     echo=os.getenv("DEBUG", "False").lower() == "true",
     use_native_hstore=False
